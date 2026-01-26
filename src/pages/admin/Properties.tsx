@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Plus, Search, Filter, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  Trash2,
+  Upload,
+  Loader2,
+  ExternalLink,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,55 +26,21 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const properties = [
-  {
-    id: "1",
-    title: "Apartamento 2 quartos - Pechincha",
-    type: "Apartamento",
-    purpose: "rent",
-    price: 1800,
-    neighborhood: "Pechincha",
-    status: "active",
-    origin: "olx",
-    leads: 5,
-  },
-  {
-    id: "2",
-    title: "Casa 3 quartos com piscina - Recreio",
-    type: "Casa",
-    purpose: "sale",
-    price: 850000,
-    neighborhood: "Recreio",
-    status: "active",
-    origin: "imovelweb",
-    leads: 12,
-  },
-  {
-    id: "3",
-    title: "Sala Comercial 50m² - Barra",
-    type: "Comercial",
-    purpose: "rent",
-    price: 3500,
-    neighborhood: "Barra da Tijuca",
-    status: "active",
-    origin: "manual",
-    leads: 3,
-  },
-  {
-    id: "4",
-    title: "Apartamento 1 quarto mobiliado - Taquara",
-    type: "Apartamento",
-    purpose: "rent",
-    price: 1200,
-    neighborhood: "Taquara",
-    status: "inactive",
-    origin: "olx",
-    leads: 0,
-  },
-];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useProperties } from "@/hooks/useProperties";
+import { NewPropertyDialog } from "@/components/properties/NewPropertyDialog";
 
 const formatPrice = (price: number, purpose: string) => {
   const formatted = new Intl.NumberFormat("pt-BR", {
@@ -75,6 +52,38 @@ const formatPrice = (price: number, purpose: string) => {
 };
 
 export default function Properties() {
+  const { properties, isLoading, createProperty, deleteProperty, publishToPortal } = useProperties();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+
+  const filteredProperties = properties.filter((p) =>
+    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.type.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleDelete = async () => {
+    if (deleteId) {
+      await deleteProperty(deleteId);
+      setDeleteId(null);
+    }
+  };
+
+  const handlePublish = async (propertyId: string, platform: "olx" | "imovelweb") => {
+    setPublishingId(propertyId);
+    await publishToPortal(propertyId, platform);
+    setPublishingId(null);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -82,21 +91,23 @@ export default function Properties() {
         <div>
           <h1 className="text-2xl font-heading font-bold">Imóveis</h1>
           <p className="text-muted-foreground">
-            Gerencie seu catálogo de imóveis
+            Gerencie e publique seus imóveis nos portais
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Buscar imóveis..." className="pl-9 w-64" />
+            <Input
+              placeholder="Buscar imóveis..."
+              className="pl-9 w-64"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <Button variant="outline" size="icon">
             <Filter className="w-4 h-4" />
           </Button>
-          <Button variant="hero">
-            <Plus className="w-4 h-4" />
-            Novo Imóvel
-          </Button>
+          <NewPropertyDialog onSubmit={createProperty} />
         </div>
       </div>
 
@@ -110,84 +121,142 @@ export default function Properties() {
               <TableHead>Preço</TableHead>
               <TableHead>Bairro</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Origem</TableHead>
+              <TableHead>Publicado</TableHead>
               <TableHead className="text-center">Leads</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {properties.map((property) => (
-              <TableRow key={property.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground">Foto</span>
-                    </div>
-                    <span className="font-medium">{property.title}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{property.type}</TableCell>
-                <TableCell>
-                  <span className="font-semibold">
-                    {formatPrice(property.price, property.purpose)}
-                  </span>
-                </TableCell>
-                <TableCell>{property.neighborhood}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={property.status === "active" ? "approved" : "secondary"}
-                  >
-                    {property.status === "active" ? "Ativo" : "Inativo"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      property.origin === "olx"
-                        ? "olx"
-                        : property.origin === "imovelweb"
-                        ? "imovelweb"
-                        : "secondary"
-                    }
-                  >
-                    {property.origin === "olx"
-                      ? "OLX"
-                      : property.origin === "imovelweb"
-                      ? "ImovelWeb"
-                      : "Manual"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="secondary">{property.leads}</Badge>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="w-4 h-4 mr-2" />
-                        Visualizar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {filteredProperties.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  {searchQuery ? "Nenhum imóvel encontrado" : "Nenhum imóvel cadastrado"}
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredProperties.map((property) => (
+                <TableRow key={property.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
+                        {property.photos && property.photos.length > 0 ? (
+                          <img
+                            src={property.photos[0].url}
+                            alt={property.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Foto</span>
+                        )}
+                      </div>
+                      <span className="font-medium">{property.title}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="capitalize">{property.type}</TableCell>
+                  <TableCell>
+                    <span className="font-semibold">
+                      {formatPrice(property.price, property.purpose)}
+                    </span>
+                  </TableCell>
+                  <TableCell>{property.neighborhood}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={property.status === "active" ? "approved" : "secondary"}
+                    >
+                      {property.status === "active" ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {property.origin === "olx" && (
+                        <Badge variant="olx">OLX</Badge>
+                      )}
+                      {property.origin === "imovelweb" && (
+                        <Badge variant="imovelweb">ImovelWeb</Badge>
+                      )}
+                      {property.origin === "manual" && (
+                        <span className="text-xs text-muted-foreground">Não publicado</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="secondary">{property.leads_count || 0}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" disabled={publishingId === property.id}>
+                          {publishingId === property.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <MoreHorizontal className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <a href={`/imovel/${property.id}`} target="_blank" rel="noreferrer">
+                            <Eye className="w-4 h-4 mr-2" />
+                            Visualizar
+                          </a>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handlePublish(property.id, "olx")}>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Publicar na OLX
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePublish(property.id, "imovelweb")}>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Publicar no ImovelWeb
+                        </DropdownMenuItem>
+                        {property.url_original && (
+                          <DropdownMenuItem asChild>
+                            <a href={property.url_original} target="_blank" rel="noreferrer">
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Ver no Portal
+                            </a>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setDeleteId(property.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir imóvel?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O imóvel será removido permanentemente
+              do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

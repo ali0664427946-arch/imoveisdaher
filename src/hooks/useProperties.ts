@@ -33,6 +33,12 @@ export interface Property {
   leads_count?: number;
 }
 
+interface PropertyPhotoInput {
+  url: string;
+  sort_order: number;
+  file?: File;
+}
+
 interface CreatePropertyInput {
   title: string;
   description?: string | null;
@@ -49,6 +55,7 @@ interface CreatePropertyInput {
   parking?: number | null;
   status?: PropertyStatus;
   featured?: boolean;
+  photos?: PropertyPhotoInput[];
 }
 
 export function useProperties() {
@@ -99,22 +106,87 @@ export function useProperties() {
     }
   };
 
+  const uploadPhotos = async (propertyId: string, photos: PropertyPhotoInput[]) => {
+    const uploadedPhotos: { url: string; sort_order: number }[] = [];
+
+    for (const photo of photos) {
+      if (photo.file) {
+        // Upload file to storage
+        const fileName = `${propertyId}/${Date.now()}-${photo.file.name}`;
+        const { data, error } = await supabase.storage
+          .from("property-photos")
+          .upload(fileName, photo.file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (error) {
+          console.error("Error uploading photo:", error);
+          continue;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("property-photos")
+          .getPublicUrl(data.path);
+
+        uploadedPhotos.push({
+          url: urlData.publicUrl,
+          sort_order: photo.sort_order,
+        });
+      } else {
+        // Already uploaded URL
+        uploadedPhotos.push({
+          url: photo.url,
+          sort_order: photo.sort_order,
+        });
+      }
+    }
+
+    // Save to property_photos table
+    if (uploadedPhotos.length > 0) {
+      const { error } = await supabase.from("property_photos").insert(
+        uploadedPhotos.map((p) => ({
+          property_id: propertyId,
+          url: p.url,
+          sort_order: p.sort_order,
+        }))
+      );
+
+      if (error) {
+        console.error("Error saving photo records:", error);
+      }
+    }
+
+    return uploadedPhotos;
+  };
+
   const createProperty = async (property: CreatePropertyInput) => {
     try {
+      const { photos, ...propertyData } = property;
+      
       const { data, error } = await supabase
         .from("properties")
         .insert({
-          ...property,
-          status: property.status || "active",
+          ...propertyData,
+          status: propertyData.status || "active",
           origin: "manual",
-          state: property.state || "RJ",
+          state: propertyData.state || "RJ",
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      setProperties((prev) => [{ ...data, photos: [], leads_count: 0 } as Property, ...prev]);
+      // Upload photos if any
+      let uploadedPhotos: { url: string; sort_order: number }[] = [];
+      if (photos && photos.length > 0) {
+        uploadedPhotos = await uploadPhotos(data.id, photos);
+      }
+
+      setProperties((prev) => [
+        { ...data, photos: uploadedPhotos, leads_count: 0 } as Property,
+        ...prev,
+      ]);
 
       toast({
         title: "Imóvel criado",

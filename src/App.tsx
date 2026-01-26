@@ -16,6 +16,7 @@ import Inbox from "./pages/admin/Inbox";
 import Leads from "./pages/admin/Leads";
 import Properties from "./pages/admin/Properties";
 import Fichas from "./pages/admin/Fichas";
+import FichaDetail from "./pages/admin/FichaDetail";
 import Settings from "./pages/admin/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="leads" element={<Leads />} />
               <Route path="imoveis" element={<Properties />} />
               <Route path="fichas" element={<Fichas />} />
+              <Route path="fichas/:id" element={<FichaDetail />} />
               <Route path="configuracoes" element={<Settings />} />
             </Route>
             

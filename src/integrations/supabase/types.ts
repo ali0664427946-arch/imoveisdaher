@@ -156,6 +156,7 @@ export type Database = {
           address_number: string | null
           address_state: string | null
           address_street: string | null
+          ai_analyses: Json[] | null
           analyzed_at: string | null
           analyzed_by: string | null
           birth_date: string | null
@@ -189,6 +190,7 @@ export type Database = {
           address_number?: string | null
           address_state?: string | null
           address_street?: string | null
+          ai_analyses?: Json[] | null
           analyzed_at?: string | null
           analyzed_by?: string | null
           birth_date?: string | null
@@ -224,6 +226,7 @@ export type Database = {
           address_number?: string | null
           address_state?: string | null
           address_street?: string | null
+          ai_analyses?: Json[] | null
           analyzed_at?: string | null
           analyzed_by?: string | null
           birth_date?: string | null

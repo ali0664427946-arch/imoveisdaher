@@ -10,6 +10,8 @@ import {
   Upload,
   Loader2,
   ExternalLink,
+  Pause,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,8 +41,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useProperties } from "@/hooks/useProperties";
+import { useProperties, Property } from "@/hooks/useProperties";
 import { NewPropertyDialog } from "@/components/properties/NewPropertyDialog";
+import { EditPropertyDialog } from "@/components/properties/EditPropertyDialog";
 
 const formatPrice = (price: number, purpose: string) => {
   const formatted = new Intl.NumberFormat("pt-BR", {
@@ -51,16 +54,41 @@ const formatPrice = (price: number, purpose: string) => {
   return purpose === "rent" ? `${formatted}/mês` : formatted;
 };
 
+const statusLabels: Record<string, string> = {
+  active: "Ativo",
+  inactive: "Suspenso",
+  rented: "Alugado",
+  sold: "Vendido",
+};
+
+const statusVariants: Record<string, "approved" | "secondary" | "pending" | "default"> = {
+  active: "approved",
+  inactive: "secondary",
+  rented: "pending",
+  sold: "default",
+};
+
 export default function Properties() {
-  const { properties, isLoading, createProperty, deleteProperty, publishToPortal } = useProperties();
+  const {
+    properties,
+    isLoading,
+    createProperty,
+    updateProperty,
+    deleteProperty,
+    suspendProperty,
+    publishToPortal,
+    refetch,
+  } = useProperties();
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
 
-  const filteredProperties = properties.filter((p) =>
-    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.type.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProperties = properties.filter(
+    (p) =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDelete = async () => {
@@ -74,6 +102,19 @@ export default function Properties() {
     setPublishingId(propertyId);
     await publishToPortal(propertyId, platform);
     setPublishingId(null);
+  };
+
+  const handleSuspend = async (propertyId: string, currentStatus: string) => {
+    const shouldSuspend = currentStatus === "active";
+    await suspendProperty(propertyId, shouldSuspend);
+  };
+
+  const handleSaveProperty = async (
+    id: string,
+    updates: Partial<Property>
+  ) => {
+    await updateProperty(id, updates);
+    await refetch();
   };
 
   if (isLoading) {
@@ -129,8 +170,13 @@ export default function Properties() {
           <TableBody>
             {filteredProperties.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                  {searchQuery ? "Nenhum imóvel encontrado" : "Nenhum imóvel cadastrado"}
+                <TableCell
+                  colSpan={8}
+                  className="text-center py-12 text-muted-foreground"
+                >
+                  {searchQuery
+                    ? "Nenhum imóvel encontrado"
+                    : "Nenhum imóvel cadastrado"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -146,10 +192,19 @@ export default function Properties() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-xs text-muted-foreground">Foto</span>
+                          <span className="text-xs text-muted-foreground">
+                            Foto
+                          </span>
                         )}
                       </div>
-                      <span className="font-medium">{property.title}</span>
+                      <div>
+                        <span className="font-medium">{property.title}</span>
+                        {property.featured && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            Destaque
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="capitalize">{property.type}</TableCell>
@@ -160,10 +215,8 @@ export default function Properties() {
                   </TableCell>
                   <TableCell>{property.neighborhood}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={property.status === "active" ? "approved" : "secondary"}
-                    >
-                      {property.status === "active" ? "Ativo" : "Inativo"}
+                    <Badge variant={statusVariants[property.status] || "secondary"}>
+                      {statusLabels[property.status] || property.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -175,7 +228,9 @@ export default function Properties() {
                         <Badge variant="imovelweb">ImovelWeb</Badge>
                       )}
                       {property.origin === "manual" && (
-                        <span className="text-xs text-muted-foreground">Não publicado</span>
+                        <span className="text-xs text-muted-foreground">
+                          Não publicado
+                        </span>
                       )}
                     </div>
                   </TableCell>
@@ -185,7 +240,11 @@ export default function Properties() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={publishingId === property.id}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={publishingId === property.id}
+                        >
                           {publishingId === property.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
@@ -195,33 +254,64 @@ export default function Properties() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <a href={`/imovel/${property.id}`} target="_blank" rel="noreferrer">
+                          <a
+                            href={`/imovel/${property.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             <Eye className="w-4 h-4 mr-2" />
                             Visualizar
                           </a>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setEditingProperty(property)}
+                        >
                           <Edit className="w-4 h-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handlePublish(property.id, "olx")}>
+                        <DropdownMenuItem
+                          onClick={() => handlePublish(property.id, "olx")}
+                        >
                           <Upload className="w-4 h-4 mr-2" />
                           Publicar na OLX
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePublish(property.id, "imovelweb")}>
+                        <DropdownMenuItem
+                          onClick={() => handlePublish(property.id, "imovelweb")}
+                        >
                           <Upload className="w-4 h-4 mr-2" />
                           Publicar no ImovelWeb
                         </DropdownMenuItem>
                         {property.url_original && (
                           <DropdownMenuItem asChild>
-                            <a href={property.url_original} target="_blank" rel="noreferrer">
+                            <a
+                              href={property.url_original}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
                               <ExternalLink className="w-4 h-4 mr-2" />
                               Ver no Portal
                             </a>
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleSuspend(property.id, property.status)
+                          }
+                        >
+                          {property.status === "active" ? (
+                            <>
+                              <Pause className="w-4 h-4 mr-2" />
+                              Suspender
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-2" />
+                              Reativar
+                            </>
+                          )}
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => setDeleteId(property.id)}
@@ -239,19 +329,34 @@ export default function Properties() {
         </Table>
       </div>
 
+      {/* Edit Dialog */}
+      {editingProperty && (
+        <EditPropertyDialog
+          property={editingProperty}
+          open={!!editingProperty}
+          onOpenChange={(open) => {
+            if (!open) setEditingProperty(null);
+          }}
+          onSave={handleSaveProperty}
+        />
+      )}
+
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir imóvel?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O imóvel será removido permanentemente
-              do sistema.
+              Esta ação não pode ser desfeita. O imóvel e todas as suas fotos
+              serão removidos permanentemente do sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

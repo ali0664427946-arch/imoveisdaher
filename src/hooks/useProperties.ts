@@ -239,6 +239,33 @@ export function useProperties() {
 
   const deleteProperty = async (id: string) => {
     try {
+      // First get all photos for this property
+      const { data: photos } = await supabase
+        .from("property_photos")
+        .select("url")
+        .eq("property_id", id);
+
+      // Delete photos from storage
+      if (photos && photos.length > 0) {
+        const filePaths: string[] = [];
+        for (const photo of photos) {
+          try {
+            const url = new URL(photo.url);
+            const pathMatch = url.pathname.match(/property-photos\/(.+)$/);
+            if (pathMatch) {
+              filePaths.push(pathMatch[1]);
+            }
+          } catch (err) {
+            console.error("Error parsing photo URL:", err);
+          }
+        }
+        
+        if (filePaths.length > 0) {
+          await supabase.storage.from("property-photos").remove(filePaths);
+        }
+      }
+
+      // Delete property (photos will cascade delete from database)
       const { error } = await supabase
         .from("properties")
         .delete()
@@ -250,7 +277,7 @@ export function useProperties() {
 
       toast({
         title: "Imóvel excluído",
-        description: "O imóvel foi removido",
+        description: "O imóvel e suas fotos foram removidos",
       });
     } catch (error) {
       console.error("Error deleting property:", error);
@@ -259,6 +286,41 @@ export function useProperties() {
         description: "Tente novamente",
         variant: "destructive",
       });
+    }
+  };
+
+  const suspendProperty = async (id: string, suspend: boolean) => {
+    try {
+      const newStatus = suspend ? "inactive" : "active";
+      const { data, error } = await supabase
+        .from("properties")
+        .update({ status: newStatus })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setProperties((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
+      );
+
+      toast({
+        title: suspend ? "Imóvel suspenso" : "Imóvel reativado",
+        description: suspend
+          ? "O imóvel não aparecerá mais na listagem pública"
+          : "O imóvel está visível novamente",
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error updating property status:", error);
+      toast({
+        title: "Erro ao alterar status",
+        description: "Tente novamente",
+        variant: "destructive",
+      });
+      return null;
     }
   };
 
@@ -304,6 +366,7 @@ export function useProperties() {
     createProperty,
     updateProperty,
     deleteProperty,
+    suspendProperty,
     publishToPortal,
     refetch: fetchProperties,
   };

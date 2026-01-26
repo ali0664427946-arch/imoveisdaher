@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.sync-properties]
 verify_jwt = false
+
+[functions.publish-property]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PropertyPurpose } from "@/hooks/useProperties";
+import { PropertyPhotoUploader } from "./PropertyPhotoUploader";
+
+interface PropertyPhoto {
+  url: string;
+  sort_order: number;
+  file?: File;
+}
 
 interface NewPropertyDialogProps {
   onSubmit: (property: {
@@ -36,12 +43,14 @@ interface NewPropertyDialogProps {
     bedrooms?: number | null;
     bathrooms?: number | null;
     parking?: number | null;
+    photos?: PropertyPhoto[];
   }) => Promise<any>;
 }
 
 export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [photos, setPhotos] = useState<PropertyPhoto[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -76,8 +85,10 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
       bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
       parking: formData.parking ? parseInt(formData.parking) : null,
+      photos: photos,
     });
 
+    // Reset form
     setFormData({
       title: "",
       description: "",
@@ -93,26 +104,50 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       bathrooms: "",
       parking: "",
     });
+    setPhotos([]);
     setIsLoading(false);
     setOpen(false);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Cleanup blob URLs when closing
+      photos.forEach((photo) => {
+        if (photo.url.startsWith("blob:")) {
+          URL.revokeObjectURL(photo.url);
+        }
+      });
+      setPhotos([]);
+    }
+    setOpen(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="hero">
           <Plus className="w-4 h-4" />
           Novo Imóvel
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Adicionar Novo Imóvel</DialogTitle>
           <DialogDescription>
-            Preencha as informações do imóvel
+            Preencha as informações e adicione fotos do imóvel
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Photos Section */}
+          <div className="space-y-2">
+            <Label>Fotos do Imóvel</Label>
+            <PropertyPhotoUploader
+              photos={photos}
+              onChange={setPhotos}
+              maxPhotos={20}
+            />
+          </div>
+
           <div>
             <Label htmlFor="title">Título *</Label>
             <Input
@@ -272,7 +307,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isLoading}>

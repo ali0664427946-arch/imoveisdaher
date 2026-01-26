@@ -6,68 +6,76 @@ import { mockProperties, featuredProperties } from "@/data/mockProperties";
 import { Building2, Users, Award, TrendingUp, ArrowRight, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import heroBg from "@/assets/hero-bg.jpg";
-
 export default function Index() {
-  return (
-    <div className="min-h-screen">
+  return <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0">
-          <img
-            src={heroBg}
-            alt="Imóveis de luxo"
-            className="w-full h-full object-cover"
-          />
+          <img src={heroBg} alt="Imóveis de luxo" className="w-full h-full object-cover" />
           <div className="hero-overlay absolute inset-0" />
         </div>
 
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 py-20 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-4xl mx-auto"
-          >
+          <motion.div initial={{
+          opacity: 0,
+          y: 30
+        }} animate={{
+          opacity: 1,
+          y: 0
+        }} transition={{
+          duration: 0.6
+        }} className="max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-white mb-6 leading-tight">
               Encontre o imóvel{" "}
               <span className="text-accent">perfeito</span> para você
             </h1>
-            <p className="text-lg md:text-xl text-white/80 mb-10 max-w-2xl mx-auto">
-              Sua plataforma completa para alugar ou comprar imóveis. 
-              Milhares de opções em São Paulo e região.
-            </p>
+            <p className="text-lg md:text-xl text-white/80 mb-10 max-w-2xl mx-auto">Sua plataforma completa para alugar ou comprar imóveis. Milhares de opções em Rio de Janeiro e região.</p>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
+          <motion.div initial={{
+          opacity: 0,
+          y: 30
+        }} animate={{
+          opacity: 1,
+          y: 0
+        }} transition={{
+          duration: 0.6,
+          delay: 0.2
+        }}>
             <SearchFilters variant="hero" />
           </motion.div>
 
           {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto"
-          >
-            {[
-              { value: "500+", label: "Imóveis" },
-              { value: "1.200+", label: "Clientes Satisfeitos" },
-              { value: "15+", label: "Anos de Experiência" },
-              { value: "98%", label: "Taxa de Satisfação" },
-            ].map((stat, i) => (
-              <div key={i} className="text-center">
+          <motion.div initial={{
+          opacity: 0,
+          y: 30
+        }} animate={{
+          opacity: 1,
+          y: 0
+        }} transition={{
+          duration: 0.6,
+          delay: 0.4
+        }} className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+            {[{
+            value: "500+",
+            label: "Imóveis"
+          }, {
+            value: "1.200+",
+            label: "Clientes Satisfeitos"
+          }, {
+            value: "15+",
+            label: "Anos de Experiência"
+          }, {
+            value: "98%",
+            label: "Taxa de Satisfação"
+          }].map((stat, i) => <div key={i} className="text-center">
                 <div className="text-3xl md:text-4xl font-heading font-bold text-accent">
                   {stat.value}
                 </div>
                 <div className="text-sm text-white/70">{stat.label}</div>
-              </div>
-            ))}
+              </div>)}
           </motion.div>
         </div>
 
@@ -119,31 +127,30 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Building2,
-                title: "Ampla Variedade",
-                description: "Centenas de imóveis para todos os gostos e bolsos, do studio ao alto padrão.",
-              },
-              {
-                icon: Users,
-                title: "Atendimento Personalizado",
-                description: "Nossa equipe está pronta para entender suas necessidades e encontrar o imóvel ideal.",
-              },
-              {
-                icon: Award,
-                title: "Processo Simplificado",
-                description: "Documentação digital, análise rápida e todo suporte que você precisa.",
-              },
-            ].map((feature, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="bg-card rounded-2xl p-8 shadow-card hover:shadow-card-hover transition-shadow"
-              >
+            {[{
+            icon: Building2,
+            title: "Ampla Variedade",
+            description: "Centenas de imóveis para todos os gostos e bolsos, do studio ao alto padrão."
+          }, {
+            icon: Users,
+            title: "Atendimento Personalizado",
+            description: "Nossa equipe está pronta para entender suas necessidades e encontrar o imóvel ideal."
+          }, {
+            icon: Award,
+            title: "Processo Simplificado",
+            description: "Documentação digital, análise rápida e todo suporte que você precisa."
+          }].map((feature, i) => <motion.div key={i} initial={{
+            opacity: 0,
+            y: 20
+          }} whileInView={{
+            opacity: 1,
+            y: 0
+          }} viewport={{
+            once: true
+          }} transition={{
+            duration: 0.5,
+            delay: i * 0.1
+          }} className="bg-card rounded-2xl p-8 shadow-card hover:shadow-card-hover transition-shadow">
                 <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mb-6">
                   <feature.icon className="w-7 h-7 text-accent" />
                 </div>
@@ -153,8 +160,7 @@ export default function Index() {
                 <p className="text-muted-foreground">
                   {feature.description}
                 </p>
-              </motion.div>
-            ))}
+              </motion.div>)}
           </div>
         </div>
       </section>
@@ -208,6 +214,5 @@ export default function Index() {
           </div>
         </div>
       </section>
-    </div>
-  );
+    </div>;
 }

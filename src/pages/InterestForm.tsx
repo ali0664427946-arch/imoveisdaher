@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { mockProperties } from "@/data/mockProperties";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,18 +17,22 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronLeft,
   ChevronRight,
-  Upload,
   FileText,
   User,
   Phone,
-  Mail,
   Home,
   Briefcase,
   Users,
   CheckCircle,
   Building2,
+  Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import {
+  DocumentUploader,
+  UploadedDocument,
+} from "@/components/fichas/DocumentUploader";
 
 const STEPS = [
   { id: 1, title: "Dados Pessoais", icon: User },
@@ -39,15 +44,57 @@ const STEPS = [
   { id: 7, title: "Confirmação", icon: CheckCircle },
 ];
 
+interface FormData {
+  fullName: string;
+  cpf: string;
+  rg: string;
+  birthDate: string;
+  maritalStatus: string;
+  phone: string;
+  email: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  occupation: string;
+  employmentType: string;
+  company: string;
+  income: string;
+  residentsCount: string;
+  hasPets: string;
+  observations: string;
+}
+
 export default function InterestForm() {
   const { propertyId } = useParams<{ propertyId: string }>();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Partial<FormData>>({});
+  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedProtocol, setSubmittedProtocol] = useState<string | null>(null);
 
-  const property = mockProperties.find((p) => p.id === propertyId);
+  // Fetch property from database
+  const { data: property } = useQuery({
+    queryKey: ["property", propertyId],
+    queryFn: async () => {
+      if (!propertyId) return null;
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", propertyId)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!propertyId,
+  });
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -63,9 +110,79 @@ export default function InterestForm() {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData);
-    // Will implement actual submission later
+  const parseIncome = (incomeStr: string): number => {
+    if (!incomeStr) return 0;
+    const cleaned = incomeStr
+      .replace(/[R$\s]/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    return parseFloat(cleaned) || 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.fullName || !formData.cpf || !formData.phone) {
+      toast.error("Preencha os campos obrigatórios");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Create ficha
+      const { data: ficha, error: fichaError } = await supabase
+        .from("fichas")
+        .insert({
+          full_name: formData.fullName,
+          cpf: formData.cpf.replace(/\D/g, ""),
+          rg: formData.rg,
+          phone: formData.phone,
+          email: formData.email,
+          birth_date: formData.birthDate || null,
+          marital_status: formData.maritalStatus,
+          address_cep: formData.cep,
+          address_street: formData.street,
+          address_number: formData.number,
+          address_complement: formData.complement,
+          address_neighborhood: formData.neighborhood,
+          address_city: formData.city,
+          address_state: formData.state || "RJ",
+          occupation: formData.occupation,
+          company: formData.company,
+          employment_type: formData.employmentType as any,
+          income: parseIncome(formData.income || ""),
+          residents_count: parseInt(formData.residentsCount || "1"),
+          has_pets: formData.hasPets === "sim",
+          observations: formData.observations,
+          property_id: propertyId || null,
+          status: "pendente",
+        })
+        .select()
+        .single();
+
+      if (fichaError) throw fichaError;
+
+      // Save documents to database (already uploaded to storage)
+      if (documents.length > 0 && ficha) {
+        const docsToInsert = documents.map((doc) => ({
+          ficha_id: ficha.id,
+          category: doc.category,
+          file_name: doc.file_name,
+          file_url: doc.file_url,
+          file_size: doc.file_size,
+          mime_type: doc.mime_type,
+        }));
+
+        await supabase.from("documents").insert(docsToInsert);
+      }
+
+      setSubmittedProtocol(ficha.protocol);
+      toast.success("Ficha enviada com sucesso!");
+    } catch (error) {
+      console.error("Submit error:", error);
+      toast.error("Erro ao enviar ficha. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatPrice = (price: number, purpose: string) => {
@@ -76,6 +193,38 @@ export default function InterestForm() {
     }).format(price);
     return purpose === "rent" ? `${formatted}/mês` : formatted;
   };
+
+  // Success screen
+  if (submittedProtocol) {
+    return (
+      <div className="min-h-screen bg-secondary/30 py-12 flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center p-8">
+          <div className="w-20 h-20 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-success" />
+          </div>
+          <h1 className="text-2xl font-heading font-bold mb-2">
+            Ficha Enviada com Sucesso!
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            Sua ficha de interesse foi recebida e será analisada em breve.
+          </p>
+          <div className="bg-card rounded-xl p-4 mb-6">
+            <p className="text-sm text-muted-foreground">Seu protocolo:</p>
+            <p className="text-xl font-mono font-bold text-accent">
+              {submittedProtocol}
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            Guarde este número para acompanhar o status da sua solicitação.
+            Entraremos em contato pelo telefone ou e-mail informados.
+          </p>
+          <Button onClick={() => navigate("/")} variant="hero">
+            Voltar para o Início
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-secondary/30 py-12">
@@ -175,7 +324,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="rg">RG *</Label>
+                      <Label htmlFor="rg">RG</Label>
                       <Input
                         id="rg"
                         placeholder="00.000.000-0"
@@ -184,7 +333,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="birthDate">Data de Nascimento *</Label>
+                      <Label htmlFor="birthDate">Data de Nascimento</Label>
                       <Input
                         id="birthDate"
                         type="date"
@@ -193,7 +342,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="maritalStatus">Estado Civil *</Label>
+                      <Label htmlFor="maritalStatus">Estado Civil</Label>
                       <Select
                         value={formData.maritalStatus || ""}
                         onValueChange={(v) => handleInputChange("maritalStatus", v)}
@@ -229,7 +378,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email">E-mail *</Label>
+                      <Label htmlFor="email">E-mail</Label>
                       <Input
                         id="email"
                         type="email"
@@ -248,7 +397,7 @@ export default function InterestForm() {
                   <h2 className="text-xl font-heading font-semibold mb-6">Endereço Atual</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="cep">CEP *</Label>
+                      <Label htmlFor="cep">CEP</Label>
                       <Input
                         id="cep"
                         placeholder="00000-000"
@@ -257,7 +406,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Label htmlFor="street">Rua *</Label>
+                      <Label htmlFor="street">Rua</Label>
                       <Input
                         id="street"
                         placeholder="Nome da rua"
@@ -266,7 +415,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="number">Número *</Label>
+                      <Label htmlFor="number">Número</Label>
                       <Input
                         id="number"
                         placeholder="000"
@@ -284,7 +433,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="neighborhood">Bairro *</Label>
+                      <Label htmlFor="neighborhood">Bairro</Label>
                       <Input
                         id="neighborhood"
                         placeholder="Bairro"
@@ -293,12 +442,21 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="city">Cidade *</Label>
+                      <Label htmlFor="city">Cidade</Label>
                       <Input
                         id="city"
                         placeholder="Cidade"
                         value={formData.city || ""}
                         onChange={(e) => handleInputChange("city", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state">Estado</Label>
+                      <Input
+                        id="state"
+                        placeholder="RJ"
+                        value={formData.state || "RJ"}
+                        onChange={(e) => handleInputChange("state", e.target.value)}
                       />
                     </div>
                   </div>
@@ -311,7 +469,7 @@ export default function InterestForm() {
                   <h2 className="text-xl font-heading font-semibold mb-6">Dados Profissionais</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="occupation">Profissão *</Label>
+                      <Label htmlFor="occupation">Profissão</Label>
                       <Input
                         id="occupation"
                         placeholder="Sua profissão"
@@ -320,7 +478,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="employmentType">Tipo de Vínculo *</Label>
+                      <Label htmlFor="employmentType">Tipo de Vínculo</Label>
                       <Select
                         value={formData.employmentType || ""}
                         onValueChange={(v) => handleInputChange("employmentType", v)}
@@ -347,7 +505,7 @@ export default function InterestForm() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="income">Renda Mensal *</Label>
+                      <Label htmlFor="income">Renda Mensal</Label>
                       <Input
                         id="income"
                         placeholder="R$ 0,00"
@@ -365,7 +523,7 @@ export default function InterestForm() {
                   <h2 className="text-xl font-heading font-semibold mb-6">Moradores</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="residentsCount">Quantas pessoas irão morar? *</Label>
+                      <Label htmlFor="residentsCount">Quantas pessoas irão morar?</Label>
                       <Select
                         value={formData.residentsCount || ""}
                         onValueChange={(v) => handleInputChange("residentsCount", v)}
@@ -378,12 +536,12 @@ export default function InterestForm() {
                           <SelectItem value="2">2 pessoas</SelectItem>
                           <SelectItem value="3">3 pessoas</SelectItem>
                           <SelectItem value="4">4 pessoas</SelectItem>
-                          <SelectItem value="5+">5 ou mais pessoas</SelectItem>
+                          <SelectItem value="5">5 ou mais pessoas</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="hasPets">Possui animais de estimação? *</Label>
+                      <Label htmlFor="hasPets">Possui animais de estimação?</Label>
                       <Select
                         value={formData.hasPets || ""}
                         onValueChange={(v) => handleInputChange("hasPets", v)}
@@ -416,37 +574,12 @@ export default function InterestForm() {
                 <div className="space-y-6">
                   <h2 className="text-xl font-heading font-semibold mb-6">Documentos</h2>
                   <p className="text-muted-foreground text-sm mb-6">
-                    Envie os documentos necessários para análise. Formatos aceitos: PDF, JPG, PNG (máx. 5MB cada).
+                    Envie os documentos necessários para análise. Formatos aceitos: PDF, JPG, PNG (máx. 10MB cada).
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      { id: "doc_rg", label: "RG ou CNH *" },
-                      { id: "doc_cpf", label: "CPF *" },
-                      { id: "doc_comprovante_renda", label: "Comprovante de Renda *" },
-                      { id: "doc_comprovante_residencia", label: "Comprovante de Residência *" },
-                    ].map((doc) => (
-                      <div key={doc.id} className="border-2 border-dashed rounded-xl p-4 hover:border-accent transition-colors">
-                        <Label htmlFor={doc.id} className="cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                              <Upload className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                            <div>
-                              <span className="font-medium text-sm">{doc.label}</span>
-                              <p className="text-xs text-muted-foreground">Clique para enviar</p>
-                            </div>
-                          </div>
-                        </Label>
-                        <input
-                          id={doc.id}
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => handleInputChange(doc.id, e.target.files?.[0])}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <DocumentUploader
+                    documents={documents}
+                    onDocumentsChange={setDocuments}
+                  />
                 </div>
               )}
 
@@ -480,6 +613,10 @@ export default function InterestForm() {
                       <div>
                         <dt className="text-muted-foreground">Renda</dt>
                         <dd className="font-medium">{formData.income || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Documentos enviados</dt>
+                        <dd className="font-medium">{documents.length} arquivo(s)</dd>
                       </div>
                     </dl>
                   </div>
@@ -526,10 +663,16 @@ export default function InterestForm() {
                 <Button
                   onClick={handleSubmit}
                   variant="hero"
-                  disabled={!acceptedTerms}
+                  disabled={!acceptedTerms || isSubmitting}
                 >
-                  Enviar Ficha
-                  <CheckCircle className="w-4 h-4" />
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      Enviar Ficha
+                      <CheckCircle className="w-4 h-4" />
+                    </>
+                  )}
                 </Button>
               )}
             </div>

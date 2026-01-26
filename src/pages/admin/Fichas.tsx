@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   MoreHorizontal,
@@ -66,6 +67,7 @@ interface FormDataWithAnalysis {
 }
 
 export default function Fichas() {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAnalysis, setSelectedAnalysis] = useState<AIAnalysis | null>(null);
@@ -250,8 +252,8 @@ export default function Fichas() {
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="bg-popover">
+                          <DropdownMenuItem onClick={() => navigate(`/admin/fichas/${ficha.id}`)}>
                             <Eye className="w-4 h-4 mr-2" />
                             Ver Ficha Completa
                           </DropdownMenuItem>
@@ -442,7 +444,7 @@ export default function Fichas() {
                 {/* Mensagem WhatsApp */}
                 <div>
                   <h4 className="font-semibold mb-2">💬 Sugestão de Mensagem</h4>
-                  <div className="bg-green-500/10 rounded-lg p-3 text-sm">
+                  <div className="bg-success/10 rounded-lg p-3 text-sm">
                     <p className="whitespace-pre-wrap">{selectedAnalysis.mensagem_whatsapp}</p>
                     <Button
                       variant="outline"

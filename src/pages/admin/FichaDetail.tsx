@@ -31,6 +31,7 @@ import {
   DocumentUploader,
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
+import { WhatsAppButton } from "@/components/fichas/WhatsAppButton";
 import {
   useFichaById,
   useAnalyzeFicha,
@@ -160,6 +161,12 @@ export default function FichaDetail() {
         </div>
 
         <div className="flex items-center gap-2">
+          <WhatsAppButton
+            phone={ficha.phone}
+            fichaId={ficha.id}
+            suggestedMessage={aiAnalysis?.mensagem_whatsapp || ""}
+            variant="outline"
+          />
           <Button
             variant="outline"
             onClick={handleAnalyze}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,10 +7,40 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { usePropertySync } from "@/hooks/usePropertySync";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
   const [olxConnected, setOlxConnected] = useState(false);
   const [autoSendEnabled, setAutoSendEnabled] = useState(false);
+  const [feedUrl, setFeedUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+  const { isSyncing, importFromFeedUrl } = usePropertySync();
+  const { toast } = useToast();
+
+  // Webhook URLs for external integrations
+  const webhookBaseUrl = "https://jrwnrygaejtsodeinpni.supabase.co/functions/v1/sync-properties";
+  const olxWebhookUrl = `${webhookBaseUrl}?source=olx`;
+  const imovelwebWebhookUrl = `${webhookBaseUrl}?source=imovelweb`;
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast({ title: "Copiado!", description: "URL copiada para a área de transferência" });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleImportFeed = async () => {
+    if (!feedUrl.trim()) {
+      toast({
+        title: "URL necessária",
+        description: "Informe a URL do feed para importar",
+        variant: "destructive",
+      });
+      return;
+    }
+    await importFromFeedUrl(feedUrl);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -50,7 +80,7 @@ export default function Settings() {
                     Integração OLX
                   </CardTitle>
                   <CardDescription>
-                    Sincronize seus anúncios da OLX automaticamente
+                    Sincronize seus anúncios da OLX automaticamente via webhook
                   </CardDescription>
                 </div>
                 {olxConnected ? (
@@ -60,12 +90,28 @@ export default function Settings() {
                   </span>
                 ) : (
                   <span className="text-sm text-muted-foreground">
-                    Não conectado
+                    Aguardando configuração
                   </span>
                 )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label>URL do Webhook (para receber dados da OLX)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={olxWebhookUrl} readOnly className="font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(olxWebhookUrl)}
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure este URL no painel da OLX para receber atualizações automáticas
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="olx_client_id">Client ID</Label>
@@ -81,8 +127,8 @@ export default function Settings() {
                   <Shield className="w-4 h-4" />
                   Conectar via OAuth
                 </Button>
-                <Button variant="secondary">
-                  <RefreshCw className="w-4 h-4" />
+                <Button variant="secondary" disabled={isSyncing}>
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
                   Sincronizar Agora
                 </Button>
               </div>
@@ -99,17 +145,38 @@ export default function Settings() {
                 Integração ImovelWeb
               </CardTitle>
               <CardDescription>
-                Importe imóveis via Feed URL ou CSV
+                Receba imóveis via webhook ou importe via Feed URL
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="feed_url">Feed URL</Label>
-                <Input id="feed_url" placeholder="https://seucrm.com/feed/imoveis.xml" />
+                <Label>URL do Webhook (para receber dados do ImovelWeb)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={imovelwebWebhookUrl} readOnly className="font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(imovelwebWebhookUrl)}
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure este URL para receber atualizações do ImovelWeb
+                </p>
+              </div>
+              <div className="border-t pt-4">
+                <Label htmlFor="feed_url">Ou importe via Feed URL</Label>
+                <Input
+                  id="feed_url"
+                  placeholder="https://seucrm.com/feed/imoveis.xml"
+                  value={feedUrl}
+                  onChange={(e) => setFeedUrl(e.target.value)}
+                />
               </div>
               <div className="flex gap-2">
-                <Button variant="secondary">
-                  <RefreshCw className="w-4 h-4" />
+                <Button variant="secondary" disabled={isSyncing} onClick={handleImportFeed}>
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
                   Importar do Feed
                 </Button>
                 <Button variant="outline">
@@ -129,7 +196,7 @@ export default function Settings() {
                 Evolution API (WhatsApp)
               </CardTitle>
               <CardDescription>
-                Configure a integração com WhatsApp
+                Configuração da integração com WhatsApp
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

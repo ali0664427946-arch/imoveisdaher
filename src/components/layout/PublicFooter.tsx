@@ -94,20 +94,26 @@ export function PublicFooter() {
               <li className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-accent shrink-0 mt-0.5" />
                 <span className="text-primary-foreground/70 text-sm">
-                  Av. Paulista, 1000 - Bela Vista<br />
-                  São Paulo - SP
+                  Condomínio Mix Mall - R. Lopo Saraiva, 179<br />
+                  Bloco 02 Sl 432 - Pechincha<br />
+                  Rio de Janeiro - RJ, 22740-220
                 </span>
               </li>
-              <li className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-accent shrink-0" />
-                <a href="tel:+5511999999999" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
-                  (11) 99999-9999
-                </a>
+              <li className="flex items-start gap-3">
+                <Phone className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                <div className="flex flex-col">
+                  <a href="tel:+552132746226" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
+                    (21) 3274-6226
+                  </a>
+                  <a href="https://wa.me/5521982095993" target="_blank" rel="noopener noreferrer" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
+                    (21) 98209-5993
+                  </a>
+                </div>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-accent shrink-0" />
-                <a href="mailto:contato@daherimoveis.com.br" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
-                  contato@daherimoveis.com.br
+                <a href="mailto:contato@daherimob.com" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
+                  contato@daherimob.com
                 </a>
               </li>
             </ul>

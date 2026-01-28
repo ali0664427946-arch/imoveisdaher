@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface RealtimeNotification {
-  type: "new_ficha" | "new_message" | "ficha_updated";
+  type: "new_ficha" | "new_message" | "ficha_updated" | "new_lead";
   title: string;
   description: string;
   data?: Record<string, unknown>;
@@ -18,6 +18,7 @@ export function useRealtimeNotifications() {
       new_ficha: "📋",
       new_message: "💬",
       ficha_updated: "🔄",
+      new_lead: "🎯",
     };
 
     toast(notification.title, {
@@ -28,6 +29,31 @@ export function useRealtimeNotifications() {
   }, []);
 
   useEffect(() => {
+    // Subscribe to new leads
+    const leadsChannel = supabase
+      .channel("realtime-leads")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "leads",
+        },
+        (payload) => {
+          const newLead = payload.new as { name: string; origin: string | null; phone: string | null };
+          const originLabel = newLead.origin ? ` via ${newLead.origin.toUpperCase()}` : "";
+          showNotification({
+            type: "new_lead",
+            title: "Novo Lead Recebido!",
+            description: `${newLead.name}${originLabel}${newLead.phone ? ` - ${newLead.phone}` : ""}`,
+            data: payload.new as Record<string, unknown>,
+          });
+          queryClient.invalidateQueries({ queryKey: ["leads"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+        }
+      )
+      .subscribe();
+
     // Subscribe to new fichas
     const fichasChannel = supabase
       .channel("realtime-fichas")
@@ -101,6 +127,7 @@ export function useRealtimeNotifications() {
       .subscribe();
 
     return () => {
+      supabase.removeChannel(leadsChannel);
       supabase.removeChannel(fichasChannel);
       supabase.removeChannel(messagesChannel);
     };

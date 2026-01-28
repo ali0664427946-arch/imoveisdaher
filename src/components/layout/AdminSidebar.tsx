@@ -60,7 +60,7 @@ export function AdminSidebar() {
             <img
               src={logoImage}
               alt="Daher Imóveis"
-              className={collapsed ? "h-8 w-auto" : "h-10 w-auto"}
+              className={collapsed ? "h-10 w-auto" : "h-14 w-auto"}
             />
           </Link>
         </div>

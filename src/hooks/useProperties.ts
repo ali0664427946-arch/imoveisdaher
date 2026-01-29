@@ -27,6 +27,7 @@ export interface Property {
   origin_id: string | null;
   url_original: string | null;
   featured: boolean | null;
+  youtube_url: string | null;
   created_at: string;
   updated_at: string;
   photos?: { url: string; sort_order: number | null }[];
@@ -55,6 +56,7 @@ interface CreatePropertyInput {
   parking?: number | null;
   status?: PropertyStatus;
   featured?: boolean;
+  youtube_url?: string | null;
   photos?: PropertyPhotoInput[];
 }
 

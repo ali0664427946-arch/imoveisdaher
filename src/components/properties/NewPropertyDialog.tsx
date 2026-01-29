@@ -43,6 +43,7 @@ interface NewPropertyDialogProps {
     bedrooms?: number | null;
     bathrooms?: number | null;
     parking?: number | null;
+    youtube_url?: string | null;
     photos?: PropertyPhoto[];
   }) => Promise<any>;
 }
@@ -65,6 +66,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
     bedrooms: "",
     bathrooms: "",
     parking: "",
+    youtube_url: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,6 +87,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
       bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
       parking: formData.parking ? parseInt(formData.parking) : null,
+      youtube_url: formData.youtube_url || null,
       photos: photos,
     });
 
@@ -103,6 +106,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       bedrooms: "",
       bathrooms: "",
       parking: "",
+      youtube_url: "",
     });
     setPhotos([]);
     setIsLoading(false);
@@ -304,6 +308,19 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
               rows={3}
               placeholder="Descreva o imóvel..."
             />
+          </div>
+
+          <div>
+            <Label htmlFor="youtube_url">Vídeo do YouTube (opcional)</Label>
+            <Input
+              id="youtube_url"
+              value={formData.youtube_url}
+              onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Cole o link do vídeo do YouTube. Será exibido apenas no site.
+            </p>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

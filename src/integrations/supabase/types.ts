@@ -454,6 +454,7 @@ export type Database = {
           type: string
           updated_at: string
           url_original: string | null
+          youtube_url: string | null
         }
         Insert: {
           address?: string | null
@@ -480,6 +481,7 @@ export type Database = {
           type: string
           updated_at?: string
           url_original?: string | null
+          youtube_url?: string | null
         }
         Update: {
           address?: string | null
@@ -506,6 +508,7 @@ export type Database = {
           type?: string
           updated_at?: string
           url_original?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }

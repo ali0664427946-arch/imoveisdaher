@@ -18,6 +18,7 @@ import Properties from "./pages/admin/Properties";
 import Fichas from "./pages/admin/Fichas";
 import FichaDetail from "./pages/admin/FichaDetail";
 import Settings from "./pages/admin/Settings";
+import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,8 +39,9 @@ const App = () => (
               <Route path="/ficha/:propertyId" element={<InterestForm />} />
             </Route>
             
-            {/* Auth */}
+            {/* Auth & Install */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/instalar" element={<InstallApp />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>

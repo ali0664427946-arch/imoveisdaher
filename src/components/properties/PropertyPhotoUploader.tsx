@@ -3,7 +3,7 @@ import { ImagePlus, X, Loader2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
+import { applyWatermark } from "@/lib/watermark";
 interface PropertyPhoto {
   id?: string;
   url: string;
@@ -74,8 +74,17 @@ export function PropertyPhotoUploader({
       const newPhotos: PropertyPhoto[] = [];
 
       for (const file of filesToUpload) {
+        // Apply watermark to the image before upload
+        let processedFile: File;
+        try {
+          processedFile = await applyWatermark(file, "/watermark-logo.png", 0.5);
+        } catch (watermarkError) {
+          console.warn("Could not apply watermark, using original:", watermarkError);
+          processedFile = file;
+        }
+
         // Create preview URL
-        const previewUrl = URL.createObjectURL(file);
+        const previewUrl = URL.createObjectURL(processedFile);
         const sortOrder = photos.length + newPhotos.length;
 
         if (propertyId) {
@@ -83,7 +92,7 @@ export function PropertyPhotoUploader({
           const fileName = `${propertyId}/${Date.now()}-${file.name}`;
           const { data, error } = await supabase.storage
             .from("property-photos")
-            .upload(fileName, file, {
+            .upload(fileName, processedFile, {
               cacheControl: "3600",
               upsert: false,
             });
@@ -103,7 +112,7 @@ export function PropertyPhotoUploader({
           newPhotos.push({
             url: previewUrl,
             sort_order: sortOrder,
-            file,
+            file: processedFile,
           });
         }
       }

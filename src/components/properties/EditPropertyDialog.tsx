@@ -65,6 +65,7 @@ export function EditPropertyDialog({
     parking: "",
     status: "active" as PropertyStatus,
     featured: false,
+    youtube_url: "",
   });
 
   // Load property data when dialog opens
@@ -86,6 +87,7 @@ export function EditPropertyDialog({
         parking: property.parking?.toString() || "",
         status: property.status,
         featured: property.featured || false,
+        youtube_url: (property as any).youtube_url || "",
       });
 
       // Load existing photos
@@ -195,6 +197,7 @@ export function EditPropertyDialog({
         parking: formData.parking ? parseInt(formData.parking) : null,
         status: formData.status,
         featured: formData.featured,
+        youtube_url: formData.youtube_url || null,
       } as any);
 
       toast({
@@ -447,6 +450,21 @@ export function EditPropertyDialog({
               rows={3}
               placeholder="Descreva o imóvel..."
             />
+          </div>
+
+          <div>
+            <Label htmlFor="youtube_url">Vídeo do YouTube (opcional)</Label>
+            <Input
+              id="youtube_url"
+              value={formData.youtube_url}
+              onChange={(e) =>
+                setFormData({ ...formData, youtube_url: e.target.value })
+              }
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Cole o link do vídeo do YouTube. Será exibido apenas no site.
+            </p>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

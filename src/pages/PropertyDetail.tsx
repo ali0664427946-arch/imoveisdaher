@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { mockProperties } from "@/data/mockProperties";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,16 +17,86 @@ import {
   Building2,
   Calendar,
   CheckCircle,
+  Youtube,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+
+interface PropertyData {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  purpose: "rent" | "sale";
+  price: number;
+  neighborhood: string;
+  city: string;
+  state: string;
+  address: string | null;
+  area: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  parking: number | null;
+  featured: boolean | null;
+  youtube_url: string | null;
+  origin: string | null;
+  photos: { url: string; sort_order: number | null }[];
+}
+
+function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  
+  return null;
+}
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [property, setProperty] = useState<PropertyData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Find property by ID
-  const property = mockProperties.find((p) => p.id === id);
+  useEffect(() => {
+    async function fetchProperty() {
+      if (!id) return;
+      
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("properties")
+        .select(`
+          *,
+          photos:property_photos(url, sort_order)
+        `)
+        .eq("id", id)
+        .single();
+
+      if (!error && data) {
+        setProperty(data as PropertyData);
+      }
+      setIsLoading(false);
+    }
+
+    fetchProperty();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!property) {
     return (
@@ -42,13 +111,16 @@ export default function PropertyDetail() {
     );
   }
 
-  // Mock gallery images
-  const galleryImages = [
-    property.imageUrl,
-    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&h=800&fit=crop",
-    "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&h=800&fit=crop",
-  ];
+  // Sort photos by sort_order
+  const sortedPhotos = [...(property.photos || [])].sort(
+    (a, b) => (a.sort_order || 0) - (b.sort_order || 0)
+  );
+  
+  const galleryImages = sortedPhotos.length > 0 
+    ? sortedPhotos.map(p => p.url)
+    : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&h=800&fit=crop"];
+
+  const youtubeVideoId = property.youtube_url ? getYouTubeVideoId(property.youtube_url) : null;
 
   const formatPrice = (price: number, purpose: string) => {
     const formatted = new Intl.NumberFormat("pt-BR", {
@@ -102,31 +174,37 @@ export default function PropertyDetail() {
               </AnimatePresence>
 
               {/* Navigation */}
-              <button
-                onClick={prevImage}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={nextImage}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
 
               {/* Thumbnails */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                {galleryImages.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentImageIndex(i)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      i === currentImageIndex ? "bg-white w-6" : "bg-white/50"
-                    }`}
-                  />
-                ))}
-              </div>
+              {galleryImages.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                  {galleryImages.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentImageIndex(i)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        i === currentImageIndex ? "bg-white w-6" : "bg-white/50"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
 
               {/* Badges */}
               <div className="absolute top-4 left-4 flex gap-2">
@@ -166,10 +244,10 @@ export default function PropertyDetail() {
             {/* Features */}
             <div className="grid grid-cols-4 gap-4">
               {[
-                { icon: Bed, value: property.bedrooms, label: "Quartos" },
-                { icon: Bath, value: property.bathrooms, label: "Banheiros" },
-                { icon: Car, value: property.parking, label: "Vagas" },
-                { icon: Maximize, value: `${property.area}m²`, label: "Área" },
+                { icon: Bed, value: property.bedrooms || 0, label: "Quartos" },
+                { icon: Bath, value: property.bathrooms || 0, label: "Banheiros" },
+                { icon: Car, value: property.parking || 0, label: "Vagas" },
+                { icon: Maximize, value: `${property.area || 0}m²`, label: "Área" },
               ].map((item, i) => (
                 <div key={i} className="bg-secondary/50 rounded-xl p-4 text-center">
                   <item.icon className="w-6 h-6 mx-auto mb-2 text-accent" />
@@ -183,18 +261,43 @@ export default function PropertyDetail() {
             <div>
               <h2 className="text-xl font-heading font-semibold mb-4">Descrição</h2>
               <div className="prose prose-sm max-w-none text-muted-foreground">
-                <p>
-                  Excelente {property.type} localizado em {property.neighborhood}, 
-                  uma das regiões mais valorizadas de {property.city}. 
-                  O imóvel conta com acabamento de alto padrão, ambientes amplos e bem iluminados.
-                </p>
-                <p>
-                  Com {property.area}m² de área útil, o imóvel oferece {property.bedrooms} quartos, 
-                  {property.bathrooms} banheiros e {property.parking} vagas de garagem. 
-                  Ideal para famílias que buscam conforto e qualidade de vida.
-                </p>
+                {property.description ? (
+                  <p className="whitespace-pre-wrap">{property.description}</p>
+                ) : (
+                  <>
+                    <p>
+                      Excelente {property.type} localizado em {property.neighborhood}, 
+                      uma das regiões mais valorizadas de {property.city}. 
+                      O imóvel conta com acabamento de alto padrão, ambientes amplos e bem iluminados.
+                    </p>
+                    <p>
+                      Com {property.area}m² de área útil, o imóvel oferece {property.bedrooms} quartos, 
+                      {property.bathrooms} banheiros e {property.parking} vagas de garagem. 
+                      Ideal para famílias que buscam conforto e qualidade de vida.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
+
+            {/* YouTube Video */}
+            {youtubeVideoId && (
+              <div>
+                <h2 className="text-xl font-heading font-semibold mb-4 flex items-center gap-2">
+                  <Youtube className="w-5 h-5 text-red-600" />
+                  Vídeo do Imóvel
+                </h2>
+                <div className="relative rounded-2xl overflow-hidden aspect-video bg-muted">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${youtubeVideoId}`}
+                    title="Vídeo do imóvel"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Amenities */}
             <div>
@@ -273,7 +376,7 @@ export default function PropertyDetail() {
               </div>
 
               {/* Origin Badge */}
-              {property.origin && (
+              {property.origin && property.origin !== "manual" && (
                 <div className="text-center text-sm text-muted-foreground">
                   Anúncio via{" "}
                   <Badge variant={property.origin === "olx" ? "olx" : "imovelweb"}>

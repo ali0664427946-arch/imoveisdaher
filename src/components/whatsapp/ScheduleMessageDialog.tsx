@@ -24,6 +24,8 @@ interface ScheduleMessageDialogProps {
   fichaId?: string;
   conversationId?: string;
   onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ScheduleMessageDialog({
@@ -34,8 +36,14 @@ export function ScheduleMessageDialog({
   fichaId,
   conversationId,
   onSuccess,
+  open: controlledOpen,
+  onOpenChange,
 }: ScheduleMessageDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
+
   const [phone, setPhone] = useState(defaultPhone);
   const [message, setMessage] = useState(defaultMessage);
   const [date, setDate] = useState(format(addHours(new Date(), 1), "yyyy-MM-dd"));

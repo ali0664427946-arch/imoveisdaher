@@ -1,4 +1,5 @@
-import { Phone, MessageSquare, MoreHorizontal, ExternalLink, Inbox } from "lucide-react";
+import { useState } from "react";
+import { Phone, MessageSquare, MoreHorizontal, ExternalLink, Inbox, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 
 interface KanbanCardProps {
   lead: Lead;
@@ -22,6 +24,7 @@ interface KanbanCardProps {
 export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   
   const createdAt = formatDistanceToNow(new Date(lead.created_at), {
     addSuffix: true,
@@ -119,6 +122,10 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
               <MessageSquare className="w-3 h-3 mr-2" />
               WhatsApp
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setScheduleOpen(true)}>
+              <Clock className="w-3 h-3 mr-2" />
+              Agendar Mensagem
+            </DropdownMenuItem>
             {lead.property && (
               <DropdownMenuItem asChild>
                 <a href={`/imovel/${lead.property.id}`} target="_blank" rel="noreferrer">
@@ -130,6 +137,14 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      
+      <ScheduleMessageDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        defaultPhone={lead.phone || ""}
+        leadId={lead.id}
+      />
+      
       <div className="mt-2 pt-2 border-t">
         {lead.property ? (
           <p className="text-xs text-primary font-medium truncate">

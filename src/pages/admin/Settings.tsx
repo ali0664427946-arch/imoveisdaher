@@ -23,6 +23,8 @@ export default function Settings() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const [testingEvolution, setTestingEvolution] = useState(false);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [savingAutoSync, setSavingAutoSync] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,6 +52,65 @@ export default function Settings() {
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Query to get auto-sync settings
+  const { data: autoSyncSettings } = useQuery({
+    queryKey: ["olx-auto-sync-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "olx_auto_sync")
+        .maybeSingle();
+      
+      if (data?.value) {
+        const settings = data.value as { enabled: boolean; profile_url: string | null; last_sync_at: string | null };
+        setAutoSyncEnabled(settings.enabled || false);
+        if (settings.profile_url) {
+          setOlxProfileUrl(settings.profile_url);
+        }
+        return settings;
+      }
+      return null;
+    },
+  });
+
+  const handleSaveAutoSync = async (enabled: boolean) => {
+    setSavingAutoSync(true);
+    try {
+      const { error } = await supabase
+        .from("integrations_settings")
+        .update({
+          value: {
+            enabled,
+            profile_url: olxProfileUrl.trim() || null,
+            last_sync_at: autoSyncSettings?.last_sync_at || null,
+          },
+        })
+        .eq("key", "olx_auto_sync");
+
+      if (error) throw error;
+
+      setAutoSyncEnabled(enabled);
+      queryClient.invalidateQueries({ queryKey: ["olx-auto-sync-settings"] });
+      
+      toast({
+        title: enabled ? "Sincronização automática ativada! ✅" : "Sincronização automática desativada",
+        description: enabled 
+          ? "Seus imóveis serão sincronizados diariamente às 6:00 da manhã" 
+          : "A sincronização automática foi desativada",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar";
+      toast({
+        title: "Erro ao salvar configuração",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingAutoSync(false);
+    }
+  };
 
   // Base URLs for Supabase functions
   const supabaseFunctionsUrl = "https://jrwnrygaejtsodeinpni.supabase.co/functions/v1";
@@ -272,6 +333,33 @@ export default function Settings() {
                   Cole a URL do seu perfil na OLX ou uma página de busca com seus anúncios
                 </p>
               </div>
+              
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Sincronização Automática Diária</p>
+                    <p className="text-xs text-muted-foreground">
+                      {autoSyncEnabled 
+                        ? "Imóveis sincronizados todos os dias às 6:00" 
+                        : "Ative para sincronizar automaticamente"}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={autoSyncEnabled}
+                  onCheckedChange={(checked) => handleSaveAutoSync(checked)}
+                  disabled={savingAutoSync || !olxProfileUrl.trim()}
+                />
+              </div>
+              
+              {autoSyncSettings?.last_sync_at && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Check className="w-3 h-3 text-success" />
+                  Última sincronização: {formatDistanceToNow(new Date(autoSyncSettings.last_sync_at), { addSuffix: true, locale: ptBR })}
+                </p>
+              )}
+
               <Button 
                 onClick={handleScrapeOlx} 
                 disabled={scrapingOlx}
@@ -285,15 +373,15 @@ export default function Settings() {
                 ) : (
                   <>
                     <Globe className="w-4 h-4 mr-2" />
-                    Buscar e Importar Imóveis
+                    Buscar e Importar Imóveis Agora
                   </>
                 )}
               </Button>
             </CardContent>
           </Card>
 
-          {/* OLX Integration */}
-          <Card>
+          {/* OLX API for Publishing */}
+          <Card className="border-accent/50">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -301,25 +389,28 @@ export default function Settings() {
                     <span className="w-8 h-8 rounded bg-accent flex items-center justify-center text-accent-foreground font-bold text-xs">
                       OLX
                     </span>
-                    Integração OLX (Avançado)
+                    Publicar Imóveis na OLX
                   </CardTitle>
                   <CardDescription>
-                    Configure webhooks para sincronização automática contínua
+                    Configure as credenciais da API para publicar imóveis do CRM diretamente na OLX
                   </CardDescription>
                 </div>
-                {olxConnected ? (
-                  <span className="text-sm text-success flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-success" />
-                    Conectado
-                  </span>
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    Aguardando configuração
-                  </span>
-                )}
+                <span className="text-sm text-muted-foreground">
+                  Requer conta OLX Pro
+                </span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Como funciona:</h4>
+                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Crie uma conta no <a href="https://pro.olx.com.br" target="_blank" className="text-primary underline">OLX Pro</a></li>
+                  <li>Acesse "Integrações" e crie uma aplicação para obter o Client ID e Secret</li>
+                  <li>Configure as credenciais abaixo (elas serão salvas de forma segura)</li>
+                  <li>Publique imóveis direto do CRM clicando em "Publicar na OLX"</li>
+                </ol>
+              </div>
+              
               <div>
                 <Label>URL do Webhook (para receber dados da OLX)</Label>
                 <div className="flex gap-2 mt-1">
@@ -336,6 +427,7 @@ export default function Settings() {
                   Configure este URL no painel da OLX para receber atualizações automáticas
                 </p>
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="olx_client_id">Client ID</Label>
@@ -346,13 +438,20 @@ export default function Settings() {
                   <Input id="olx_client_secret" type="password" placeholder="Seu Client Secret" />
                 </div>
               </div>
+              
+              <div className="p-3 bg-warning/10 rounded-lg border border-warning/30">
+                <p className="text-xs text-warning-foreground">
+                  <strong>Nota:</strong> Para finalizar a configuração das credenciais OLX, entre em contato com o suporte ou configure os secrets <code className="bg-muted px-1 rounded">OLX_CLIENT_ID</code>, <code className="bg-muted px-1 rounded">OLX_CLIENT_SECRET</code> e <code className="bg-muted px-1 rounded">OLX_ACCESS_TOKEN</code> no backend.
+                </p>
+              </div>
+              
               <div className="flex gap-2">
-                <Button variant="outline">
-                  <Shield className="w-4 h-4" />
+                <Button variant="outline" disabled>
+                  <Shield className="w-4 h-4 mr-2" />
                   Conectar via OAuth
                 </Button>
                 <Button variant="secondary" disabled={isSyncing}>
-                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
                   Sincronizar Agora
                 </Button>
               </div>

@@ -212,33 +212,73 @@ Deno.serve(async (req) => {
         status: "active" as const,
       };
 
-      // Upsert property
-      const { data: upserted, error } = await supabase
+      // Check if property already exists
+      const { data: existing } = await supabase
         .from("properties")
-        .upsert(propertyData, {
-          onConflict: "origin,origin_id",
-          ignoreDuplicates: false,
-        })
-        .select()
-        .single();
+        .select("id")
+        .eq("origin", "olx")
+        .eq("origin_id", prop.id)
+        .maybeSingle();
 
-      if (error) {
-        console.error("Error upserting property:", error);
-        continue;
+      let propertyId: string | null = null;
+
+      if (existing) {
+        // Update existing property
+        const { data: updated, error: updateError } = await supabase
+          .from("properties")
+          .update({
+            title: propertyData.title,
+            price: propertyData.price,
+            type: propertyData.type,
+            neighborhood: propertyData.neighborhood,
+            city: propertyData.city,
+            state: propertyData.state,
+            bedrooms: propertyData.bedrooms,
+            area: propertyData.area,
+          })
+          .eq("id", existing.id)
+          .select("id")
+          .single();
+
+        if (updateError) {
+          console.error("Error updating property:", updateError);
+          continue;
+        }
+        propertyId = updated?.id || null;
+      } else {
+        // Insert new property
+        const { data: inserted, error: insertError } = await supabase
+          .from("properties")
+          .insert(propertyData)
+          .select("id")
+          .single();
+
+        if (insertError) {
+          console.error("Error inserting property:", insertError);
+          continue;
+        }
+        propertyId = inserted?.id || null;
       }
 
       // Add photo if available
-      if (prop.imageUrl && upserted) {
-        await supabase
+      if (prop.imageUrl && propertyId) {
+        // Check if photo already exists
+        const { data: existingPhoto } = await supabase
           .from("property_photos")
-          .upsert({
-            property_id: upserted.id,
-            url: prop.imageUrl,
-            sort_order: 0,
-          }, {
-            onConflict: "property_id,url",
-            ignoreDuplicates: true,
-          });
+          .select("id")
+          .eq("property_id", propertyId)
+          .eq("url", prop.imageUrl)
+          .maybeSingle();
+
+        if (!existingPhoto) {
+          await supabase
+            .from("property_photos")
+            .insert({
+              property_id: propertyId,
+              url: prop.imageUrl,
+              sort_order: 0,
+            });
+        }
       }
 
       syncedCount++;

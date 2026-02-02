@@ -24,9 +24,24 @@ function normalizePhone(phone: string | null | undefined): string | null {
   return digits.length > 0 ? `+${digits}` : null;
 }
 
+// Extract property code from message text (e.g., "CA0121A" from OLX/ZapImóveis)
+function extractPropertyCodeFromMessage(message: string | null | undefined): string | null {
+  if (!message) return null;
+  
+  // Pattern for property codes like CA0121A, AP0234B, etc.
+  const codeMatch = message.match(/Código do anúncio:\s*([A-Z]{2}\d{4}[A-Z]?)/i);
+  if (codeMatch) return codeMatch[1].toUpperCase();
+  
+  // Alternative pattern for id-XXXXX in URLs
+  const urlIdMatch = message.match(/id-(\d+)/);
+  if (urlIdMatch) return urlIdMatch[1];
+  
+  return null;
+}
+
 // OLX contact/inquiry webhook format
 interface OLXInquiry {
-  ad_id: string;
+  ad_id?: string;
   contact_id?: string;
   name: string;
   phone?: string;
@@ -165,17 +180,32 @@ async function processOLXInquiry(supabase: any, data: OLXInquiry | OLXInquiry[])
   let lastLead = null;
 
   for (const inquiry of inquiries) {
-    // Find property by origin_id
+    // Find property by origin_id or by extracting code from message
     let propertyId = null;
-    if (inquiry.ad_id) {
-      const { data: property } = await supabase
+    const adId = inquiry.ad_id || extractPropertyCodeFromMessage(inquiry.message);
+    
+    if (adId) {
+      // Try to find by origin_id first (exact match)
+      let { data: property } = await supabase
         .from("properties")
         .select("id")
-        .eq("origin", "olx")
-        .eq("origin_id", inquiry.ad_id)
+        .eq("origin_id", adId)
         .maybeSingle();
       
+      // If not found, try searching in origin_id with partial match
+      if (!property) {
+        const { data: partialMatch } = await supabase
+          .from("properties")
+          .select("id, origin_id")
+          .ilike("origin_id", `%${adId}%`)
+          .limit(1)
+          .maybeSingle();
+        
+        property = partialMatch;
+      }
+      
       propertyId = property?.id || null;
+      console.log(`Property lookup for ad_id ${adId}: found = ${!!property}, propertyId = ${propertyId}`);
     }
 
     const phoneNormalized = normalizePhone(inquiry.phone);

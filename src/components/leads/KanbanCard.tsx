@@ -1,4 +1,4 @@
-import { Phone, MessageSquare, MoreHorizontal, ExternalLink } from "lucide-react";
+import { Phone, MessageSquare, MoreHorizontal, ExternalLink, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,6 +9,9 @@ import {
 import { Lead } from "@/hooks/useLeads";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface KanbanCardProps {
   lead: Lead;
@@ -17,6 +20,9 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  
   const createdAt = formatDistanceToNow(new Date(lead.created_at), {
     addSuffix: true,
     locale: ptBR,
@@ -32,6 +38,47 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
   const handlePhoneClick = () => {
     if (lead.phone) {
       window.open(`tel:${lead.phone}`, "_blank");
+    }
+  };
+
+  const handleStartConversation = async () => {
+    try {
+      // Check if conversation already exists
+      const { data: existing } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("lead_id", lead.id)
+        .maybeSingle();
+
+      if (existing) {
+        navigate("/admin/inbox");
+        return;
+      }
+
+      // Create new conversation
+      const { error } = await supabase.from("conversations").insert({
+        lead_id: lead.id,
+        channel: "whatsapp",
+        last_message_preview: `Conversa iniciada com ${lead.name}`,
+        last_message_at: new Date().toISOString(),
+        unread_count: 0,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Conversa criada",
+        description: "Acesse o Inbox para conversar",
+      });
+      
+      navigate("/admin/inbox");
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar a conversa",
+        variant: "destructive",
+      });
     }
   };
 
@@ -60,6 +107,10 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleStartConversation}>
+              <Inbox className="w-3 h-3 mr-2" />
+              Abrir no Inbox
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handlePhoneClick}>
               <Phone className="w-3 h-3 mr-2" />
               Ligar
@@ -80,9 +131,15 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
         </DropdownMenu>
       </div>
       <div className="mt-2 pt-2 border-t">
-        <p className="text-xs text-muted-foreground">
-          {lead.property ? `${lead.property.title}` : "Sem imóvel vinculado"}
-        </p>
+        {lead.property ? (
+          <p className="text-xs text-primary font-medium truncate">
+            🏠 {lead.property.title}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">
+            Sem imóvel vinculado
+          </p>
+        )}
         {lead.origin && (
           <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
             {lead.origin}

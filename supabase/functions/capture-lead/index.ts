@@ -106,6 +106,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Create conversation for the lead (for inbox)
+    await supabase.from("conversations").insert({
+      lead_id: lead.id,
+      channel: "whatsapp",
+      last_message_preview: lead.notes || `Novo lead via ${source}`,
+      last_message_at: new Date().toISOString(),
+      unread_count: 1,
+    });
+
     // Log activity
     await supabase.from("activity_log").insert({
       action: "lead_captured",

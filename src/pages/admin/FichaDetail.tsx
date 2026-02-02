@@ -32,6 +32,7 @@ import {
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
 import { WhatsAppButton } from "@/components/fichas/WhatsAppButton";
+import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 import {
   useFichaById,
   useAnalyzeFicha,
@@ -166,6 +167,11 @@ export default function FichaDetail() {
             fichaId={ficha.id}
             suggestedMessage={aiAnalysis?.mensagem_whatsapp || ""}
             variant="outline"
+          />
+          <ScheduleMessageDialog
+            defaultPhone={ficha.phone}
+            fichaId={ficha.id}
+            defaultMessage={aiAnalysis?.mensagem_whatsapp || ""}
           />
           <Button
             variant="outline"

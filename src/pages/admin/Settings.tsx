@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
+import { ScheduledMessagesList } from "@/components/whatsapp/ScheduledMessagesList";
 
 export default function Settings() {
   const [olxConnected, setOlxConnected] = useState(false);
@@ -294,6 +296,10 @@ export default function Settings() {
           <TabsTrigger value="integrations">
             <Link2 className="w-4 h-4 mr-2" />
             Integrações
+          </TabsTrigger>
+          <TabsTrigger value="scheduling">
+            <CalendarClock className="w-4 h-4 mr-2" />
+            Agendamentos
           </TabsTrigger>
           <TabsTrigger value="agent">
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -664,6 +670,28 @@ export default function Settings() {
                 )}
                 Testar Conexão
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scheduling" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarClock className="w-5 h-5" />
+                    Agendamento de Mensagens WhatsApp
+                  </CardTitle>
+                  <CardDescription>
+                    Agende mensagens para envio automático em datas e horários específicos
+                  </CardDescription>
+                </div>
+                <ScheduleMessageDialog />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScheduledMessagesList />
             </CardContent>
           </Card>
         </TabsContent>

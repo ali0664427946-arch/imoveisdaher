@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,20 +14,28 @@ export default function Settings() {
   const [olxConnected, setOlxConnected] = useState(false);
   const [autoSendEnabled, setAutoSendEnabled] = useState(false);
   const [feedUrl, setFeedUrl] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
 
-  // Webhook URLs for external integrations
-  const webhookBaseUrl = "https://jrwnrygaejtsodeinpni.supabase.co/functions/v1/sync-properties";
+  // Base URLs for Supabase functions
+  const supabaseFunctionsUrl = "https://jrwnrygaejtsodeinpni.supabase.co/functions/v1";
+
+  // Webhook URLs for syncing properties
+  const webhookBaseUrl = `${supabaseFunctionsUrl}/sync-properties`;
   const olxWebhookUrl = `${webhookBaseUrl}?source=olx`;
   const imovelwebWebhookUrl = `${webhookBaseUrl}?source=imovelweb`;
 
-  const copyToClipboard = async (text: string) => {
+  // Webhook URLs for capturing leads
+  const leadCaptureBaseUrl = `${supabaseFunctionsUrl}/capture-lead`;
+  const olxLeadWebhookUrl = `${leadCaptureBaseUrl}?source=olx`;
+  const imovelwebLeadWebhookUrl = `${leadCaptureBaseUrl}?source=imovelweb`;
+
+  const copyToClipboard = async (text: string, fieldId: string) => {
     await navigator.clipboard.writeText(text);
-    setCopied(true);
+    setCopiedField(fieldId);
     toast({ title: "Copiado!", description: "URL copiada para a área de transferência" });
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   const handleImportFeed = async () => {
@@ -103,9 +111,9 @@ export default function Settings() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => copyToClipboard(olxWebhookUrl)}
+                    onClick={() => copyToClipboard(olxWebhookUrl, "olx-sync")}
                   >
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copiedField === "olx-sync" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -156,9 +164,9 @@ export default function Settings() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => copyToClipboard(imovelwebWebhookUrl)}
+                    onClick={() => copyToClipboard(imovelwebWebhookUrl, "imovelweb-sync")}
                   >
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copiedField === "imovelweb-sync" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -182,6 +190,65 @@ export default function Settings() {
                 <Button variant="outline">
                   Importar CSV
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lead Capture Webhooks */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground">
+                  <Webhook className="w-4 h-4" />
+                </span>
+                Webhooks de Captura de Leads
+              </CardTitle>
+              <CardDescription>
+                URLs para receber leads automaticamente de portais externos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded bg-accent flex items-center justify-center text-accent-foreground font-bold text-[10px]">
+                    OLX
+                  </span>
+                  Captura de Leads OLX (Canal Pro)
+                </Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={olxLeadWebhookUrl} readOnly className="font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(olxLeadWebhookUrl, "olx-lead")}
+                  >
+                    {copiedField === "olx-lead" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure este URL no Canal Pro da OLX para receber leads automaticamente
+                </p>
+              </div>
+              <div className="border-t pt-4">
+                <Label className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded bg-navy-600 flex items-center justify-center text-white font-bold text-[10px]">
+                    IW
+                  </span>
+                  Captura de Leads ImovelWeb
+                </Label>
+                <div className="flex gap-2 mt-1">
+                  <Input value={imovelwebLeadWebhookUrl} readOnly className="font-mono text-xs" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(imovelwebLeadWebhookUrl, "imovelweb-lead")}
+                  >
+                    {copiedField === "imovelweb-lead" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure este URL no painel do ImovelWeb para receber leads
+                </p>
               </div>
             </CardContent>
           </Card>

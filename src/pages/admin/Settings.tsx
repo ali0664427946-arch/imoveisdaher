@@ -20,6 +20,7 @@ export default function Settings() {
   const [feedUrl, setFeedUrl] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
+  const [testingEvolution, setTestingEvolution] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -140,6 +141,40 @@ export default function Settings() {
       });
     } finally {
       setTestingWebhook(null);
+    }
+  };
+
+  const testEvolutionConnection = async () => {
+    setTestingEvolution(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("test-evolution-connection");
+
+      if (error) {
+        throw new Error(error.message || "Erro ao testar conexão");
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Conexão bem sucedida! ✅",
+          description: data.message || `Instância: ${data.instance} (${data.state})`,
+        });
+      } else {
+        toast({
+          title: "Falha na conexão ❌",
+          description: data?.details || data?.error || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao testar conexão";
+      toast({
+        title: "Erro na conexão ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setTestingEvolution(false);
     }
   };
 
@@ -430,7 +465,16 @@ export default function Settings() {
                   <Input id="evolution_instance" placeholder="daher-imoveis" />
                 </div>
               </div>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={testEvolutionConnection}
+                disabled={testingEvolution}
+              >
+                {testingEvolution ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Zap className="w-4 h-4 mr-2" />
+                )}
                 Testar Conexão
               </Button>
             </CardContent>

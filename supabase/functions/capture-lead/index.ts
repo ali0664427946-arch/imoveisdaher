@@ -107,13 +107,25 @@ Deno.serve(async (req) => {
     }
 
     // Create conversation for the lead (for inbox)
-    await supabase.from("conversations").insert({
+    const { data: conversation } = await supabase.from("conversations").insert({
       lead_id: lead.id,
-      channel: "whatsapp",
+      channel: source === "olx" ? "olx_chat" : source === "imovelweb" ? "internal" : "whatsapp",
       last_message_preview: lead.notes || `Novo lead via ${source}`,
       last_message_at: new Date().toISOString(),
       unread_count: 1,
-    });
+    }).select().single();
+
+    // Create the initial message from the lead
+    if (conversation && lead.notes) {
+      await supabase.from("messages").insert({
+        conversation_id: conversation.id,
+        content: lead.notes,
+        direction: "inbound",
+        message_type: "text",
+        sent_status: "delivered",
+        provider: source,
+      });
+    }
 
     // Log activity
     await supabase.from("activity_log").insert({

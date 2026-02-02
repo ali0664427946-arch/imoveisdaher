@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { usePropertySync } from "@/hooks/usePropertySync";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function Settings() {
   const [olxConnected, setOlxConnected] = useState(false);
@@ -17,6 +21,30 @@ export default function Settings() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
+
+  // Query to get last lead received per origin
+  const { data: lastLeadsByOrigin } = useQuery({
+    queryKey: ["last-leads-by-origin"],
+    queryFn: async () => {
+      const origins = ["olx", "imovelweb", "site", "manual"];
+      const results: Record<string, { created_at: string; name: string } | null> = {};
+      
+      for (const origin of origins) {
+        const { data } = await supabase
+          .from("leads")
+          .select("created_at, name")
+          .ilike("origin", `%${origin}%`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        
+        results[origin] = data;
+      }
+      
+      return results;
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   // Base URLs for Supabase functions
   const supabaseFunctionsUrl = "https://jrwnrygaejtsodeinpni.supabase.co/functions/v1";
@@ -209,12 +237,25 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded bg-accent flex items-center justify-center text-accent-foreground font-bold text-[10px]">
-                    OLX
-                  </span>
-                  Captura de Leads OLX (Canal Pro)
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded bg-accent flex items-center justify-center text-accent-foreground font-bold text-[10px]">
+                      OLX
+                    </span>
+                    Captura de Leads OLX (Canal Pro)
+                  </Label>
+                  {lastLeadsByOrigin?.olx ? (
+                    <span className="text-xs text-success flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Último: {formatDistanceToNow(new Date(lastLeadsByOrigin.olx.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Nenhum lead recebido
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2 mt-1">
                   <Input value={olxLeadWebhookUrl} readOnly className="font-mono text-xs" />
                   <Button
@@ -230,12 +271,25 @@ export default function Settings() {
                 </p>
               </div>
               <div className="border-t pt-4">
-                <Label className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded bg-navy-600 flex items-center justify-center text-white font-bold text-[10px]">
-                    IW
-                  </span>
-                  Captura de Leads ImovelWeb
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded bg-navy-600 flex items-center justify-center text-white font-bold text-[10px]">
+                      IW
+                    </span>
+                    Captura de Leads ImovelWeb
+                  </Label>
+                  {lastLeadsByOrigin?.imovelweb ? (
+                    <span className="text-xs text-success flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Último: {formatDistanceToNow(new Date(lastLeadsByOrigin.imovelweb.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Nenhum lead recebido
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2 mt-1">
                   <Input value={imovelwebLeadWebhookUrl} readOnly className="font-mono text-xs" />
                   <Button

@@ -57,8 +57,11 @@ Deno.serve(async (req) => {
 
     console.log("Starting OLX scrape for:", profileUrl);
 
-    // Step 1: Map the profile page to get all listing URLs
-    const mapResponse = await fetch("https://api.firecrawl.dev/v1/map", {
+    // Step 1: First scrape the profile page to get links from it
+    // OLX uses JavaScript rendering, so we need to wait for content to load
+    console.log("Scraping profile page to find listings...");
+    
+    const scrapeProfileResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
@@ -66,33 +69,79 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         url: profileUrl,
-        limit: 100,
-        includeSubdomains: false,
+        formats: ["links", "html"],
+        onlyMainContent: false,
+        waitFor: 5000, // Wait 5 seconds for JavaScript to load
       }),
     });
 
-    const mapData = await mapResponse.json();
+    const scrapeProfileData = await scrapeProfileResponse.json();
 
-    if (!mapResponse.ok) {
-      console.error("Firecrawl map error:", mapData);
+    if (!scrapeProfileResponse.ok) {
+      console.error("Firecrawl scrape profile error:", scrapeProfileData);
       return new Response(
-        JSON.stringify({ success: false, error: "Erro ao mapear página: " + (mapData.error || "Erro desconhecido") }),
+        JSON.stringify({ success: false, error: "Erro ao acessar página: " + (scrapeProfileData.error || "Erro desconhecido") }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Found links:", mapData.links?.length || 0);
+    // Get links from scrape response
+    const allLinks = scrapeProfileData.data?.links || scrapeProfileData.links || [];
+    const html = scrapeProfileData.data?.html || scrapeProfileData.html || "";
+    
+    console.log("Found total links:", allLinks.length);
 
-    // Filter only property listing URLs (contain /d/)
-    const propertyUrls = (mapData.links || [])
-      .filter((url: string) => url.includes("/d/") && !url.includes("/perfil/"))
+    // Also extract links from HTML using regex (OLX links often follow pattern)
+    const htmlLinkMatches = html.matchAll(/href="(https:\/\/[^"]*olx\.com\.br\/[^"]*\d{8,}[^"]*)"/g);
+    const htmlLinks: string[] = [];
+    for (const match of htmlLinkMatches) {
+      htmlLinks.push(match[1]);
+    }
+    console.log("Found HTML links with IDs:", htmlLinks.length);
+    
+    // Combine all links
+    const combinedLinks = [...new Set([...allLinks, ...htmlLinks])];
+    console.log("Combined unique links:", combinedLinks.length);
+
+    // Filter property listing URLs - OLX uses various patterns
+    // Main pattern is: URLs containing a long numeric ID (8+ digits)
+    const propertyUrls = combinedLinks
+      .filter((url: string) => {
+        // Must be OLX URL
+        if (!url.includes("olx.com.br")) return false;
+        // Exclude profile pages
+        if (url.includes("/perfil/")) return false;
+        // Exclude generic pages
+        if (url.includes("/suporte") || url.includes("/ajuda") || url.includes("/termos")) return false;
+        if (url.includes("#")) return false; // Skip anchor links
+        if (url.includes("conta.olx") || url.includes("chat.olx")) return false;
+        
+        // Include if it matches listing patterns - must have 8+ digit ID
+        const hasListingId = /\d{8,}/.test(url);
+        
+        return hasListingId;
+      })
       .slice(0, 20); // Limit to 20 properties
 
     console.log("Property URLs to scrape:", propertyUrls.length);
+    if (propertyUrls.length > 0) {
+      console.log("Sample URLs:", propertyUrls.slice(0, 3));
+    }
 
     if (propertyUrls.length === 0) {
+      // Log debug info
+      console.log("All links sample:", combinedLinks.slice(0, 10));
+      
       return new Response(
-        JSON.stringify({ success: true, synced: 0, message: "Nenhum anúncio encontrado no perfil" }),
+        JSON.stringify({ 
+          success: true, 
+          synced: 0, 
+          message: "Nenhum anúncio encontrado. O OLX pode estar usando proteção anti-bot ou a página não contém anúncios.",
+          debug: {
+            totalLinks: combinedLinks.length,
+            sampleLinks: combinedLinks.slice(0, 5),
+          }
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

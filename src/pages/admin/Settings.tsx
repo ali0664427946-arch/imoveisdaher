@@ -28,17 +28,17 @@ export default function Settings() {
   const { data: lastLeadsByOrigin } = useQuery({
     queryKey: ["last-leads-by-origin"],
     queryFn: async () => {
-      const origins = ["olx", "imovelweb", "site", "manual"];
+      const origins = ["olx", "imovelweb", "website", "manual"];
       const results: Record<string, { created_at: string; name: string } | null> = {};
       
       for (const origin of origins) {
         const { data } = await supabase
           .from("leads")
           .select("created_at, name")
-          .ilike("origin", `%${origin}%`)
+          .eq("origin", origin)
           .order("created_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
         
         results[origin] = data;
       }

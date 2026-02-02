@@ -59,119 +59,86 @@ Deno.serve(async (req) => {
 
     console.log("Starting OLX scrape for:", profileUrl);
 
-    // Step 1: Use Map API to discover all URLs from the profile
-    console.log("Mapping profile page to find all listings...");
-    
-    const mapResponse = await fetch("https://api.firecrawl.dev/v1/map", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: profileUrl,
-        limit: 200,
-        includeSubdomains: true,
-      }),
-    });
+    // Extract profile ID from URL for pagination
+    const profileIdMatch = profileUrl.match(/perfil\/([^?\/]+)/);
+    const profileId = profileIdMatch ? profileIdMatch[1] : null;
+    console.log("Profile ID:", profileId);
 
-    const mapData = await mapResponse.json();
-    let mappedLinks: string[] = [];
-    
-    if (mapResponse.ok && mapData.links) {
-      mappedLinks = mapData.links;
-      console.log("Map API found links:", mappedLinks.length);
-    } else {
-      console.log("Map API failed or returned no links, falling back to scrape");
-    }
+    // Scrape multiple pages of the profile (OLX paginates results)
+    const allPropertyUrls: Set<string> = new Set();
+    const pagesToScrape = 5; // Scrape up to 5 pages (10 items each = 50 items)
 
-    // Step 2: Also scrape the profile page directly for more links
-    console.log("Scraping profile page for additional listings...");
-    
-    const scrapeProfileResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: profileUrl,
-        formats: ["links", "html"],
-        onlyMainContent: false,
-        waitFor: 8000, // Wait 8 seconds for JavaScript to fully load
-      }),
-    });
+    for (let page = 1; page <= pagesToScrape; page++) {
+      // Build paginated URL
+      let pageUrl = profileUrl;
+      if (page > 1) {
+        // OLX uses ?o=2, ?o=3, etc. for pagination
+        const separator = profileUrl.includes("?") ? "&" : "?";
+        pageUrl = `${profileUrl.split("?")[0]}?o=${page}`;
+      }
 
-    const scrapeProfileData = await scrapeProfileResponse.json();
+      console.log(`Scraping page ${page}: ${pageUrl}`);
 
-    if (!scrapeProfileResponse.ok) {
-      console.error("Firecrawl scrape profile error:", scrapeProfileData);
-      
-      // If we have mapped links, continue with those
-      if (mappedLinks.length === 0) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Erro ao acessar página: " + (scrapeProfileData.error || "Erro desconhecido") }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: pageUrl,
+          formats: ["links", "html"],
+          onlyMainContent: false,
+          waitFor: 5000,
+        }),
+      });
+
+      const scrapeData = await scrapeResponse.json();
+
+      if (!scrapeResponse.ok) {
+        console.error(`Error scraping page ${page}:`, scrapeData);
+        continue;
+      }
+
+      const links = scrapeData.data?.links || scrapeData.links || [];
+      const html = scrapeData.data?.html || scrapeData.html || "";
+
+      // Extract links from API response
+      for (const link of links) {
+        if (isPropertyUrl(link)) {
+          allPropertyUrls.add(cleanUrl(link));
+        }
+      }
+
+      // Extract links from HTML (more reliable)
+      const htmlMatches = html.matchAll(/href="(https:\/\/[^"]*olx\.com\.br\/[^"]*\d{8,}[^"]*)"/g);
+      for (const match of htmlMatches) {
+        if (isPropertyUrl(match[1])) {
+          allPropertyUrls.add(cleanUrl(match[1]));
+        }
+      }
+
+      console.log(`Page ${page} found ${allPropertyUrls.size} unique properties so far`);
+
+      // If we got no new links on this page, stop pagination
+      const prevSize = allPropertyUrls.size;
+      if (page > 1 && links.length < 5) {
+        console.log("No more pages to scrape");
+        break;
       }
     }
 
-    // Get links from scrape response
-    const scrapeLinks = scrapeProfileData.data?.links || scrapeProfileData.links || [];
-    const html = scrapeProfileData.data?.html || scrapeProfileData.html || "";
-    
-    console.log("Scrape API found links:", scrapeLinks.length);
+    console.log("Total unique property URLs found:", allPropertyUrls.size);
 
-    // Also extract links from HTML using regex (OLX links often follow pattern)
-    const htmlLinkMatches = html.matchAll(/href="(https:\/\/[^"]*olx\.com\.br\/[^"]*\d{8,}[^"]*)"/g);
-    const htmlLinks: string[] = [];
-    for (const match of htmlLinkMatches) {
-      htmlLinks.push(match[1]);
-    }
-    console.log("Found HTML links with IDs:", htmlLinks.length);
-    
-    // Combine all links from different sources
-    const combinedLinks = [...new Set([...mappedLinks, ...scrapeLinks, ...htmlLinks])];
-    console.log("Combined unique links:", combinedLinks.length);
-
-    // Filter property listing URLs - OLX uses various patterns
-    // Main pattern is: URLs containing a long numeric ID (8+ digits)
-    const propertyUrls = combinedLinks
-      .filter((url: string) => {
-        // Must be OLX URL
-        if (!url.includes("olx.com.br")) return false;
-        // Exclude profile pages
-        if (url.includes("/perfil/")) return false;
-        // Exclude generic pages
-        if (url.includes("/suporte") || url.includes("/ajuda") || url.includes("/termos")) return false;
-        if (url.includes("#")) return false; // Skip anchor links
-        if (url.includes("conta.olx") || url.includes("chat.olx")) return false;
-        if (url.includes("/busca") || url.includes("/search")) return false;
-        
-        // Include if it matches listing patterns - must have 8+ digit ID
-        const hasListingId = /\d{8,}/.test(url);
-        
-        return hasListingId;
-      })
-      .slice(0, 60); // Increase limit to 60 properties
-
+    const propertyUrls = Array.from(allPropertyUrls).slice(0, 60);
     console.log("Property URLs to scrape:", propertyUrls.length);
-    if (propertyUrls.length > 0) {
-      console.log("Sample URLs:", propertyUrls.slice(0, 3));
-    }
 
     if (propertyUrls.length === 0) {
-      console.log("All links sample:", combinedLinks.slice(0, 10));
-      
       return new Response(
         JSON.stringify({ 
           success: true, 
           synced: 0, 
-          message: "Nenhum anúncio encontrado. O OLX pode estar usando proteção anti-bot ou a página não contém anúncios.",
-          debug: {
-            totalLinks: combinedLinks.length,
-            sampleLinks: combinedLinks.slice(0, 5),
-          }
+          message: "Nenhum anúncio encontrado.",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -179,15 +146,14 @@ Deno.serve(async (req) => {
 
     const scrapedProperties: ScrapedProperty[] = [];
 
-    // Step 3: Scrape each property page (in batches to avoid rate limiting)
+    // Scrape each property page in batches
     const batchSize = 5;
     for (let i = 0; i < propertyUrls.length; i += batchSize) {
       const batch = propertyUrls.slice(i, i + batchSize);
+      console.log(`Scraping batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(propertyUrls.length/batchSize)}`);
       
       const batchPromises = batch.map(async (propUrl: string) => {
         try {
-          console.log("Scraping property:", propUrl);
-
           const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
             method: "POST",
             headers: {
@@ -204,7 +170,7 @@ Deno.serve(async (req) => {
           const scrapeData = await scrapeResponse.json();
 
           if (!scrapeResponse.ok) {
-            console.error("Error scraping property:", propUrl, scrapeData);
+            console.error("Error scraping:", propUrl);
             return null;
           }
 
@@ -212,14 +178,13 @@ Deno.serve(async (req) => {
           const propHtml = scrapeData.data?.html || scrapeData.html || "";
           const metadata = scrapeData.data?.metadata || scrapeData.metadata || {};
 
-          // Extract property ID from URL
-          const idMatch = propUrl.match(/(\d+)(?:\?|$)/);
-          const propertyId = idMatch ? idMatch[1] : propUrl.split("/").pop()?.split("-").pop()?.replace(/\D/g, "") || Date.now().toString();
+          // Extract property ID from URL (the numeric ID at the end)
+          const idMatch = propUrl.match(/-(\d{8,})(?:\?|$)/);
+          const propertyId = idMatch ? idMatch[1] : extractIdFromUrl(propUrl);
 
-          // Parse property data from content
           return parseOLXProperty(content, propHtml, metadata, propUrl, propertyId);
         } catch (err) {
-          console.error("Error processing property:", propUrl, err);
+          console.error("Error processing:", propUrl, err);
           return null;
         }
       });
@@ -232,12 +197,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("Scraped properties:", scrapedProperties.length);
+    console.log("Successfully scraped:", scrapedProperties.length);
 
-    // Step 4: Insert properties into database
+    // Insert/update properties in database (with deduplication by origin_id)
     let syncedCount = 0;
+    let skippedCount = 0;
 
     for (const prop of scrapedProperties) {
+      // Skip if missing essential data
+      if (!prop.id || !prop.title || prop.price <= 0) {
+        console.log("Skipping invalid property:", prop.id);
+        skippedCount++;
+        continue;
+      }
+
       const propertyData = {
         origin: "olx" as const,
         origin_id: prop.id,
@@ -256,7 +229,7 @@ Deno.serve(async (req) => {
         status: "active" as const,
       };
 
-      // Check if property already exists
+      // Use upsert with origin + origin_id constraint to prevent duplicates
       const { data: existing } = await supabase
         .from("properties")
         .select("id")
@@ -267,7 +240,7 @@ Deno.serve(async (req) => {
       let propertyId: string | null = null;
 
       if (existing) {
-        // Update existing property
+        // Update existing
         const { data: updated, error: updateError } = await supabase
           .from("properties")
           .update({
@@ -281,34 +254,30 @@ Deno.serve(async (req) => {
             bathrooms: propertyData.bathrooms,
             parking: propertyData.parking,
             area: propertyData.area,
+            status: propertyData.status,
           })
           .eq("id", existing.id)
           .select("id")
           .single();
 
-        if (updateError) {
-          console.error("Error updating property:", updateError);
-          continue;
+        if (!updateError && updated) {
+          propertyId = updated.id;
         }
-        propertyId = updated?.id || null;
       } else {
-        // Insert new property
+        // Insert new
         const { data: inserted, error: insertError } = await supabase
           .from("properties")
           .insert(propertyData)
           .select("id")
           .single();
 
-        if (insertError) {
-          console.error("Error inserting property:", insertError);
-          continue;
+        if (!insertError && inserted) {
+          propertyId = inserted.id;
         }
-        propertyId = inserted?.id || null;
       }
 
-      // Add photo if available
+      // Add photo if available and not already exists
       if (prop.imageUrl && propertyId) {
-        // Check if photo already exists
         const { data: existingPhoto } = await supabase
           .from("property_photos")
           .select("id")
@@ -317,13 +286,11 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!existingPhoto) {
-          await supabase
-            .from("property_photos")
-            .insert({
-              property_id: propertyId,
-              url: prop.imageUrl,
-              sort_order: 0,
-            });
+          await supabase.from("property_photos").insert({
+            property_id: propertyId,
+            url: prop.imageUrl,
+            sort_order: 0,
+          });
         }
       }
 
@@ -339,11 +306,12 @@ Deno.serve(async (req) => {
         found: propertyUrls.length,
         scraped: scrapedProperties.length,
         synced: syncedCount,
+        skipped: skippedCount,
         timestamp: new Date().toISOString(),
       },
     });
 
-    // Update last sync timestamp in settings
+    // Update last sync timestamp
     const { data: existingSettings } = await supabase
       .from("integrations_settings")
       .select("value")
@@ -351,14 +319,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingSettings?.value) {
-      const currentValue = existingSettings.value as { enabled: boolean; profile_url: string | null; last_sync_at: string | null };
+      const currentValue = existingSettings.value as Record<string, unknown>;
       await supabase
         .from("integrations_settings")
         .update({
-          value: {
-            ...currentValue,
-            last_sync_at: new Date().toISOString(),
-          },
+          value: { ...currentValue, last_sync_at: new Date().toISOString() },
         })
         .eq("key", "olx_auto_sync");
     }
@@ -384,36 +349,61 @@ Deno.serve(async (req) => {
   }
 });
 
+function isPropertyUrl(url: string): boolean {
+  if (!url.includes("olx.com.br")) return false;
+  if (url.includes("/perfil/")) return false;
+  if (url.includes("/suporte") || url.includes("/ajuda") || url.includes("/termos")) return false;
+  if (url.includes("#")) return false;
+  if (url.includes("conta.olx") || url.includes("chat.olx")) return false;
+  if (url.includes("/busca") || url.includes("/search")) return false;
+  // Must have 8+ digit ID
+  return /\d{8,}/.test(url);
+}
+
+function cleanUrl(url: string): string {
+  // Remove query params like ?lis=xxx
+  return url.split("?")[0];
+}
+
+function extractIdFromUrl(url: string): string {
+  // Try various patterns to extract ID
+  const patterns = [
+    /-(\d{8,})$/,           // ID at end of path
+    /-(\d{8,})\?/,          // ID before query
+    /\/(\d{8,})(?:\?|$)/,   // Just ID
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  
+  // Fallback: get all digits
+  const allDigits = url.match(/\d{8,}/g);
+  return allDigits?.[allDigits.length - 1] || Date.now().toString();
+}
+
 function parseOLXProperty(content: string, html: string, metadata: any, url: string, id: string): ScrapedProperty | null {
   try {
-    // Get title from metadata or content
-    const title = metadata.title?.replace(" | OLX", "").trim() || 
-                  content.match(/^#\s+(.+)/m)?.[1] ||
-                  "Imóvel OLX";
+    // Get title
+    let title = metadata.title?.replace(" | OLX", "").replace(/\s+/g, " ").trim() || 
+                content.match(/^#\s+(.+)/m)?.[1] ||
+                "Imóvel OLX";
 
-    // Extract price - look for R$ patterns
+    // Extract price
     const priceMatch = content.match(/R\$\s*([\d.,]+)/);
     let price = 0;
     if (priceMatch) {
       price = parseFloat(priceMatch[1].replace(/\./g, "").replace(",", "."));
     }
 
-    // Extract location info from title or content
-    // Pattern: "... - Neighborhood, City - State" or "... - Neighborhood, City"
-    const titleLocationMatch = title.match(/[-–]\s*([^,-]+),\s*([^-–]+?)(?:\s*[-–]\s*([A-Z]{2}))?$/);
-    let neighborhood = "", city = "", state = "RJ";
-    
+    // Extract location from title pattern: "... - Neighborhood, City - RJ"
+    let neighborhood = "", city = "Rio de Janeiro", state = "RJ";
+    const titleLocationMatch = title.match(/[-–]\s*([^,]+),\s*([^-–]+?)(?:\s*[-–]\s*([A-Z]{2}))?(?:\s+\d+)?$/);
     if (titleLocationMatch) {
       neighborhood = titleLocationMatch[1]?.trim() || "";
-      city = titleLocationMatch[2]?.trim() || "";
+      city = titleLocationMatch[2]?.trim() || "Rio de Janeiro";
       state = titleLocationMatch[3]?.trim() || "RJ";
-    } else {
-      // Try from content
-      const contentLocationMatch = content.match(/(?:Localização|Local|Endereço|Bairro)[:\s]*([^,\n]+),?\s*([^,\n]*)/i);
-      if (contentLocationMatch) {
-        neighborhood = contentLocationMatch[1]?.trim() || "";
-        city = contentLocationMatch[2]?.trim() || "Rio de Janeiro";
-      }
     }
 
     // Extract bedrooms
@@ -426,40 +416,24 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
     const bathrooms = bathroomMatch ? parseInt(bathroomMatch[1]) : 0;
 
     // Extract parking
-    const parkingMatch = content.match(/(\d+)\s*(?:vaga|vagas|garagem)/i);
-    const parking = parkingMatch ? parseInt(parkingMatch[1]) : 0;
+    const parkingMatch = content.match(/(\d+)\s*(?:vaga|vagas|garagem)/i) ||
+                         title.match(/(?:c\/|com)\s*(?:vaga|garagem)/i);
+    const parking = parkingMatch ? (typeof parkingMatch[1] === 'string' && /\d/.test(parkingMatch[1]) ? parseInt(parkingMatch[1]) : 1) : 0;
 
     // Extract area
-    const areaMatch = content.match(/(\d+)\s*m²/) || title.match(/(\d+)\s*m²/);
+    const areaMatch = content.match(/(\d+)\s*m²/) || title.match(/(\d+)\s*m²/) || title.match(/(\d+)m/);
     const area = areaMatch ? parseInt(areaMatch[1]) : undefined;
 
-    // Try to get first image from metadata or HTML
+    // Get image
     let imageUrl = metadata.ogImage || metadata.image;
-    
-    // If no image in metadata, try to extract from HTML
     if (!imageUrl && html) {
-      const imgMatch = html.match(/<img[^>]+src="(https:\/\/[^"]*(?:olximg|img)[^"]*)"/);
-      if (imgMatch) {
-        imageUrl = imgMatch[1];
-      }
+      const imgMatch = html.match(/<img[^>]+src="(https:\/\/[^"]*(?:olxbr|olximg)[^"]*)"/);
+      if (imgMatch) imageUrl = imgMatch[1];
     }
 
-    return {
-      id,
-      title,
-      price,
-      url,
-      neighborhood,
-      city: city || "Rio de Janeiro",
-      state: state || "RJ",
-      bedrooms,
-      bathrooms,
-      parking,
-      area,
-      imageUrl,
-    };
+    return { id, title, price, url, neighborhood, city, state, bedrooms, bathrooms, parking, area, imageUrl };
   } catch (err) {
-    console.error("Error parsing property:", err);
+    console.error("Parse error:", err);
     return null;
   }
 }
@@ -480,7 +454,6 @@ function detectPurpose(title: string, price: number): string {
   const lower = title.toLowerCase();
   if (lower.includes("venda") || lower.includes("vende") || lower.includes("vendo")) return "sale";
   if (lower.includes("alug") || lower.includes("locação") || lower.includes("locacao")) return "rent";
-  // If price is high (> 100k), likely a sale
   if (price > 100000) return "sale";
   return "rent";
 }

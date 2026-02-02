@@ -297,6 +297,26 @@ Deno.serve(async (req) => {
       },
     });
 
+    // Update last sync timestamp in settings
+    const { data: existingSettings } = await supabase
+      .from("integrations_settings")
+      .select("value")
+      .eq("key", "olx_auto_sync")
+      .maybeSingle();
+
+    if (existingSettings?.value) {
+      const currentValue = existingSettings.value as { enabled: boolean; profile_url: string | null; last_sync_at: string | null };
+      await supabase
+        .from("integrations_settings")
+        .update({
+          value: {
+            ...currentValue,
+            last_sync_at: new Date().toISOString(),
+          },
+        })
+        .eq("key", "olx_auto_sync");
+    }
+
     console.log(`Synced ${syncedCount} properties from OLX`);
 
     return new Response(

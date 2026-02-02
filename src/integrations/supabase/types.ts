@@ -544,6 +544,76 @@ export type Database = {
           },
         ]
       }
+      scheduled_messages: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          ficha_id: string | null
+          id: string
+          lead_id: string | null
+          message: string
+          metadata: Json | null
+          phone: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          ficha_id?: string | null
+          id?: string
+          lead_id?: string | null
+          message: string
+          metadata?: Json | null
+          phone: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          ficha_id?: string | null
+          id?: string
+          lead_id?: string | null
+          message?: string
+          metadata?: Json | null
+          phone?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_ficha_id_fkey"
+            columns: ["ficha_id"]
+            isOneToOne: false
+            referencedRelation: "fichas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       templates: {
         Row: {
           channel: Database["public"]["Enums"]["conversation_channel"] | null

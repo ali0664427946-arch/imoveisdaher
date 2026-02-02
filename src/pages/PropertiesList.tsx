@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { SearchFilters } from "@/components/properties/SearchFilters";
 import { PropertyGrid } from "@/components/properties/PropertyGrid";
-import { mockProperties } from "@/data/mockProperties";
+import { type Property } from "@/components/properties/PropertyCard";
 import { SlidersHorizontal, Grid3X3, List, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +20,52 @@ export default function PropertiesList() {
   const [sortBy, setSortBy] = useState("recent");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // In real implementation, this would filter based on searchParams
-  const properties = mockProperties;
+  const { data: properties = [], isLoading } = useQuery({
+    queryKey: ["properties-list", searchParams.toString()],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select(`
+          *,
+          property_photos (url, sort_order)
+        `)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return data.map((p): Property => ({
+        id: p.id,
+        title: p.title,
+        price: Number(p.price),
+        purpose: p.purpose as "rent" | "sale",
+        type: p.type,
+        neighborhood: p.neighborhood,
+        city: p.city,
+        bedrooms: p.bedrooms ?? 0,
+        bathrooms: p.bathrooms ?? 0,
+        parking: p.parking ?? 0,
+        area: p.area ? Number(p.area) : undefined,
+        imageUrl: p.property_photos?.[0]?.url,
+        featured: p.featured ?? false,
+        origin: p.origin,
+      }));
+    },
+  });
+
+  const sortedProperties = useMemo(() => {
+    const sorted = [...properties];
+    switch (sortBy) {
+      case "price-asc":
+        return sorted.sort((a, b) => a.price - b.price);
+      case "price-desc":
+        return sorted.sort((a, b) => b.price - a.price);
+      case "area-desc":
+        return sorted.sort((a, b) => (b.area ?? 0) - (a.area ?? 0));
+      default:
+        return sorted;
+    }
+  }, [properties, sortBy]);
 
   return (
     <div className="min-h-screen bg-secondary/30">
@@ -31,7 +77,7 @@ export default function PropertiesList() {
               Encontre seu imóvel ideal
             </h1>
             <p className="text-primary-foreground/70">
-              Explore nossa seleção de imóveis para aluguel e venda em São Paulo e região.
+              Explore nossa seleção de imóveis para aluguel e venda no Rio de Janeiro e região.
             </p>
           </div>
         </div>
@@ -49,7 +95,7 @@ export default function PropertiesList() {
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-accent" />
             <span className="text-muted-foreground">
-              <strong className="text-foreground">{properties.length}</strong> imóveis encontrados
+              <strong className="text-foreground">{sortedProperties.length}</strong> imóveis encontrados
             </span>
           </div>
 
@@ -89,14 +135,7 @@ export default function PropertiesList() {
         </div>
 
         {/* Properties Grid */}
-        <PropertyGrid properties={properties} />
-
-        {/* Load More */}
-        <div className="text-center mt-12">
-          <Button variant="outline" size="lg">
-            Carregar mais imóveis
-          </Button>
-        </div>
+        <PropertyGrid properties={sortedProperties} loading={isLoading} />
       </div>
     </div>
   );

@@ -14,11 +14,11 @@ export interface Property {
   bedrooms: number;
   bathrooms: number;
   parking: number;
-  area: number;
-  imageUrl: string;
+  area?: number;
+  imageUrl?: string;
   featured?: boolean;
   isNew?: boolean;
-  origin?: "olx" | "imovelweb" | "import";
+  origin?: "olx" | "imovelweb" | "import" | "manual";
 }
 
 interface PropertyCardProps {
@@ -46,12 +46,18 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
       <Link to={`/imovel/${property.id}`} className="block">
         <article className="property-card group">
           {/* Image */}
-          <div className="relative aspect-[4/3] overflow-hidden">
-            <img
-              src={property.imageUrl}
-              alt={property.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
+          <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+            {property.imageUrl ? (
+              <img
+                src={property.imageUrl}
+                alt={property.title}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                <MapPin className="w-12 h-12" />
+              </div>
+            )}
             
             {/* Overlay gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -68,7 +74,7 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
             </div>
 
             {/* Origin badge */}
-            {property.origin && (
+            {property.origin && property.origin !== "manual" && (
               <div className="absolute top-3 right-3">
                 <Badge variant={property.origin === "olx" ? "olx" : "imovelweb"}>
                   {property.origin === "olx" ? "OLX" : "ImovelWeb"}

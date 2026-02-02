@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { usePropertySync } from "@/hooks/usePropertySync";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -19,8 +19,10 @@ export default function Settings() {
   const [autoSendEnabled, setAutoSendEnabled] = useState(false);
   const [feedUrl, setFeedUrl] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Query to get last lead received per origin
   const { data: lastLeadsByOrigin } = useQuery({
@@ -76,6 +78,69 @@ export default function Settings() {
       return;
     }
     await importFromFeedUrl(feedUrl);
+  };
+
+  const testWebhook = async (source: "olx" | "imovelweb") => {
+    setTestingWebhook(source);
+    
+    try {
+      const testData = source === "olx" 
+        ? {
+            ad_id: "test-" + Date.now(),
+            name: "[TESTE] Lead de Teste OLX",
+            phone: "(21) 99999-0000",
+            email: "teste.olx@exemplo.com",
+            message: "Este é um lead de teste gerado pelo sistema para validar a integração.",
+          }
+        : {
+            imovel_id: "test-" + Date.now(),
+            nome: "[TESTE] Lead de Teste ImovelWeb",
+            telefone: "(21) 99999-0001",
+            email: "teste.imovelweb@exemplo.com",
+            mensagem: "Este é um lead de teste gerado pelo sistema para validar a integração.",
+          };
+
+      const { data, error } = await supabase.functions.invoke("capture-lead", {
+        body: testData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      // Add source query param by using the URL directly
+      const response = await fetch(
+        `https://jrwnrygaejtsodeinpni.supabase.co/functions/v1/capture-lead?source=${source}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(testData),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Webhook funcionando! ✅",
+          description: `Lead de teste criado com sucesso (ID: ${result.lead_id?.slice(0, 8)}...)`,
+        });
+        // Refresh the last leads query
+        queryClient.invalidateQueries({ queryKey: ["last-leads-by-origin"] });
+      } else {
+        throw new Error(result.error || "Erro desconhecido");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao testar webhook";
+      toast({
+        title: "Falha no teste ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setTestingWebhook(null);
+    }
   };
 
   return (
@@ -266,9 +331,24 @@ export default function Settings() {
                     {copiedField === "olx-lead" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Configure este URL no Canal Pro da OLX para receber leads automaticamente
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Configure este URL no Canal Pro da OLX para receber leads automaticamente
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testWebhook("olx")}
+                    disabled={testingWebhook !== null}
+                  >
+                    {testingWebhook === "olx" ? (
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    ) : (
+                      <Zap className="w-3 h-3 mr-1" />
+                    )}
+                    Testar
+                  </Button>
+                </div>
               </div>
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between">
@@ -300,9 +380,24 @@ export default function Settings() {
                     {copiedField === "imovelweb-lead" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Configure este URL no painel do ImovelWeb para receber leads
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Configure este URL no painel do ImovelWeb para receber leads
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testWebhook("imovelweb")}
+                    disabled={testingWebhook !== null}
+                  >
+                    {testingWebhook === "imovelweb" ? (
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    ) : (
+                      <Zap className="w-3 h-3 mr-1" />
+                    )}
+                    Testar
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

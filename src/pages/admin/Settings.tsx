@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2 } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,8 @@ export default function Settings() {
   const [olxConnected, setOlxConnected] = useState(false);
   const [autoSendEnabled, setAutoSendEnabled] = useState(false);
   const [feedUrl, setFeedUrl] = useState("");
+  const [olxProfileUrl, setOlxProfileUrl] = useState("");
+  const [scrapingOlx, setScrapingOlx] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const [testingEvolution, setTestingEvolution] = useState(false);
@@ -79,6 +81,45 @@ export default function Settings() {
       return;
     }
     await importFromFeedUrl(feedUrl);
+  };
+
+  const handleScrapeOlx = async () => {
+    if (!olxProfileUrl.trim()) {
+      toast({
+        title: "URL necessária",
+        description: "Informe a URL do seu perfil ou página de anúncios na OLX",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setScrapingOlx(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-olx", {
+        body: { profileUrl: olxProfileUrl.trim() },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Importação concluída! ✅",
+          description: `${data.synced} imóveis importados da OLX`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["properties"] });
+      } else {
+        throw new Error(data?.error || "Erro desconhecido");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao importar";
+      toast({
+        title: "Falha na importação ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setScrapingOlx(false);
+    }
   };
 
   const testWebhook = async (source: "olx" | "imovelweb") => {
@@ -204,6 +245,53 @@ export default function Settings() {
         </TabsList>
 
         <TabsContent value="integrations" className="space-y-6">
+          {/* OLX Scraping - Import Properties */}
+          <Card className="border-primary/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground">
+                  <Download className="w-4 h-4" />
+                </span>
+                Importar Imóveis da OLX
+              </CardTitle>
+              <CardDescription>
+                Importe seus anúncios diretamente da sua página OLX para o CRM e site
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="olx_profile_url">URL do seu Perfil ou Lista de Anúncios na OLX</Label>
+                <Input
+                  id="olx_profile_url"
+                  placeholder="https://www.olx.com.br/perfil/SEU_USUARIO ou URL de busca"
+                  value={olxProfileUrl}
+                  onChange={(e) => setOlxProfileUrl(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cole a URL do seu perfil na OLX ou uma página de busca com seus anúncios
+                </p>
+              </div>
+              <Button 
+                onClick={handleScrapeOlx} 
+                disabled={scrapingOlx}
+                className="w-full"
+              >
+                {scrapingOlx ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importando... (pode levar alguns minutos)
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-4 h-4 mr-2" />
+                    Buscar e Importar Imóveis
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* OLX Integration */}
           <Card>
             <CardHeader>
@@ -213,10 +301,10 @@ export default function Settings() {
                     <span className="w-8 h-8 rounded bg-accent flex items-center justify-center text-accent-foreground font-bold text-xs">
                       OLX
                     </span>
-                    Integração OLX
+                    Integração OLX (Avançado)
                   </CardTitle>
                   <CardDescription>
-                    Sincronize seus anúncios da OLX automaticamente via webhook
+                    Configure webhooks para sincronização automática contínua
                   </CardDescription>
                 </div>
                 {olxConnected ? (

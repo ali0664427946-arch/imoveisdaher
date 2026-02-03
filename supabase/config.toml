@@ -29,3 +29,12 @@ verify_jwt = false
 
 [functions.initiate-whatsapp-contact]
 verify_jwt = false
+
+[functions.fetch-whatsapp-contacts]
+verify_jwt = false
+
+[functions.import-whatsapp-contacts]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false

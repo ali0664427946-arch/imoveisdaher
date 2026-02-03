@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,8 +41,14 @@ export function PublicHeader() {
             ))}
           </nav>
 
-          {/* CTA Button */}
-          <div className="hidden md:flex items-center">
+          {/* CTA Buttons */}
+          <div className="hidden md:flex items-center gap-3">
+            <Button variant="outline" size="sm" className="border-white/20 text-primary-foreground hover:bg-white/10" asChild>
+              <Link to="/ficha">
+                <FileText className="w-4 h-4" />
+                Ficha de Interesse
+              </Link>
+            </Button>
             <Button variant="glass" size="sm" asChild>
               <Link to="/admin">
                 <User className="w-4 h-4" />
@@ -81,7 +87,13 @@ export function PublicHeader() {
                   {link.label}
                 </Link>
               ))}
-              <div className="pt-4 border-t border-white/10 mt-2">
+              <div className="pt-4 border-t border-white/10 mt-2 flex flex-col gap-2">
+                <Button variant="outline" className="w-full border-white/20 text-primary-foreground hover:bg-white/10" asChild>
+                  <Link to="/ficha" onClick={() => setIsMenuOpen(false)}>
+                    <FileText className="w-4 h-4" />
+                    Ficha de Interesse
+                  </Link>
+                </Button>
                 <Button variant="glass" className="w-full" asChild>
                   <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
                     <User className="w-4 h-4" />

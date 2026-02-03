@@ -35,6 +35,7 @@ const DOCUMENT_CATEGORIES: DocumentCategory[] = [
   { id: "ctps", label: "Carteira de Trabalho", required: false },
   { id: "imposto_renda", label: "Declaração IR", required: false },
   { id: "extrato_bancario", label: "Extrato Bancário", required: false },
+  { id: "rgi", label: "RGI do Imóvel", required: false },
   { id: "outros", label: "Outros", required: false },
 ];
 

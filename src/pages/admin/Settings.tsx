@@ -114,8 +114,8 @@ export default function Settings() {
     }
   };
 
-  // Base URLs for Supabase functions
-  const supabaseFunctionsUrl = "https://jrwnrygaejtsodeinpni.supabase.co/functions/v1";
+  // Base URL for backend functions (derive from current project env)
+  const supabaseFunctionsUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
   // Webhook URLs for syncing properties
   const webhookBaseUrl = `${supabaseFunctionsUrl}/sync-properties`;
@@ -213,8 +213,7 @@ export default function Settings() {
       });
 
       // Add source query param by using the URL directly
-      const response = await fetch(
-        `https://jrwnrygaejtsodeinpni.supabase.co/functions/v1/capture-lead?source=${source}`,
+      const response = await fetch(`${supabaseFunctionsUrl}/capture-lead?source=${source}`,
         {
           method: "POST",
           headers: {

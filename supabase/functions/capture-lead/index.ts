@@ -39,15 +39,22 @@ function extractPropertyCodeFromMessage(message: string | null | undefined): str
   return null;
 }
 
-// OLX contact/inquiry webhook format
+// OLX contact/inquiry webhook format (from Grupo ZAP / OLX Pro)
 interface OLXInquiry {
   ad_id?: string;
   contact_id?: string;
   name: string;
   phone?: string;
+  ddd?: string;
   email?: string;
   message?: string;
   created_at?: string;
+  // Grupo ZAP fields
+  clientListingId?: string;  // Your property code (e.g., "LO0007", "CA0121A")
+  originListingId?: string;  // OLX internal listing ID
+  originLeadId?: string;     // OLX internal lead ID
+  leadOrigin?: string;       // Source (e.g., "Grupo OLX", "Olx Validacao")
+  timestamp?: string;
 }
 
 // ImovelWeb contact webhook format
@@ -180,24 +187,29 @@ async function processOLXInquiry(supabase: any, data: OLXInquiry | OLXInquiry[])
   let lastLead = null;
 
   for (const inquiry of inquiries) {
-    // Find property by origin_id or by extracting code from message
+    // Find property by clientListingId (your property code like "LO0007", "CA0121A")
+    // or by ad_id, or by extracting code from message
     let propertyId = null;
-    const adId = inquiry.ad_id || extractPropertyCodeFromMessage(inquiry.message);
     
-    if (adId) {
+    // Priority: clientListingId > ad_id > extracted from message
+    const propertyCode = inquiry.clientListingId || inquiry.ad_id || extractPropertyCodeFromMessage(inquiry.message);
+    
+    console.log(`OLX lead - clientListingId: ${inquiry.clientListingId}, ad_id: ${inquiry.ad_id}, extracted: ${extractPropertyCodeFromMessage(inquiry.message)}`);
+    
+    if (propertyCode) {
       // Try to find by origin_id first (exact match)
       let { data: property } = await supabase
         .from("properties")
-        .select("id")
-        .eq("origin_id", adId)
+        .select("id, origin_id, title")
+        .eq("origin_id", propertyCode)
         .maybeSingle();
       
       // If not found, try searching in origin_id with partial match
       if (!property) {
         const { data: partialMatch } = await supabase
           .from("properties")
-          .select("id, origin_id")
-          .ilike("origin_id", `%${adId}%`)
+          .select("id, origin_id, title")
+          .ilike("origin_id", `%${propertyCode}%`)
           .limit(1)
           .maybeSingle();
         
@@ -205,10 +217,16 @@ async function processOLXInquiry(supabase: any, data: OLXInquiry | OLXInquiry[])
       }
       
       propertyId = property?.id || null;
-      console.log(`Property lookup for ad_id ${adId}: found = ${!!property}, propertyId = ${propertyId}`);
+      console.log(`Property lookup for code "${propertyCode}": found = ${!!property}, propertyId = ${propertyId}, title = ${property?.title || 'N/A'}`);
+    }
+    
+    // Build phone from ddd + phone if available
+    let phoneNumber = inquiry.phone;
+    if (inquiry.ddd && inquiry.phone) {
+      phoneNumber = `${inquiry.ddd}${inquiry.phone}`;
     }
 
-    const phoneNormalized = normalizePhone(inquiry.phone);
+    const phoneNormalized = normalizePhone(phoneNumber);
 
     // Check for existing lead with same phone
     if (phoneNormalized) {
@@ -243,7 +261,7 @@ async function processOLXInquiry(supabase: any, data: OLXInquiry | OLXInquiry[])
       .from("leads")
       .insert({
         name: inquiry.name,
-        phone: inquiry.phone || null,
+        phone: phoneNumber || null,
         phone_normalized: phoneNormalized,
         email: inquiry.email || null,
         origin: "olx",

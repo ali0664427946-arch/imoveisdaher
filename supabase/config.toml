@@ -1,1 +1,28 @@
 project_id = "rqyqfykqfjrugahpxibw"
+
+[functions.capture-lead]
+verify_jwt = false
+
+[functions.evolution-webhook]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false
+
+[functions.sync-properties]
+verify_jwt = false
+
+[functions.scrape-olx]
+verify_jwt = false
+
+[functions.analyze-ficha]
+verify_jwt = false
+
+[functions.process-scheduled-messages]
+verify_jwt = false
+
+[functions.publish-property]
+verify_jwt = false
+
+[functions.test-evolution-connection]
+verify_jwt = false

@@ -25,18 +25,12 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   
   const createdAt = formatDistanceToNow(new Date(lead.created_at), {
     addSuffix: true,
     locale: ptBR,
   });
-
-  const handleWhatsAppClick = () => {
-    if (lead.phone) {
-      const phone = lead.phone.replace(/\D/g, "");
-      window.open(`https://wa.me/55${phone}`, "_blank");
-    }
-  };
 
   const handlePhoneClick = () => {
     if (lead.phone) {
@@ -44,34 +38,43 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
     }
   };
 
-  const handleStartConversation = async () => {
+  const openOrCreateConversation = async (channel: "whatsapp" | "internal" = "whatsapp") => {
+    if (isCreatingConversation) return;
+    setIsCreatingConversation(true);
+    
     try {
-      // Check if conversation already exists
+      // Check if WhatsApp conversation already exists for this lead
       const { data: existing } = await supabase
         .from("conversations")
         .select("id")
         .eq("lead_id", lead.id)
+        .eq("channel", "whatsapp")
         .maybeSingle();
 
       if (existing) {
+        // Navigate to Inbox - the conversation already exists
         navigate("/admin/inbox");
         return;
       }
 
-      // Create new conversation
-      const { error } = await supabase.from("conversations").insert({
-        lead_id: lead.id,
-        channel: "whatsapp",
-        last_message_preview: `Conversa iniciada com ${lead.name}`,
-        last_message_at: new Date().toISOString(),
-        unread_count: 0,
-      });
+      // Create new WhatsApp conversation
+      const { data: newConversation, error } = await supabase
+        .from("conversations")
+        .insert({
+          lead_id: lead.id,
+          channel: "whatsapp",
+          last_message_preview: `Conversa iniciada com ${lead.name}`,
+          last_message_at: new Date().toISOString(),
+          unread_count: 0,
+        })
+        .select("id")
+        .single();
 
       if (error) throw error;
 
       toast({
         title: "Conversa criada",
-        description: "Acesse o Inbox para conversar",
+        description: "Conversa WhatsApp criada no Inbox",
       });
       
       navigate("/admin/inbox");
@@ -82,6 +85,8 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
         description: "Não foi possível criar a conversa",
         variant: "destructive",
       });
+    } finally {
+      setIsCreatingConversation(false);
     }
   };
 
@@ -110,7 +115,7 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleStartConversation}>
+            <DropdownMenuItem onClick={() => openOrCreateConversation("whatsapp")}>
               <Inbox className="w-3 h-3 mr-2" />
               Abrir no Inbox
             </DropdownMenuItem>
@@ -118,7 +123,7 @@ export function KanbanCard({ lead, color, onDragStart }: KanbanCardProps) {
               <Phone className="w-3 h-3 mr-2" />
               Ligar
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleWhatsAppClick}>
+            <DropdownMenuItem onClick={() => openOrCreateConversation("whatsapp")} disabled={isCreatingConversation}>
               <MessageSquare className="w-3 h-3 mr-2" />
               WhatsApp
             </DropdownMenuItem>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Mail, Lock, Loader2 } from "lucide-react";
-import logoImage from "@/assets/logo-daher.png";
+import logoImage from "@/assets/logo-daher-2026.png";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);

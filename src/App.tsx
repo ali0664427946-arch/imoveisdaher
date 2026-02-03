@@ -20,6 +20,7 @@ import Fichas from "./pages/admin/Fichas";
 import FichaDetail from "./pages/admin/FichaDetail";
 import Templates from "./pages/admin/Templates";
 import Settings from "./pages/admin/Settings";
+import Users from "./pages/admin/Users";
 import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="fichas/:id" element={<FichaDetail />} />
               <Route path="templates" element={<Templates />} />
               <Route path="configuracoes" element={<Settings />} />
+              <Route path="usuarios" element={<Users />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

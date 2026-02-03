@@ -12,6 +12,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
+import { TemplateSelector } from "@/components/templates/TemplateSelector";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
   olx_chat: "bg-amber-500 text-white",
@@ -471,7 +472,20 @@ export default function Inbox() {
             </ScrollArea>
 
             {/* Input Area */}
-            <div className="p-4 border-t bg-card">
+            <div className="p-4 border-t bg-card space-y-2">
+              <div className="flex items-center gap-2">
+                <TemplateSelector 
+                  onSelect={(content) => setMessageText(content)}
+                  variables={{
+                    nome: selectedConversation.lead?.name || "",
+                    telefone: selectedConversation.lead?.phone || "",
+                    imovel: selectedConversation.lead?.property?.title || "",
+                    bairro: selectedConversation.lead?.property?.neighborhood || "",
+                    preco: selectedConversation.lead?.property?.price?.toLocaleString("pt-BR") || "",
+                  }}
+                  channel="whatsapp"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon">
                   <Paperclip className="w-4 h-4" />

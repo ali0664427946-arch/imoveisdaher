@@ -88,22 +88,25 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Sending WhatsApp message to ${normalizedPhone}`);
+    console.log(`Evolution URL: ${evolutionUrl}, Instance: ${instanceName}`);
+
+    // Build API URL - ensure no double slashes
+    const baseUrl = evolutionUrl.replace(/\/+$/, ""); // Remove trailing slashes
+    const apiUrl = `${baseUrl}/message/sendText/${instanceName}`;
+    console.log(`API URL: ${apiUrl}`);
 
     // Send message via Evolution API
-    const evolutionResponse = await fetch(
-      `${evolutionUrl}/message/sendText/${instanceName}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: evolutionKey,
-        },
-        body: JSON.stringify({
-          number: normalizedPhone,
-          text: message,
-        }),
-      }
-    );
+    const evolutionResponse = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: evolutionKey,
+      },
+      body: JSON.stringify({
+        number: normalizedPhone,
+        text: message,
+      }),
+    });
 
     const evolutionData = await evolutionResponse.json();
 

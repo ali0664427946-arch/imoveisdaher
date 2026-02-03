@@ -19,13 +19,13 @@ import {
   ChevronRight,
   FileText,
   User,
-  Phone,
   Home,
-  Briefcase,
   Users,
   CheckCircle,
   Building2,
   Loader2,
+  Plus,
+  Search,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -33,25 +33,18 @@ import {
   DocumentUploader,
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
+import { TenantForm, TenantData } from "@/components/fichas/TenantForm";
 
 const STEPS = [
-  { id: 1, title: "Dados Pessoais", icon: User },
-  { id: 2, title: "Contato", icon: Phone },
+  { id: 1, title: "Imóvel", icon: Building2 },
+  { id: 2, title: "Locatários", icon: User },
   { id: 3, title: "Endereço", icon: Home },
-  { id: 4, title: "Profissional", icon: Briefcase },
-  { id: 5, title: "Moradores", icon: Users },
-  { id: 6, title: "Documentos", icon: FileText },
-  { id: 7, title: "Confirmação", icon: CheckCircle },
+  { id: 4, title: "Moradores", icon: Users },
+  { id: 5, title: "Documentos", icon: FileText },
+  { id: 6, title: "Confirmação", icon: CheckCircle },
 ];
 
-interface FormData {
-  fullName: string;
-  cpf: string;
-  rg: string;
-  birthDate: string;
-  maritalStatus: string;
-  phone: string;
-  email: string;
+interface AddressData {
   cep: string;
   street: string;
   number: string;
@@ -59,54 +52,145 @@ interface FormData {
   neighborhood: string;
   city: string;
   state: string;
-  occupation: string;
-  employmentType: string;
-  company: string;
-  income: string;
+}
+
+interface ResidentsData {
   residentsCount: string;
   hasPets: string;
   observations: string;
 }
 
+const emptyTenant: Partial<TenantData> = {
+  fullName: "",
+  cpf: "",
+  rg: "",
+  birthDate: "",
+  maritalStatus: "",
+  phone: "",
+  email: "",
+  occupation: "",
+  employmentType: "",
+  company: "",
+  income: "",
+};
+
 export default function InterestForm() {
   const { propertyId } = useParams<{ propertyId: string }>();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<Partial<FormData>>({});
+  
+  // Property selection (for standalone form)
+  const [propertyCode, setPropertyCode] = useState("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(propertyId || null);
+  const [searchingProperty, setSearchingProperty] = useState(false);
+  
+  // Multiple tenants (up to 3)
+  const [tenants, setTenants] = useState<Partial<TenantData>[]>([{ ...emptyTenant }]);
+  
+  // Address data
+  const [addressData, setAddressData] = useState<Partial<AddressData>>({});
+  
+  // Residents data
+  const [residentsData, setResidentsData] = useState<Partial<ResidentsData>>({});
+  
+  // Documents
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  
+  // Form state
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedProtocol, setSubmittedProtocol] = useState<string | null>(null);
 
-  // Fetch property from database
+  // Fetch property from database (if propertyId is provided)
   const { data: property } = useQuery({
-    queryKey: ["property", propertyId],
+    queryKey: ["property", selectedPropertyId],
     queryFn: async () => {
-      if (!propertyId) return null;
+      if (!selectedPropertyId) return null;
       const { data, error } = await supabase
         .from("properties")
         .select("*")
-        .eq("id", propertyId)
+        .eq("id", selectedPropertyId)
         .single();
       if (error) return null;
       return data;
     },
-    enabled: !!propertyId,
+    enabled: !!selectedPropertyId,
   });
 
-  const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // Search property by slug or ID
+  const handleSearchProperty = async () => {
+    if (!propertyCode.trim()) {
+      toast.error("Digite o código do imóvel");
+      return;
+    }
+    
+    setSearchingProperty(true);
+    try {
+      // Try to find by slug first, then by ID
+      const { data, error } = await supabase
+        .from("properties")
+        .select("id, title, price, purpose, neighborhood")
+        .or(`slug.eq.${propertyCode.trim()},id.eq.${propertyCode.trim()}`)
+        .eq("status", "active")
+        .limit(1)
+        .single();
+      
+      if (error || !data) {
+        toast.error("Imóvel não encontrado", {
+          description: "Verifique o código e tente novamente",
+        });
+        return;
+      }
+      
+      setSelectedPropertyId(data.id);
+      toast.success("Imóvel encontrado!");
+    } catch (error) {
+      toast.error("Erro ao buscar imóvel");
+    } finally {
+      setSearchingProperty(false);
+    }
+  };
+
+  // Tenant handlers
+  const handleTenantChange = (index: number, field: keyof TenantData, value: string) => {
+    setTenants(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const addTenant = () => {
+    if (tenants.length < 3) {
+      setTenants(prev => [...prev, { ...emptyTenant }]);
+    }
+  };
+
+  const removeTenant = (index: number) => {
+    if (tenants.length > 1 && index > 0) {
+      setTenants(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  // Address handlers
+  const handleAddressChange = (field: keyof AddressData, value: string) => {
+    setAddressData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Residents handlers
+  const handleResidentsChange = (field: keyof ResidentsData, value: string) => {
+    setResidentsData(prev => ({ ...prev, [field]: value }));
   };
 
   const nextStep = () => {
     if (currentStep < STEPS.length) {
-      setCurrentStep((prev) => prev + 1);
+      setCurrentStep(prev => prev + 1);
     }
   };
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
+      setCurrentStep(prev => prev - 1);
     }
   };
 
@@ -120,41 +204,60 @@ export default function InterestForm() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.fullName || !formData.cpf || !formData.phone) {
-      toast.error("Preencha os campos obrigatórios");
+    const primaryTenant = tenants[0];
+    if (!primaryTenant?.fullName || !primaryTenant?.cpf || !primaryTenant?.phone) {
+      toast.error("Preencha os campos obrigatórios do locatário principal");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Create ficha
+      // Prepare additional tenants data
+      const additionalTenants = tenants.slice(1).filter(t => t.fullName && t.cpf);
+      
+      // Create ficha for primary tenant
       const { data: ficha, error: fichaError } = await supabase
         .from("fichas")
         .insert({
-          full_name: formData.fullName,
-          cpf: formData.cpf.replace(/\D/g, ""),
-          rg: formData.rg,
-          phone: formData.phone,
-          email: formData.email,
-          birth_date: formData.birthDate || null,
-          marital_status: formData.maritalStatus,
-          address_cep: formData.cep,
-          address_street: formData.street,
-          address_number: formData.number,
-          address_complement: formData.complement,
-          address_neighborhood: formData.neighborhood,
-          address_city: formData.city,
-          address_state: formData.state || "RJ",
-          occupation: formData.occupation,
-          company: formData.company,
-          employment_type: formData.employmentType as any,
-          income: parseIncome(formData.income || ""),
-          residents_count: parseInt(formData.residentsCount || "1"),
-          has_pets: formData.hasPets === "sim",
-          observations: formData.observations,
-          property_id: propertyId || null,
+          full_name: primaryTenant.fullName,
+          cpf: primaryTenant.cpf.replace(/\D/g, ""),
+          rg: primaryTenant.rg,
+          phone: primaryTenant.phone,
+          email: primaryTenant.email,
+          birth_date: primaryTenant.birthDate || null,
+          marital_status: primaryTenant.maritalStatus,
+          address_cep: addressData.cep,
+          address_street: addressData.street,
+          address_number: addressData.number,
+          address_complement: addressData.complement,
+          address_neighborhood: addressData.neighborhood,
+          address_city: addressData.city,
+          address_state: addressData.state || "RJ",
+          occupation: primaryTenant.occupation,
+          company: primaryTenant.company,
+          employment_type: primaryTenant.employmentType as any,
+          income: parseIncome(primaryTenant.income || ""),
+          residents_count: parseInt(residentsData.residentsCount || "1"),
+          has_pets: residentsData.hasPets === "sim",
+          observations: residentsData.observations,
+          property_id: selectedPropertyId || null,
           status: "pendente",
+          form_data: {
+            additional_tenants: additionalTenants.map(t => ({
+              full_name: t.fullName,
+              cpf: t.cpf?.replace(/\D/g, ""),
+              rg: t.rg,
+              phone: t.phone,
+              email: t.email,
+              birth_date: t.birthDate,
+              marital_status: t.maritalStatus,
+              occupation: t.occupation,
+              company: t.company,
+              employment_type: t.employmentType,
+              income: parseIncome(t.income || ""),
+            })),
+          },
         })
         .select()
         .single();
@@ -163,7 +266,7 @@ export default function InterestForm() {
 
       // Save documents to database (already uploaded to storage)
       if (documents.length > 0 && ficha) {
-        const docsToInsert = documents.map((doc) => ({
+        const docsToInsert = documents.map(doc => ({
           ficha_id: ficha.id,
           category: doc.category,
           file_name: doc.file_name,
@@ -300,93 +403,98 @@ export default function InterestForm() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Step 1: Personal Data */}
+              {/* Step 1: Property Selection */}
               {currentStep === 1 && (
                 <div className="space-y-6">
-                  <h2 className="text-xl font-heading font-semibold mb-6">Dados Pessoais</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <Label htmlFor="fullName">Nome Completo *</Label>
-                      <Input
-                        id="fullName"
-                        placeholder="Digite seu nome completo"
-                        value={formData.fullName || ""}
-                        onChange={(e) => handleInputChange("fullName", e.target.value)}
-                      />
+                  <h2 className="text-xl font-heading font-semibold mb-6">Imóvel de Interesse</h2>
+                  
+                  {property ? (
+                    <div className="bg-secondary/50 rounded-xl p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-6 h-6 text-accent" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{property.title}</h3>
+                          <p className="text-muted-foreground">{property.neighborhood}</p>
+                          <p className="text-accent font-bold mt-2">
+                            {formatPrice(property.price, property.purpose)}
+                          </p>
+                        </div>
+                      </div>
+                      {!propertyId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() => setSelectedPropertyId(null)}
+                        >
+                          Trocar imóvel
+                        </Button>
+                      )}
                     </div>
-                    <div>
-                      <Label htmlFor="cpf">CPF *</Label>
-                      <Input
-                        id="cpf"
-                        placeholder="000.000.000-00"
-                        value={formData.cpf || ""}
-                        onChange={(e) => handleInputChange("cpf", e.target.value)}
-                      />
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-muted-foreground">
+                        Digite o código do imóvel que você deseja alugar ou comprar.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Código do imóvel (ex: apartamento-centro-001)"
+                          value={propertyCode}
+                          onChange={(e) => setPropertyCode(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleSearchProperty()}
+                        />
+                        <Button
+                          onClick={handleSearchProperty}
+                          disabled={searchingProperty}
+                          variant="hero"
+                        >
+                          {searchingProperty ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Search className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Você pode encontrar o código na página do imóvel ou com seu corretor.
+                        Caso não tenha o código, pode prosseguir sem selecionar um imóvel específico.
+                      </p>
                     </div>
-                    <div>
-                      <Label htmlFor="rg">RG</Label>
-                      <Input
-                        id="rg"
-                        placeholder="00.000.000-0"
-                        value={formData.rg || ""}
-                        onChange={(e) => handleInputChange("rg", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="birthDate">Data de Nascimento</Label>
-                      <Input
-                        id="birthDate"
-                        type="date"
-                        value={formData.birthDate || ""}
-                        onChange={(e) => handleInputChange("birthDate", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="maritalStatus">Estado Civil</Label>
-                      <Select
-                        value={formData.maritalStatus || ""}
-                        onValueChange={(v) => handleInputChange("maritalStatus", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="solteiro">Solteiro(a)</SelectItem>
-                          <SelectItem value="casado">Casado(a)</SelectItem>
-                          <SelectItem value="divorciado">Divorciado(a)</SelectItem>
-                          <SelectItem value="viuvo">Viúvo(a)</SelectItem>
-                          <SelectItem value="uniao_estavel">União Estável</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Step 2: Contact */}
+              {/* Step 2: Tenants */}
               {currentStep === 2 && (
                 <div className="space-y-6">
-                  <h2 className="text-xl font-heading font-semibold mb-6">Contato</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="phone">Telefone/WhatsApp *</Label>
-                      <Input
-                        id="phone"
-                        placeholder="(00) 00000-0000"
-                        value={formData.phone || ""}
-                        onChange={(e) => handleInputChange("phone", e.target.value)}
-                      />
+                      <h2 className="text-xl font-heading font-semibold">Locatários</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Adicione até 3 locatários para esta ficha
+                      </p>
                     </div>
-                    <div>
-                      <Label htmlFor="email">E-mail</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={formData.email || ""}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
+                    {tenants.length < 3 && (
+                      <Button variant="outline" size="sm" onClick={addTenant}>
+                        <Plus className="w-4 h-4" />
+                        Adicionar
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {tenants.map((tenant, index) => (
+                      <TenantForm
+                        key={index}
+                        index={index}
+                        data={tenant}
+                        onChange={(field, value) => handleTenantChange(index, field, value)}
+                        onRemove={index > 0 ? () => removeTenant(index) : undefined}
+                        isPrimary={index === 0}
                       />
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -401,8 +509,8 @@ export default function InterestForm() {
                       <Input
                         id="cep"
                         placeholder="00000-000"
-                        value={formData.cep || ""}
-                        onChange={(e) => handleInputChange("cep", e.target.value)}
+                        value={addressData.cep || ""}
+                        onChange={(e) => handleAddressChange("cep", e.target.value)}
                       />
                     </div>
                     <div className="md:col-span-2">
@@ -410,8 +518,8 @@ export default function InterestForm() {
                       <Input
                         id="street"
                         placeholder="Nome da rua"
-                        value={formData.street || ""}
-                        onChange={(e) => handleInputChange("street", e.target.value)}
+                        value={addressData.street || ""}
+                        onChange={(e) => handleAddressChange("street", e.target.value)}
                       />
                     </div>
                     <div>
@@ -419,8 +527,8 @@ export default function InterestForm() {
                       <Input
                         id="number"
                         placeholder="000"
-                        value={formData.number || ""}
-                        onChange={(e) => handleInputChange("number", e.target.value)}
+                        value={addressData.number || ""}
+                        onChange={(e) => handleAddressChange("number", e.target.value)}
                       />
                     </div>
                     <div>
@@ -428,8 +536,8 @@ export default function InterestForm() {
                       <Input
                         id="complement"
                         placeholder="Apto, Bloco, etc."
-                        value={formData.complement || ""}
-                        onChange={(e) => handleInputChange("complement", e.target.value)}
+                        value={addressData.complement || ""}
+                        onChange={(e) => handleAddressChange("complement", e.target.value)}
                       />
                     </div>
                     <div>
@@ -437,8 +545,8 @@ export default function InterestForm() {
                       <Input
                         id="neighborhood"
                         placeholder="Bairro"
-                        value={formData.neighborhood || ""}
-                        onChange={(e) => handleInputChange("neighborhood", e.target.value)}
+                        value={addressData.neighborhood || ""}
+                        onChange={(e) => handleAddressChange("neighborhood", e.target.value)}
                       />
                     </div>
                     <div>
@@ -446,8 +554,8 @@ export default function InterestForm() {
                       <Input
                         id="city"
                         placeholder="Cidade"
-                        value={formData.city || ""}
-                        onChange={(e) => handleInputChange("city", e.target.value)}
+                        value={addressData.city || ""}
+                        onChange={(e) => handleAddressChange("city", e.target.value)}
                       />
                     </div>
                     <div>
@@ -455,78 +563,24 @@ export default function InterestForm() {
                       <Input
                         id="state"
                         placeholder="RJ"
-                        value={formData.state || "RJ"}
-                        onChange={(e) => handleInputChange("state", e.target.value)}
+                        value={addressData.state || "RJ"}
+                        onChange={(e) => handleAddressChange("state", e.target.value)}
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Step 4: Professional */}
+              {/* Step 4: Residents */}
               {currentStep === 4 && (
-                <div className="space-y-6">
-                  <h2 className="text-xl font-heading font-semibold mb-6">Dados Profissionais</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="occupation">Profissão</Label>
-                      <Input
-                        id="occupation"
-                        placeholder="Sua profissão"
-                        value={formData.occupation || ""}
-                        onChange={(e) => handleInputChange("occupation", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="employmentType">Tipo de Vínculo</Label>
-                      <Select
-                        value={formData.employmentType || ""}
-                        onValueChange={(v) => handleInputChange("employmentType", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="clt">CLT</SelectItem>
-                          <SelectItem value="autonomo">Autônomo</SelectItem>
-                          <SelectItem value="empresario">Empresário</SelectItem>
-                          <SelectItem value="aposentado">Aposentado</SelectItem>
-                          <SelectItem value="funcionario_publico">Funcionário Público</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="company">Empresa</Label>
-                      <Input
-                        id="company"
-                        placeholder="Nome da empresa"
-                        value={formData.company || ""}
-                        onChange={(e) => handleInputChange("company", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="income">Renda Mensal</Label>
-                      <Input
-                        id="income"
-                        placeholder="R$ 0,00"
-                        value={formData.income || ""}
-                        onChange={(e) => handleInputChange("income", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 5: Residents */}
-              {currentStep === 5 && (
                 <div className="space-y-6">
                   <h2 className="text-xl font-heading font-semibold mb-6">Moradores</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="residentsCount">Quantas pessoas irão morar?</Label>
                       <Select
-                        value={formData.residentsCount || ""}
-                        onValueChange={(v) => handleInputChange("residentsCount", v)}
+                        value={residentsData.residentsCount || ""}
+                        onValueChange={(v) => handleResidentsChange("residentsCount", v)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione" />
@@ -543,8 +597,8 @@ export default function InterestForm() {
                     <div>
                       <Label htmlFor="hasPets">Possui animais de estimação?</Label>
                       <Select
-                        value={formData.hasPets || ""}
-                        onValueChange={(v) => handleInputChange("hasPets", v)}
+                        value={residentsData.hasPets || ""}
+                        onValueChange={(v) => handleResidentsChange("hasPets", v)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione" />
@@ -560,8 +614,8 @@ export default function InterestForm() {
                       <Textarea
                         id="observations"
                         placeholder="Alguma observação adicional..."
-                        value={formData.observations || ""}
-                        onChange={(e) => handleInputChange("observations", e.target.value)}
+                        value={residentsData.observations || ""}
+                        onChange={(e) => handleResidentsChange("observations", e.target.value)}
                         rows={4}
                       />
                     </div>
@@ -569,8 +623,8 @@ export default function InterestForm() {
                 </div>
               )}
 
-              {/* Step 6: Documents */}
-              {currentStep === 6 && (
+              {/* Step 5: Documents */}
+              {currentStep === 5 && (
                 <div className="space-y-6">
                   <h2 className="text-xl font-heading font-semibold mb-6">Documentos</h2>
                   <p className="text-muted-foreground text-sm mb-6">
@@ -583,42 +637,54 @@ export default function InterestForm() {
                 </div>
               )}
 
-              {/* Step 7: Confirmation */}
-              {currentStep === 7 && (
+              {/* Step 6: Confirmation */}
+              {currentStep === 6 && (
                 <div className="space-y-6">
                   <h2 className="text-xl font-heading font-semibold mb-6">Confirmação</h2>
                   <div className="bg-secondary/50 rounded-xl p-6">
                     <h3 className="font-semibold mb-4">Resumo dos Dados</h3>
-                    <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <dt className="text-muted-foreground">Nome</dt>
-                        <dd className="font-medium">{formData.fullName || "-"}</dd>
+                    
+                    {/* Property */}
+                    {property && (
+                      <div className="mb-4 pb-4 border-b">
+                        <dt className="text-muted-foreground text-sm">Imóvel</dt>
+                        <dd className="font-medium">{property.title}</dd>
                       </div>
-                      <div>
-                        <dt className="text-muted-foreground">CPF</dt>
-                        <dd className="font-medium">{formData.cpf || "-"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Telefone</dt>
-                        <dd className="font-medium">{formData.phone || "-"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">E-mail</dt>
-                        <dd className="font-medium">{formData.email || "-"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Profissão</dt>
-                        <dd className="font-medium">{formData.occupation || "-"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Renda</dt>
-                        <dd className="font-medium">{formData.income || "-"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Documentos enviados</dt>
-                        <dd className="font-medium">{documents.length} arquivo(s)</dd>
-                      </div>
-                    </dl>
+                    )}
+                    
+                    {/* Tenants summary */}
+                    <div className="space-y-4">
+                      {tenants.filter(t => t.fullName).map((tenant, index) => (
+                        <div key={index} className="pb-4 border-b last:border-0">
+                          <h4 className="text-sm font-medium text-accent mb-2">
+                            {index === 0 ? "Locatário Principal" : `Locatário ${index + 1}`}
+                          </h4>
+                          <dl className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <dt className="text-muted-foreground">Nome</dt>
+                              <dd className="font-medium">{tenant.fullName || "-"}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">CPF</dt>
+                              <dd className="font-medium">{tenant.cpf || "-"}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">Telefone</dt>
+                              <dd className="font-medium">{tenant.phone || "-"}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">Renda</dt>
+                              <dd className="font-medium">{tenant.income || "-"}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t">
+                      <dt className="text-muted-foreground text-sm">Documentos enviados</dt>
+                      <dd className="font-medium">{documents.length} arquivo(s)</dd>
+                    </div>
                   </div>
 
                   <div className="flex items-start gap-3 p-4 bg-muted rounded-xl">

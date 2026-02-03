@@ -9,6 +9,7 @@ interface ContactToImport {
   phone: string;
   name?: string;
   notes?: string;
+  lastMessageAt?: string;
 }
 
 Deno.serve(async (req) => {
@@ -58,19 +59,19 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get existing leads to avoid duplicates
-    const { data: existingLeads } = await adminClient
-      .from("leads")
+    // Get existing contacts to avoid duplicates
+    const { data: existingContacts } = await adminClient
+      .from("contacts")
       .select("phone, phone_normalized");
 
     const existingPhones = new Set<string>();
-    if (existingLeads) {
-      for (const lead of existingLeads) {
-        if (lead.phone) {
-          existingPhones.add(lead.phone.replace(/\D/g, ""));
+    if (existingContacts) {
+      for (const contact of existingContacts) {
+        if (contact.phone) {
+          existingPhones.add(contact.phone.replace(/\D/g, ""));
         }
-        if (lead.phone_normalized) {
-          existingPhones.add(lead.phone_normalized.replace(/\D/g, ""));
+        if (contact.phone_normalized) {
+          existingPhones.add(contact.phone_normalized.replace(/\D/g, ""));
         }
       }
     }
@@ -87,14 +88,14 @@ Deno.serve(async (req) => {
           success: true, 
           imported: 0,
           skipped: contacts.length,
-          message: "Todos os contatos já existem como leads"
+          message: "Todos os contatos já existem"
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Prepare leads to insert
-    const leadsToInsert = newContacts.map(contact => {
+    // Prepare contacts to insert
+    const contactsToInsert = newContacts.map(contact => {
       const cleanPhone = contact.phone.replace(/\D/g, "");
       const phoneNormalized = cleanPhone.startsWith("55") ? `+${cleanPhone}` : `+55${cleanPhone}`;
       
@@ -103,9 +104,10 @@ Deno.serve(async (req) => {
         phone: cleanPhone.startsWith("55") ? cleanPhone.slice(2) : cleanPhone,
         phone_normalized: phoneNormalized,
         origin: "whatsapp_import",
-        status: "entrou_em_contato",
+        last_contact_at: contact.lastMessageAt || null,
         notes: contact.notes || "Importado do histórico do WhatsApp",
-        assigned_user_id: userId,
+        created_by: userId,
+        tags: [],
       };
     });
 
@@ -114,11 +116,11 @@ Deno.serve(async (req) => {
     let imported = 0;
     const errors: string[] = [];
 
-    for (let i = 0; i < leadsToInsert.length; i += batchSize) {
-      const batch = leadsToInsert.slice(i, i + batchSize);
+    for (let i = 0; i < contactsToInsert.length; i += batchSize) {
+      const batch = contactsToInsert.slice(i, i + batchSize);
       
       const { data, error } = await adminClient
-        .from("leads")
+        .from("contacts")
         .insert(batch)
         .select();
 
@@ -130,12 +132,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Imported ${imported} leads, skipped ${contacts.length - newContacts.length}`);
+    console.log(`Imported ${imported} contacts, skipped ${contacts.length - newContacts.length}`);
 
     // Log activity
     await adminClient.from("activity_log").insert({
       action: "whatsapp_contacts_imported",
-      entity_type: "leads",
+      entity_type: "contacts",
       user_id: userId,
       metadata: {
         total_contacts: contacts.length,

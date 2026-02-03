@@ -3,7 +3,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Download,
-  Upload,
   Users,
   Check,
   UserPlus,
@@ -26,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWhatsAppContacts, WhatsAppContact } from "@/hooks/useWhatsAppContacts";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ImportContactsDialogProps {
   trigger?: React.ReactNode;
@@ -47,7 +47,7 @@ export function ImportContactsDialog({ trigger, onSuccess }: ImportContactsDialo
     clearSelection,
     importSelected,
     newContactsCount,
-    existingLeadsCount,
+    existingContactsCount,
   } = useWhatsAppContacts();
 
   const filteredContacts = contacts.filter((contact) => {
@@ -136,7 +136,7 @@ export function ImportContactsDialog({ trigger, onSuccess }: ImportContactsDialo
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Badge variant="secondary">{contacts.length} total</Badge>
                 <Badge variant="default" className="bg-green-600">{newContactsCount} novos</Badge>
-                <Badge variant="outline">{existingLeadsCount} já importados</Badge>
+                <Badge variant="outline">{existingContactsCount} já importados</Badge>
               </div>
             )}
           </div>
@@ -256,22 +256,22 @@ function ContactRow({ contact, isSelected, onToggle, formatPhone, formatDate }: 
     <div
       className={`flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer hover:bg-muted/50 ${
         isSelected ? "bg-primary/10" : ""
-      } ${contact.isExistingLead ? "opacity-60" : ""}`}
-      onClick={() => !contact.isExistingLead && onToggle()}
+      } ${contact.isExistingContact ? "opacity-60" : ""}`}
+      onClick={() => !contact.isExistingContact && onToggle()}
     >
       <Checkbox
         checked={isSelected}
-        disabled={contact.isExistingLead}
-        onCheckedChange={() => !contact.isExistingLead && onToggle()}
+        disabled={contact.isExistingContact}
+        onCheckedChange={() => !contact.isExistingContact && onToggle()}
       />
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium truncate">{displayName}</span>
-          {contact.isExistingLead && (
+          {contact.isExistingContact && (
             <Badge variant="outline" className="text-xs flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" />
-              Já é lead
+              Já importado
             </Badge>
           )}
         </div>

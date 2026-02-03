@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -9,14 +9,14 @@ export interface WhatsAppContact {
   name?: string;
   phone: string;
   lastMessageAt?: string;
-  isExistingLead?: boolean;
+  isExistingContact?: boolean;
 }
 
 interface FetchContactsResponse {
   success: boolean;
   contacts: WhatsAppContact[];
   total: number;
-  existingLeads: number;
+  existingContacts: number;
   newContacts: number;
   error?: string;
 }
@@ -32,6 +32,7 @@ interface ImportContactsResponse {
 export function useWhatsAppContacts() {
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
 
   const fetchMutation = useMutation({
     mutationFn: async (): Promise<FetchContactsResponse> => {
@@ -47,7 +48,7 @@ export function useWhatsAppContacts() {
       setContacts(data.contacts);
       setSelectedContacts(new Set());
       toast.success(`${data.total} contatos encontrados`, {
-        description: `${data.newContacts} novos, ${data.existingLeads} já são leads`,
+        description: `${data.newContacts} novos, ${data.existingContacts} já importados`,
       });
     },
     onError: (error: Error) => {
@@ -58,7 +59,7 @@ export function useWhatsAppContacts() {
   });
 
   const importMutation = useMutation({
-    mutationFn: async (contactsToImport: { phone: string; name?: string }[]): Promise<ImportContactsResponse> => {
+    mutationFn: async (contactsToImport: { phone: string; name?: string; lastMessageAt?: string }[]): Promise<ImportContactsResponse> => {
       const response = await supabase.functions.invoke("import-whatsapp-contacts", {
         body: { contacts: contactsToImport },
       });
@@ -71,7 +72,8 @@ export function useWhatsAppContacts() {
     },
     onSuccess: (data) => {
       toast.success(data.message || `${data.imported} contatos importados!`);
-      // Refresh contacts list
+      // Refresh contacts list and table
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       fetchMutation.mutate();
     },
     onError: (error: Error) => {
@@ -95,7 +97,7 @@ export function useWhatsAppContacts() {
 
   const selectAllNew = () => {
     const newContactIds = contacts
-      .filter((c) => !c.isExistingLead)
+      .filter((c) => !c.isExistingContact)
       .map((c) => c.id);
     setSelectedContacts(new Set(newContactIds));
   };
@@ -106,10 +108,11 @@ export function useWhatsAppContacts() {
 
   const importSelected = () => {
     const contactsToImport = contacts
-      .filter((c) => selectedContacts.has(c.id) && !c.isExistingLead)
+      .filter((c) => selectedContacts.has(c.id) && !c.isExistingContact)
       .map((c) => ({
         phone: c.phone,
         name: c.name || c.pushName,
+        lastMessageAt: c.lastMessageAt,
       }));
 
     if (contactsToImport.length === 0) {
@@ -130,7 +133,7 @@ export function useWhatsAppContacts() {
     selectAllNew,
     clearSelection,
     importSelected,
-    newContactsCount: contacts.filter((c) => !c.isExistingLead).length,
-    existingLeadsCount: contacts.filter((c) => c.isExistingLead).length,
+    newContactsCount: contacts.filter((c) => !c.isExistingContact).length,
+    existingContactsCount: contacts.filter((c) => c.isExistingContact).length,
   };
 }

@@ -44,6 +44,54 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          last_contact_at: string | null
+          metadata: Json | null
+          name: string
+          notes: string | null
+          origin: string | null
+          phone: string
+          phone_normalized: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          last_contact_at?: string | null
+          metadata?: Json | null
+          name: string
+          notes?: string | null
+          origin?: string | null
+          phone: string
+          phone_normalized?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          last_contact_at?: string | null
+          metadata?: Json | null
+          name?: string
+          notes?: string | null
+          origin?: string | null
+          phone?: string
+          phone_normalized?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           assigned_user_id: string | null

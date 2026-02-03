@@ -344,7 +344,7 @@ export default function PropertyDetail() {
                   <Button variant="hero" size="lg" className="w-full" asChild>
                     <Link to={`/ficha/${property.id}`}>
                       <Building2 className="w-5 h-5" />
-                      Tenho interesse
+                      Preencher Ficha de Interesse
                     </Link>
                   </Button>
                   <Button variant="outline" size="lg" className="w-full">

@@ -283,7 +283,8 @@ export function DocumentUploader({
                 ref={(el) => (inputRefs.current[cat.id] = el)}
                 type="file"
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,image/*"
+                capture="environment"
                 onChange={(e) =>
                   handleFileSelect(cat.id, e.target.files?.[0])
                 }

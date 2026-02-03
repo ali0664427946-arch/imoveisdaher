@@ -9,6 +9,15 @@ interface SendWhatsAppRequest {
   phone: string;
   message: string;
   fichaId?: string;
+  conversationId?: string;
+  skipDelay?: boolean; // For scheduled messages that already have delay
+}
+
+// Anti-ban delay: random between 2-9 seconds
+async function antiBanDelay(): Promise<void> {
+  const delayMs = Math.floor(Math.random() * 7000) + 2000; // 2000-9000ms
+  console.log(`Anti-ban delay: ${delayMs}ms`);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 Deno.serve(async (req) => {
@@ -45,7 +54,7 @@ Deno.serve(async (req) => {
     const userId = claims.claims.sub;
 
     // Parse request
-    const { phone, message, fichaId }: SendWhatsAppRequest = await req.json();
+    const { phone, message, fichaId, conversationId, skipDelay }: SendWhatsAppRequest = await req.json();
 
     if (!phone || !message) {
       return new Response(
@@ -71,6 +80,11 @@ Deno.serve(async (req) => {
     let normalizedPhone = phone.replace(/\D/g, "");
     if (!normalizedPhone.startsWith("55")) {
       normalizedPhone = "55" + normalizedPhone;
+    }
+
+    // Apply anti-ban delay (unless skipped for scheduled messages)
+    if (!skipDelay) {
+      await antiBanDelay();
     }
 
     console.log(`Sending WhatsApp message to ${normalizedPhone}`);
@@ -111,13 +125,13 @@ Deno.serve(async (req) => {
 
     await adminClient.from("activity_log").insert({
       action: "whatsapp_sent",
-      entity_type: fichaId ? "ficha" : "message",
-      entity_id: fichaId || null,
+      entity_type: fichaId ? "ficha" : conversationId ? "conversation" : "message",
+      entity_id: fichaId || conversationId || null,
       user_id: userId,
       metadata: {
         phone: normalizedPhone,
         message_preview: message.substring(0, 100),
-        evolution_response: evolutionData,
+        evolution_message_id: evolutionData.key?.id || evolutionData.id,
       },
     });
 
@@ -125,6 +139,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         messageId: evolutionData.key?.id || evolutionData.id,
+        evolutionData,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

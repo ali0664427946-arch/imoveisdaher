@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2 } from "lucide-react";
+import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-
+import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
   olx_chat: "bg-amber-500 text-white",
@@ -66,11 +66,39 @@ export default function Inbox() {
     enabled: !!selectedConversationId,
   });
 
-  // Send message mutation
+  // Send message mutation - now sends via WhatsApp API
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       if (!selectedConversationId) throw new Error("Nenhuma conversa selecionada");
+      
+      const conversation = conversations.find(c => c.id === selectedConversationId);
+      const phone = conversation?.lead?.phone;
+      
+      if (!phone) {
+        throw new Error("Lead não possui telefone cadastrado");
+      }
 
+      // First, try to send via WhatsApp if it's a WhatsApp channel
+      if (conversation?.channel === "whatsapp" || conversation?.channel === "olx_chat") {
+        console.log("Sending message via WhatsApp API...");
+        
+        const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke("send-whatsapp", {
+          body: { phone, message: content },
+        });
+
+        if (whatsappError) {
+          console.error("WhatsApp send error:", whatsappError);
+          throw new Error(whatsappError.message || "Erro ao enviar via WhatsApp");
+        }
+
+        if (!whatsappResult?.success) {
+          throw new Error(whatsappResult?.error || "Falha ao enviar mensagem via WhatsApp");
+        }
+
+        console.log("WhatsApp message sent successfully:", whatsappResult);
+      }
+
+      // Save message to database
       const { data, error } = await supabase
         .from("messages")
         .insert({
@@ -79,6 +107,7 @@ export default function Inbox() {
           direction: "outbound",
           message_type: "text",
           sent_status: "sent",
+          provider: "evolution",
         })
         .select()
         .single();
@@ -100,6 +129,10 @@ export default function Inbox() {
       setMessageText("");
       queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] });
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast({
+        title: "Mensagem enviada!",
+        description: "A mensagem foi enviada via WhatsApp com sucesso.",
+      });
     },
     onError: (error) => {
       toast({
@@ -230,6 +263,11 @@ export default function Inbox() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <ScheduleMessageDialog
+                  defaultPhone={selectedConversation.lead?.phone || ""}
+                  leadId={selectedConversation.lead?.id}
+                  conversationId={selectedConversation.id}
+                />
                 <Button variant="ghost" size="icon">
                   <Phone className="w-4 h-4" />
                 </Button>

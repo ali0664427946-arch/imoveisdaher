@@ -18,6 +18,7 @@ import Leads from "./pages/admin/Leads";
 import Properties from "./pages/admin/Properties";
 import Fichas from "./pages/admin/Fichas";
 import FichaDetail from "./pages/admin/FichaDetail";
+import Templates from "./pages/admin/Templates";
 import Settings from "./pages/admin/Settings";
 import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="imoveis" element={<Properties />} />
               <Route path="fichas" element={<Fichas />} />
               <Route path="fichas/:id" element={<FichaDetail />} />
+              <Route path="templates" element={<Templates />} />
               <Route path="configuracoes" element={<Settings />} />
             </Route>
             

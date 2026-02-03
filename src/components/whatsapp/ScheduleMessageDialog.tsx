@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Clock, Send, X } from "lucide-react";
+import { Calendar, Clock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduledMessages, CreateScheduledMessageInput } from "@/hooks/useScheduledMessages";
+import { TemplateSelector } from "@/components/templates/TemplateSelector";
 import { format, addHours, setHours, setMinutes } from "date-fns";
 
 interface ScheduleMessageDialogProps {
@@ -138,14 +139,19 @@ export function ScheduleMessageDialog({
             </div>
 
             <div>
-              <Label htmlFor="message">Mensagem</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="message">Mensagem</Label>
+                <TemplateSelector
+                  onSelect={(content) => setMessage(content)}
+                  channel="whatsapp"
+                />
+              </div>
               <Textarea
                 id="message"
-                placeholder="Digite a mensagem..."
+                placeholder="Digite a mensagem ou selecione um template..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={4}
-                className="mt-1"
               />
             </div>
 

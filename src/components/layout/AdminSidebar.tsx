@@ -5,6 +5,7 @@ import {
   Kanban,
   Building2,
   FileText,
+  FileCode,
   Users,
   Settings,
   LogOut,
@@ -31,6 +32,7 @@ const menuItems = [
   { title: "Leads", url: "/admin/leads", icon: Kanban },
   { title: "Imóveis", url: "/admin/imoveis", icon: Building2 },
   { title: "Fichas", url: "/admin/fichas", icon: FileText },
+  { title: "Templates", url: "/admin/templates", icon: FileCode },
 ];
 
 const adminItems = [

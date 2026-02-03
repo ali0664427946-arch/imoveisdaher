@@ -1,15 +1,17 @@
-import { useState } from "react";
-import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
+
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
   olx_chat: "bg-amber-500 text-white",
@@ -24,12 +26,99 @@ const channelLabels: Record<string, string> = {
   email: "Email",
 };
 
+// Message status indicator component
+function MessageStatusIcon({ status, direction }: { status: string | null; direction: string }) {
+  if (direction !== "outbound") return null;
+  
+  const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+    sending: {
+      icon: <ClockIcon className="w-3 h-3" />,
+      label: "Enviando...",
+      color: "text-muted-foreground",
+    },
+    sent: {
+      icon: <Check className="w-3 h-3" />,
+      label: "Enviado",
+      color: "text-muted-foreground",
+    },
+    delivered: {
+      icon: <CheckCheck className="w-3 h-3" />,
+      label: "Entregue",
+      color: "text-muted-foreground",
+    },
+    read: {
+      icon: <CheckCheck className="w-3 h-3" />,
+      label: "Lido",
+      color: "text-blue-400",
+    },
+    failed: {
+      icon: <span className="text-destructive text-[10px]">!</span>,
+      label: "Falhou",
+      color: "text-destructive",
+    },
+  };
+  
+  const config = statusConfig[status || "sent"] || statusConfig.sent;
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center ml-1 ${config.color}`}>
+            {config.icon}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="text-xs">
+          {config.label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export default function Inbox() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Subscribe to realtime updates for messages
+  useEffect(() => {
+    const channel = supabase
+      .channel("inbox-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          console.log("Realtime message update:", payload);
+          // Refresh messages when there's any change
+          queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] });
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversations",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConversationId, queryClient]);
 
   // Fetch conversations with lead info
   const { data: conversations = [], isLoading: loadingConversations } = useQuery({
@@ -65,6 +154,24 @@ export default function Inbox() {
     },
     enabled: !!selectedConversationId,
   });
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Mark conversation as read when selected
+  useEffect(() => {
+    if (selectedConversationId) {
+      supabase
+        .from("conversations")
+        .update({ unread_count: 0 })
+        .eq("id", selectedConversationId)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        });
+    }
+  }, [selectedConversationId, queryClient]);
 
   // Send message mutation - now sends via WhatsApp API
   const sendMessage = useMutation({
@@ -303,19 +410,21 @@ export default function Inbox() {
                             : "bg-card border rounded-bl-sm"
                         }`}
                       >
-                        <p className="text-sm">{msg.content}</p>
-                        <p
-                          className={`text-[10px] mt-1 ${
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        <div
+                          className={`flex items-center justify-end gap-1 mt-1 ${
                             msg.direction === "outbound"
                               ? "text-accent-foreground/70"
                               : "text-muted-foreground"
                           }`}
                         >
-                          {formatTime(msg.created_at)}
-                        </p>
+                          <span className="text-[10px]">{formatTime(msg.created_at)}</span>
+                          <MessageStatusIcon status={msg.sent_status} direction={msg.direction} />
+                        </div>
                       </div>
                     </div>
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
               )}
             </ScrollArea>

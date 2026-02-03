@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.test-evolution-connection]
 verify_jwt = false
+
+[functions.initiate-whatsapp-contact]
+verify_jwt = false

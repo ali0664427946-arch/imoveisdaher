@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppContactDialog } from "@/components/properties/WhatsAppContactDialog";
 
 interface PropertyData {
   id: string;
@@ -66,6 +67,7 @@ export default function PropertyDetail() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [property, setProperty] = useState<PropertyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
 
   useEffect(() => {
     async function fetchProperty() {
@@ -347,7 +349,12 @@ export default function PropertyDetail() {
                       Preencher Ficha de Interesse
                     </Link>
                   </Button>
-                  <Button variant="outline" size="lg" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="w-full"
+                    onClick={() => setWhatsappDialogOpen(true)}
+                  >
                     <MessageCircle className="w-5 h-5" />
                     WhatsApp
                   </Button>
@@ -388,6 +395,20 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Contact Dialog */}
+      <WhatsAppContactDialog
+        open={whatsappDialogOpen}
+        onOpenChange={setWhatsappDialogOpen}
+        property={{
+          id: property.id,
+          title: property.title,
+          neighborhood: property.neighborhood,
+          city: property.city,
+          price: property.price,
+          purpose: property.purpose,
+        }}
+      />
     </div>
   );
 }

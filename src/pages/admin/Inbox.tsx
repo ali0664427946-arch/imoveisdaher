@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon } from "lucide-react";
+import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
-
+import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
   olx_chat: "bg-amber-500 text-white",
@@ -362,11 +362,27 @@ export default function Inbox() {
                     {selectedConversation.lead?.name?.charAt(0) || "?"}
                   </span>
                 </div>
-                <div>
-                  <p className="font-medium">{selectedConversation.lead?.name || "Lead"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedConversation.lead?.phone || "Sem telefone"}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div>
+                    <p className="font-medium">{selectedConversation.lead?.name || "Lead"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedConversation.lead?.phone || "Sem telefone"}
+                    </p>
+                  </div>
+                  {selectedConversation.lead && (
+                    <EditLeadDialog
+                      lead={{
+                        id: selectedConversation.lead.id,
+                        name: selectedConversation.lead.name || "Lead",
+                        phone: selectedConversation.lead.phone,
+                      }}
+                      trigger={
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      }
+                    />
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">

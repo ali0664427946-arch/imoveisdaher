@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
 
 interface UploadedDocument {
   id?: string;
@@ -86,15 +87,37 @@ export function DocumentUploader({
 
     setUploading(category);
 
+    // Compress image if it's an image file
+    let processedFile = file;
+    if (file.type.startsWith("image/")) {
+      try {
+        const originalSize = file.size;
+        processedFile = await compressImage(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.8,
+          maxSizeMB: 2,
+        });
+        
+        if (processedFile.size < originalSize) {
+          toast.info("Imagem comprimida", {
+            description: `${formatFileSize(originalSize)} → ${formatFileSize(processedFile.size)}`,
+          });
+        }
+      } catch (error) {
+        console.error("Compression failed, using original:", error);
+      }
+    }
+
     try {
       // Generate unique file path
-      const fileExt = file.name.split(".").pop();
+      const fileExt = processedFile.name.split(".").pop() || "jpg";
       const fileName = `${fichaId || "temp"}/${category}_${Date.now()}.${fileExt}`;
 
       // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("ficha-documents")
-        .upload(fileName, file);
+        .upload(fileName, processedFile);
 
       if (uploadError) throw uploadError;
 
@@ -105,10 +128,10 @@ export function DocumentUploader({
 
       const newDoc: UploadedDocument = {
         category,
-        file_name: file.name,
+        file_name: file.name, // Keep original name for display
         file_url: urlData.publicUrl,
-        file_size: file.size,
-        mime_type: file.type,
+        file_size: processedFile.size,
+        mime_type: processedFile.type,
         status: "pendente",
       };
 
@@ -119,10 +142,10 @@ export function DocumentUploader({
           .insert({
             ficha_id: fichaId,
             category,
-            file_name: file.name,
+            file_name: file.name, // Keep original name
             file_url: urlData.publicUrl,
-            file_size: file.size,
-            mime_type: file.type,
+            file_size: processedFile.size,
+            mime_type: processedFile.type,
           })
           .select()
           .single();

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { SearchFilters } from "@/components/properties/SearchFilters";
 import { PropertyGrid } from "@/components/properties/PropertyGrid";
+import { ContactForm } from "@/components/contact/ContactForm";
 import { Building2, Users, Award, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -249,6 +250,9 @@ export default function Index() {
         </section>
       )}
 
+      {/* Contact Form Section */}
+      <ContactForm />
+
       {/* CTA Section */}
       <section className="py-20 bg-primary">
         <div className="container mx-auto px-4">
@@ -264,7 +268,7 @@ export default function Index() {
                 <Link to="/imoveis">Ver Imóveis Disponíveis</Link>
               </Button>
               <Button variant="glass" size="xl" asChild>
-                <Link to="/contato">Fale Conosco</Link>
+                <a href="#contato">Fale Conosco</a>
               </Button>
             </div>
           </div>

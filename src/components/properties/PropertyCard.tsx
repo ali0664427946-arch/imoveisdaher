@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Bed, Bath, Car, Maximize, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Bed, Bath, Car, Maximize, MapPin, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 
 export interface Property {
@@ -119,6 +120,22 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
                 <Maximize className="w-4 h-4" />
                 <span>{property.area}m²</span>
               </div>
+            </div>
+
+            {/* Interest Form Button */}
+            <div className="pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                asChild
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Link to={`/ficha/${property.id}`}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Preencher Ficha
+                </Link>
+              </Button>
             </div>
           </div>
         </article>

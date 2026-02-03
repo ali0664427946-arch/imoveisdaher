@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/admin/Dashboard";
 import Inbox from "./pages/admin/Inbox";
 import Leads from "./pages/admin/Leads";
+import Contacts from "./pages/admin/Contacts";
 import Properties from "./pages/admin/Properties";
 import Fichas from "./pages/admin/Fichas";
 import FichaDetail from "./pages/admin/FichaDetail";
@@ -54,6 +55,7 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="inbox" element={<Inbox />} />
               <Route path="leads" element={<Leads />} />
+              <Route path="contatos" element={<Contacts />} />
               <Route path="imoveis" element={<Properties />} />
               <Route path="fichas" element={<Fichas />} />
               <Route path="fichas/:id" element={<FichaDetail />} />

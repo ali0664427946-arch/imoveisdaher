@@ -1,13 +1,11 @@
 import { useState, useMemo } from "react";
-import { Search, Filter, Loader2, Download } from "lucide-react";
+import { Search, Filter, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLeads, LeadStatus, Lead } from "@/hooks/useLeads";
 import { KanbanColumn } from "@/components/leads/KanbanColumn";
 import { NewLeadDialog } from "@/components/leads/NewLeadDialog";
-import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
-import { useQueryClient } from "@tanstack/react-query";
 
 const columns: { id: LeadStatus; title: string; color: string }[] = [
   { id: "entrou_em_contato", title: "Entrou em Contato", color: "border-l-info" },
@@ -22,11 +20,6 @@ export default function Leads() {
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<LeadStatus | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const queryClient = useQueryClient();
-
-  const handleImportSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["leads"] });
-  };
 
   const filteredLeads = useMemo(() => {
     if (!searchQuery.trim()) return leads;
@@ -97,15 +90,6 @@ export default function Leads() {
           <Button variant="outline" size="icon">
             <Filter className="w-4 h-4" />
           </Button>
-          <ImportContactsDialog 
-            trigger={
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Importar WhatsApp
-              </Button>
-            }
-            onSuccess={handleImportSuccess}
-          />
           <NewLeadDialog onSubmit={createLead} />
         </div>
       </div>

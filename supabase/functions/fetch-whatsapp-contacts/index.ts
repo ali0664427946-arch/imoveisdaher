@@ -138,32 +138,32 @@ Deno.serve(async (req) => {
 
     console.log(`Processed ${contacts.length} contacts (excluding groups)`);
 
-    // Get existing leads to mark which contacts are already imported
+    // Get existing contacts to mark which are already imported
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: existingLeads } = await adminClient
-      .from("leads")
+    const { data: existingContacts } = await adminClient
+      .from("contacts")
       .select("phone, phone_normalized");
 
     const existingPhones = new Set<string>();
-    if (existingLeads) {
-      for (const lead of existingLeads) {
-        if (lead.phone) {
-          existingPhones.add(lead.phone.replace(/\D/g, ""));
+    if (existingContacts) {
+      for (const contact of existingContacts) {
+        if (contact.phone) {
+          existingPhones.add(contact.phone.replace(/\D/g, ""));
         }
-        if (lead.phone_normalized) {
-          existingPhones.add(lead.phone_normalized.replace(/\D/g, ""));
+        if (contact.phone_normalized) {
+          existingPhones.add(contact.phone_normalized.replace(/\D/g, ""));
         }
       }
     }
 
-    // Mark contacts that are already leads
+    // Mark contacts that are already imported
     const contactsWithStatus = contacts.map(contact => ({
       ...contact,
-      isExistingLead: existingPhones.has(contact.phone) || existingPhones.has(`55${contact.phone}`),
+      isExistingContact: existingPhones.has(contact.phone) || existingPhones.has(`55${contact.phone}`),
     }));
 
     return new Response(
@@ -171,8 +171,8 @@ Deno.serve(async (req) => {
         success: true,
         contacts: contactsWithStatus,
         total: contactsWithStatus.length,
-        existingLeads: contactsWithStatus.filter(c => c.isExistingLead).length,
-        newContacts: contactsWithStatus.filter(c => !c.isExistingLead).length,
+        existingContacts: contactsWithStatus.filter(c => c.isExistingContact).length,
+        newContacts: contactsWithStatus.filter(c => !c.isExistingContact).length,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

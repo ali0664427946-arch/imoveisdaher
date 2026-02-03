@@ -8,11 +8,11 @@ import { KanbanColumn } from "@/components/leads/KanbanColumn";
 import { NewLeadDialog } from "@/components/leads/NewLeadDialog";
 
 const columns: { id: LeadStatus; title: string; color: string }[] = [
-  { id: "novo", title: "Entrou em Contato", color: "border-l-info" },
-  { id: "nao_atendeu", title: "Não Atendeu", color: "border-l-warning" },
-  { id: "retornar", title: "Retornar", color: "border-l-amber-400" },
-  { id: "reuniao_marcada", title: "Reunião Marcada", color: "border-l-success" },
-  { id: "fechado", title: "Cliente Fechado", color: "border-l-accent" },
+  { id: "entrou_em_contato", title: "Entrou em Contato", color: "border-l-info" },
+  { id: "visita_agendada", title: "Visita Agendada", color: "border-l-success" },
+  { id: "aguardando_imovel", title: "Aguardando Imóvel", color: "border-l-amber-400" },
+  { id: "aguardando_retorno", title: "Aguardando Retorno", color: "border-l-warning" },
+  { id: "fechado", title: "Fechado", color: "border-l-accent" },
 ];
 
 export default function Leads() {

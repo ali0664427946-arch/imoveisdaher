@@ -699,11 +699,10 @@ export type Database = {
         | "nao_apto"
         | "faltando_docs"
       lead_status:
-        | "novo"
-        | "nao_atendeu"
-        | "retornar"
-        | "nao_quis_reuniao"
-        | "reuniao_marcada"
+        | "entrou_em_contato"
+        | "visita_agendada"
+        | "aguardando_imovel"
+        | "aguardando_retorno"
         | "fechado"
       message_direction: "inbound" | "outbound"
       property_origin: "olx" | "imovelweb" | "import" | "manual"
@@ -854,11 +853,10 @@ export const Constants = {
         "faltando_docs",
       ],
       lead_status: [
-        "novo",
-        "nao_atendeu",
-        "retornar",
-        "nao_quis_reuniao",
-        "reuniao_marcada",
+        "entrou_em_contato",
+        "visita_agendada",
+        "aguardando_imovel",
+        "aguardando_retorno",
         "fechado",
       ],
       message_direction: ["inbound", "outbound"],

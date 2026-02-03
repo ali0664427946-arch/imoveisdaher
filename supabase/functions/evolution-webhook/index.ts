@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
             phone: phone,
             phone_normalized: `+55${phone}`,
             origin: "whatsapp",
-            status: "novo",
+            status: "entrou_em_contato",
           })
           .select("id")
           .single();

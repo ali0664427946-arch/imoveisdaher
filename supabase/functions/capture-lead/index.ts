@@ -267,7 +267,7 @@ async function processOLXInquiry(supabase: any, data: OLXInquiry | OLXInquiry[])
         origin: "olx",
         property_id: propertyId,
         notes: inquiry.message || null,
-        status: "novo",
+        status: "entrou_em_contato",
       })
       .select()
       .single();
@@ -341,7 +341,7 @@ async function processImovelWebInquiry(supabase: any, data: ImovelWebInquiry | I
         origin: "imovelweb",
         property_id: propertyId,
         notes: inquiry.mensagem || null,
-        status: "novo",
+        status: "entrou_em_contato",
       })
       .select()
       .single();
@@ -410,7 +410,7 @@ async function processWebsiteInquiry(supabase: any, data: WebsiteInquiry) {
       origin: "website",
       property_id: propertyId,
       notes: data.message || null,
-      status: "novo",
+      status: "entrou_em_contato",
     })
     .select()
     .single();

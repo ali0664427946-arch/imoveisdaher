@@ -104,7 +104,7 @@ export function useLeads() {
           property_id: lead.property_id || null,
           origin: lead.origin || null,
           notes: lead.notes || null,
-          status: lead.status || "novo",
+          status: lead.status || "entrou_em_contato",
         })
         .select(`
           *,

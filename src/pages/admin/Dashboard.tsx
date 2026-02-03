@@ -9,18 +9,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 const statusColors: Record<string, string> = {
-  novo: "bg-info text-info-foreground",
-  retornar: "bg-warning text-warning-foreground",
-  reuniao_marcada: "bg-success text-success-foreground",
-  nao_atendeu: "bg-muted text-muted-foreground",
+  entrou_em_contato: "bg-info text-info-foreground",
+  visita_agendada: "bg-success text-success-foreground",
+  aguardando_imovel: "bg-amber-400 text-black",
+  aguardando_retorno: "bg-warning text-warning-foreground",
   fechado: "bg-accent text-accent-foreground",
 };
 
 const statusLabels: Record<string, string> = {
-  novo: "Novo",
-  retornar: "Retornar",
-  reuniao_marcada: "Reunião",
-  nao_atendeu: "Não Atendeu",
+  entrou_em_contato: "Entrou em Contato",
+  visita_agendada: "Visita Agendada",
+  aguardando_imovel: "Aguardando Imóvel",
+  aguardando_retorno: "Aguardando Retorno",
   fechado: "Fechado",
 };
 

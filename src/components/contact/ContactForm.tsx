@@ -70,7 +70,7 @@ export function ContactForm() {
         phone_normalized: normalizedPhone ? `+55${normalizedPhone}` : null,
         origin: "site_contato",
         notes: data.message,
-        status: "novo",
+        status: "entrou_em_contato",
       });
 
       if (error) throw error;

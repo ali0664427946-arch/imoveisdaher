@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
           phone_normalized: normalizedPhone,
           property_id: propertyId,
           origin: "site_whatsapp",
-          status: "novo",
+          status: "entrou_em_contato",
           notes: `Interessado em: ${propertyTitle}`,
         })
         .select("id")

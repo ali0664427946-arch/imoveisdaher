@@ -35,7 +35,7 @@ interface NewLeadDialogProps {
     property_id?: string | null;
     origin?: string | null;
     notes?: string | null;
-    status?: "novo";
+    status?: "entrou_em_contato";
   }) => Promise<any>;
 }
 
@@ -75,7 +75,7 @@ export function NewLeadDialog({ onSubmit }: NewLeadDialogProps) {
       property_id: formData.property_id || null,
       origin: formData.origin || null,
       notes: formData.notes || null,
-      status: "novo",
+      status: "entrou_em_contato",
     });
 
     setFormData({

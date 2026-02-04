@@ -70,7 +70,26 @@ async function findValidWhatsAppNumber(
   instanceName: string,
   originalPhone: string
 ): Promise<{ validPhone: string | null; jid?: string }> {
-  // Clean the phone number
+// Check if it's a group JID format (e.g., "21981366125-1553634143@g.us")
+  if (originalPhone.includes("@g.us")) {
+    console.log(`Detected group JID format: ${originalPhone}`);
+    // Extract the first phone number from the group JID (before the hyphen)
+    const groupMatch = originalPhone.match(/^(\d+)-/);
+    if (groupMatch) {
+      const extractedPhone = groupMatch[1];
+      console.log(`Extracted phone from group JID: ${extractedPhone}`);
+      // Continue with this extracted phone
+      const fullNumber = extractedPhone.startsWith("55") ? extractedPhone : `55${extractedPhone}`;
+      const check = await checkWhatsAppNumber(baseUrl, apiKey, instanceName, fullNumber);
+      if (check.exists) {
+        return { validPhone: fullNumber, jid: check.jid };
+      }
+    }
+    // If we can't extract or validate, return null
+    return { validPhone: null };
+  }
+
+  // Clean the phone number (remove non-digits)
   let cleanPhone = originalPhone.replace(/\D/g, "");
   
   // If already starts with 55 and has full length (13 digits for mobile), check directly

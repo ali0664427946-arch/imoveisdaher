@@ -23,6 +23,7 @@ import Templates from "./pages/admin/Templates";
 import Settings from "./pages/admin/Settings";
 import Users from "./pages/admin/Users";
 import InstallApp from "./pages/InstallApp";
+import InstallPWA from "./pages/admin/InstallPWA";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="templates" element={<Templates />} />
               <Route path="configuracoes" element={<Settings />} />
               <Route path="usuarios" element={<Users />} />
+              <Route path="instalar" element={<InstallPWA />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

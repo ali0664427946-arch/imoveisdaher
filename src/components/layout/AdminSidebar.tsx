@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   Contact,
+  Download,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logoImage from "@/assets/logo-daher.png";
@@ -40,6 +41,7 @@ const menuItems = [
 const adminItems = [
   { title: "Usuários", url: "/admin/usuarios", icon: Users },
   { title: "Configurações", url: "/admin/configuracoes", icon: Settings },
+  { title: "Instalar App", url: "/admin/instalar", icon: Download },
 ];
 
 export function AdminSidebar() {

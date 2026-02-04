@@ -142,32 +142,101 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Helper function to fetch group name from Evolution API
+      async function fetchGroupName(groupJid: string): Promise<string | null> {
+        try {
+          const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+          const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+          const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+          
+          if (!evolutionUrl || !evolutionKey || !instanceName) {
+            return null;
+          }
+          
+          const groupInfoRes = await fetch(
+            `${evolutionUrl}/group/findGroupInfos/${instanceName}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": evolutionKey,
+              },
+              body: JSON.stringify({ groupJid }),
+            }
+          );
+          
+          if (groupInfoRes.ok) {
+            const groupInfo = await groupInfoRes.json();
+            const fetchedName = groupInfo?.subject || groupInfo?.groupMetadata?.subject || groupInfo?.name;
+            console.log(`Fetched group info:`, JSON.stringify(groupInfo));
+            return fetchedName || null;
+          }
+          return null;
+        } catch (error) {
+          console.error("Error fetching group info:", error);
+          return null;
+        }
+      }
+
       // Find or create conversation
       let conversationId: string | null = null;
       
-      // For groups, also match by external_thread_id (the group JID)
-      const { data: existingConv } = await supabase
-        .from("conversations")
-        .select("id, is_group, group_name")
-        .eq("lead_id", leadId)
-        .eq("channel", "whatsapp")
-        .maybeSingle();
+      // For groups, try to match by external_thread_id first, then by lead
+      let existingConv = null;
+      
+      if (isGroup) {
+        // For groups, match by the group JID (external_thread_id)
+        const { data: groupConv } = await supabase
+          .from("conversations")
+          .select("id, is_group, group_name")
+          .eq("external_thread_id", remoteJid)
+          .eq("channel", "whatsapp")
+          .maybeSingle();
+        
+        existingConv = groupConv;
+      }
+      
+      if (!existingConv) {
+        // Fallback to lead-based matching
+        const { data: leadConv } = await supabase
+          .from("conversations")
+          .select("id, is_group, group_name")
+          .eq("lead_id", leadId)
+          .eq("channel", "whatsapp")
+          .maybeSingle();
+        
+        existingConv = leadConv;
+      }
 
       if (existingConv) {
         conversationId = existingConv.id;
         
-        // If it's a group and we now have a group name but didn't before, update it
-        if (isGroup && groupName && !existingConv.group_name) {
-          await supabase
-            .from("conversations")
-            .update({ 
-              is_group: true, 
-              group_name: groupName,
-              external_thread_id: remoteJid 
-            })
-            .eq("id", conversationId);
+        // If it's a group and we don't have a group name, try to fetch it
+        if (isGroup && !existingConv.group_name) {
+          // First check if we have it in payload
+          if (!groupName) {
+            groupName = await fetchGroupName(remoteJid);
+          }
+          
+          if (groupName) {
+            await supabase
+              .from("conversations")
+              .update({ 
+                is_group: true, 
+                group_name: groupName,
+                external_thread_id: remoteJid 
+              })
+              .eq("id", conversationId);
+            
+            console.log(`Updated group name to: ${groupName}`);
+          }
         }
       } else {
+        // For groups, try to fetch the group name before creating
+        if (isGroup && !groupName) {
+          groupName = await fetchGroupName(remoteJid);
+        }
+        
         // Create new conversation with group info if applicable
         const insertData: Record<string, unknown> = {
           lead_id: leadId,
@@ -193,45 +262,6 @@ Deno.serve(async (req) => {
           console.error("Error creating conversation:", convError);
         } else {
           conversationId = newConv.id;
-          
-          // If it's a group and we don't have the name yet, try to fetch it
-          if (isGroup && !groupName) {
-            try {
-              const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
-              const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
-              const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
-              
-              if (evolutionUrl && evolutionKey && instanceName) {
-                const groupInfoRes = await fetch(
-                  `${evolutionUrl}/group/findGroupInfos/${instanceName}`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "apikey": evolutionKey,
-                    },
-                    body: JSON.stringify({ groupJid: remoteJid }),
-                  }
-                );
-                
-                if (groupInfoRes.ok) {
-                  const groupInfo = await groupInfoRes.json();
-                  const fetchedGroupName = groupInfo?.subject || groupInfo?.groupMetadata?.subject;
-                  
-                  if (fetchedGroupName) {
-                    await supabase
-                      .from("conversations")
-                      .update({ group_name: fetchedGroupName })
-                      .eq("id", conversationId);
-                    
-                    console.log(`Updated group name to: ${fetchedGroupName}`);
-                  }
-                }
-              }
-            } catch (groupError) {
-              console.error("Error fetching group info:", groupError);
-            }
-          }
         }
       }
 

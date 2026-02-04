@@ -563,15 +563,17 @@ export default function Inbox() {
             {selectedConversation.is_group ? "Detalhes do Grupo" : "Detalhes do Lead"}
           </h3>
           <div className="space-y-4">
-            {selectedConversation.is_group && selectedConversation.group_name && (
-              <div>
-                <p className="text-xs text-muted-foreground">Nome do Grupo</p>
-                <p className="font-medium">{selectedConversation.group_name}</p>
+            {selectedConversation.is_group && (
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <p className="text-xs text-blue-400 mb-1">Nome do Grupo</p>
+                <p className="font-semibold text-blue-600">
+                  {selectedConversation.group_name || selectedConversation.external_thread_id?.replace("@g.us", "") || "Grupo sem nome"}
+                </p>
               </div>
             )}
             <div>
               <p className="text-xs text-muted-foreground">
-                {selectedConversation.is_group ? "Membro" : "Nome"}
+                {selectedConversation.is_group ? "Último membro ativo" : "Nome"}
               </p>
               <p className="font-medium">{selectedConversation.lead?.name || "-"}</p>
             </div>

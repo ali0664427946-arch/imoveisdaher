@@ -70,7 +70,7 @@ async function findValidWhatsAppNumber(
   instanceName: string,
   originalPhone: string
 ): Promise<{ validPhone: string | null; jid?: string }> {
-// Check if it's a group JID format (e.g., "21981366125-1553634143@g.us")
+  // Check if it's a group JID format (e.g., "21981366125-1553634143@g.us")
   if (originalPhone.includes("@g.us")) {
     console.log(`Detected group JID format: ${originalPhone}`);
     // Extract the first phone number from the group JID (before the hyphen)
@@ -86,6 +86,13 @@ async function findValidWhatsAppNumber(
       }
     }
     // If we can't extract or validate, return null
+    return { validPhone: null };
+  }
+
+  // Check if it's a LID format (e.g., "57788801761502@lid") - used for group participants
+  // LID format cannot be used to send messages directly - need to look up the actual phone
+  if (originalPhone.includes("@lid") || originalPhone.includes("@")) {
+    console.log(`Detected LID/special format: ${originalPhone} - cannot send direct message`);
     return { validPhone: null };
   }
 

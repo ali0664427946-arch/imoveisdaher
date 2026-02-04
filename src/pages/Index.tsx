@@ -86,7 +86,7 @@ export default function Index() {
       <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0">
-          <img src={heroBg} alt="Imóveis de luxo" className="w-full h-full object-cover" />
+          <img src={heroBg} alt="Imóveis em Jacarepaguá e Zona Sudoeste do Rio de Janeiro" className="w-full h-full object-cover" />
           <div className="hero-overlay absolute inset-0" />
         </div>
 
@@ -99,11 +99,11 @@ export default function Index() {
             className="max-w-4xl mx-auto"
           >
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-white mb-6 leading-tight">
-              Encontre o imóvel{" "}
-              <span className="text-accent">perfeito</span> para você
+              Imobiliária em Jacarepaguá:{" "}
+              <span className="text-accent">seu imóvel ideal</span>
             </h1>
             <p className="text-lg md:text-xl text-white/80 mb-10 max-w-2xl mx-auto">
-              Sua plataforma completa para alugar ou comprar imóveis. Milhares de opções em Rio de Janeiro e região.
+              Compra, venda e aluguel de imóveis em Jacarepaguá e Zona Sudoeste do Rio de Janeiro com atendimento personalizado.
             </p>
           </motion.div>
 
@@ -156,10 +156,10 @@ export default function Index() {
                   Destaques
                 </span>
                 <h2 className="text-3xl md:text-4xl font-heading font-bold mt-2">
-                  Imóveis em Destaque
+                  Imóveis em Destaque em Jacarepaguá
                 </h2>
                 <p className="text-muted-foreground mt-2 max-w-lg">
-                  Selecionamos as melhores opções para você. Confira nossos destaques da semana.
+                  Selecionamos as melhores opções de imóveis na Zona Sudoeste do Rio de Janeiro para você.
                 </p>
               </div>
               <Button variant="outline" asChild>
@@ -183,7 +183,7 @@ export default function Index() {
               Por que nos escolher
             </span>
             <h2 className="text-3xl md:text-4xl font-heading font-bold mt-2">
-              Sua jornada imobiliária simplificada
+              Sua imobiliária de confiança no Rio de Janeiro
             </h2>
           </div>
 
@@ -191,18 +191,18 @@ export default function Index() {
             {[
               {
                 icon: Building2,
-                title: "Ampla Variedade",
-                description: "Centenas de imóveis para todos os gostos e bolsos, do studio ao alto padrão.",
+                title: "Variedade em Jacarepaguá",
+                description: "Imóveis para todos os perfis em Jacarepaguá e região, do studio ao alto padrão.",
               },
               {
                 icon: Users,
-                title: "Atendimento Personalizado",
-                description: "Nossa equipe está pronta para entender suas necessidades e encontrar o imóvel ideal.",
+                title: "Atendimento Local",
+                description: "Equipe especializada na Zona Sudoeste do RJ pronta para encontrar o imóvel ideal.",
               },
               {
                 icon: Award,
-                title: "Processo Simplificado",
-                description: "Documentação digital, análise rápida e todo suporte que você precisa.",
+                title: "Processo Seguro",
+                description: "Documentação digital, análise rápida e suporte completo em todo o Rio de Janeiro.",
               },
             ].map((feature, i) => (
               <motion.div
@@ -234,7 +234,7 @@ export default function Index() {
                   Novidades
                 </span>
                 <h2 className="text-3xl md:text-4xl font-heading font-bold mt-2">
-                  Adicionados Recentemente
+                  Novos Imóveis em Jacarepaguá
                 </h2>
               </div>
               <Button variant="outline" asChild>
@@ -258,10 +258,10 @@ export default function Index() {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-heading font-bold text-primary-foreground mb-6">
-              Pronto para encontrar seu novo lar?
+              Encontre seu imóvel em Jacarepaguá
             </h2>
             <p className="text-primary-foreground/80 text-lg mb-8 max-w-2xl mx-auto">
-              Entre em contato conosco e comece sua jornada para encontrar o imóvel dos seus sonhos.
+              Fale com a Daher Imóveis e encontre a melhor opção de compra ou aluguel na Zona Sudoeste do Rio de Janeiro.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="hero" size="xl" asChild>

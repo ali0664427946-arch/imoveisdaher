@@ -70,8 +70,20 @@ Deno.serve(async (req) => {
       
       if (isGroup) {
         // Group message - get actual sender from participant field
+        // First try participantAlt (actual phone) then participant (may be LID)
+        const participantAlt = (data.key as { participantAlt?: string }).participantAlt || "";
         const participant = data.key.participant || "";
-        phone = participant.replace("@s.whatsapp.net", "").replace("55", "");
+        
+        // Prefer participantAlt as it contains the actual phone number
+        const phoneSource = participantAlt.includes("@s.whatsapp.net") 
+          ? participantAlt 
+          : participant;
+        
+        // Extract clean phone number
+        phone = phoneSource
+          .replace("@s.whatsapp.net", "")
+          .replace("@lid", "")
+          .replace("55", "");
         
         // Try to get group name from metadata or use JID as fallback
         groupName = data.groupMetadata?.subject || null;
@@ -83,11 +95,58 @@ Deno.serve(async (req) => {
           console.log(`Group message from group ID: ${groupId}, participant: ${phone}`);
         }
       } else {
-        // Individual message
-        phone = remoteJid.replace("@s.whatsapp.net", "").replace("55", "");
+        // Individual message - prefer remoteJidAlt (actual phone) over remoteJid (may be LID)
+        const remoteJidAlt = (data.key as { remoteJidAlt?: string }).remoteJidAlt || "";
+        const phoneSource = remoteJidAlt.includes("@s.whatsapp.net")
+          ? remoteJidAlt
+          : remoteJid;
+        
+        phone = phoneSource
+          .replace("@s.whatsapp.net", "")
+          .replace("@lid", "")
+          .replace("55", "");
       }
       
-      const messageContent = data.message?.conversation || data.message?.extendedTextMessage?.text || "";
+      // Extract message content - support text, images, audio, video, documents, stickers
+      let messageContent = "";
+      let messageType = data.messageType || "text";
+      let mediaUrl: string | null = null;
+      
+      const msg = data.message as Record<string, unknown> | undefined;
+      
+      if (msg?.conversation) {
+        messageContent = msg.conversation as string;
+      } else if (msg?.extendedTextMessage) {
+        const extMsg = msg.extendedTextMessage as { text?: string };
+        messageContent = extMsg.text || "";
+      } else if (msg?.imageMessage) {
+        const imgMsg = msg.imageMessage as { caption?: string; url?: string; directPath?: string };
+        messageContent = imgMsg.caption || "📷 Imagem";
+        mediaUrl = imgMsg.url || imgMsg.directPath || null;
+        messageType = "image";
+      } else if (msg?.audioMessage) {
+        messageContent = "🎵 Áudio";
+        messageType = "audio";
+      } else if (msg?.videoMessage) {
+        const vidMsg = msg.videoMessage as { caption?: string };
+        messageContent = vidMsg.caption || "🎬 Vídeo";
+        messageType = "video";
+      } else if (msg?.documentMessage) {
+        const docMsg = msg.documentMessage as { fileName?: string; title?: string };
+        messageContent = `📎 ${docMsg.fileName || docMsg.title || "Documento"}`;
+        messageType = "document";
+      } else if (msg?.stickerMessage) {
+        messageContent = "🎨 Sticker";
+        messageType = "sticker";
+      } else if (msg?.contactMessage) {
+        const contactMsg = msg.contactMessage as { displayName?: string };
+        messageContent = `👤 Contato: ${contactMsg.displayName || "Desconhecido"}`;
+        messageType = "contact";
+      } else if (msg?.locationMessage) {
+        messageContent = "📍 Localização";
+        messageType = "location";
+      }
+      
       const senderName = data.pushName || "Desconhecido";
       const isFromMe = data.key.fromMe || false;
       
@@ -267,17 +326,24 @@ Deno.serve(async (req) => {
 
       if (conversationId) {
         // Insert message with correct direction based on fromMe
+        const messageInsertData: Record<string, unknown> = {
+          conversation_id: conversationId,
+          content: messageContent,
+          direction: isFromMe ? "outbound" : "inbound",
+          message_type: messageType,
+          sent_status: isFromMe ? "sent" : "received",
+          provider: "evolution",
+          provider_payload: data,
+        };
+        
+        // Add media URL if present
+        if (mediaUrl) {
+          messageInsertData.media_url = mediaUrl;
+        }
+        
         const { error: msgError } = await supabase
           .from("messages")
-          .insert({
-            conversation_id: conversationId,
-            content: messageContent,
-            direction: isFromMe ? "outbound" : "inbound",
-            message_type: data.messageType || "text",
-            sent_status: isFromMe ? "sent" : "received",
-            provider: "evolution",
-            provider_payload: data,
-          });
+          .insert(messageInsertData);
 
         if (msgError) {
           console.error("Error inserting message:", msgError);

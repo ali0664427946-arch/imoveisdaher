@@ -52,13 +52,14 @@ Deno.serve(async (req) => {
 
     const { event, data, instance } = payload;
 
-    // Handle incoming messages
-    if (event === "messages.upsert" && data.key && !data.key.fromMe) {
+    // Handle all messages (incoming AND outgoing from phone)
+    if (event === "messages.upsert" && data.key) {
       const phone = data.key.remoteJid?.replace("@s.whatsapp.net", "").replace("55", "");
       const messageContent = data.message?.conversation || data.message?.extendedTextMessage?.text || "";
       const senderName = data.pushName || "Desconhecido";
+      const isFromMe = data.key.fromMe || false;
       
-      console.log(`Incoming message from ${phone}: ${messageContent}`);
+      console.log(`${isFromMe ? 'Outgoing' : 'Incoming'} message ${isFromMe ? 'to' : 'from'} ${phone}: ${messageContent}`);
 
       // Find or create lead by phone
       let leadId: string | null = null;
@@ -72,8 +73,8 @@ Deno.serve(async (req) => {
 
       if (existingLead) {
         leadId = existingLead.id;
-      } else {
-        // Create new lead
+      } else if (!isFromMe) {
+        // Only create new lead for incoming messages (not outgoing)
         const { data: newLead, error: leadError } = await supabase
           .from("leads")
           .insert({
@@ -91,6 +92,15 @@ Deno.serve(async (req) => {
         } else {
           leadId = newLead.id;
         }
+      }
+
+      // For outgoing messages without a lead, we can't save (need existing conversation)
+      if (!leadId && isFromMe) {
+        console.log("Outgoing message but no existing lead found, skipping...");
+        return new Response(
+          JSON.stringify({ success: true, skipped: "no_lead_for_outgoing" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       if (!leadId) {
@@ -131,15 +141,15 @@ Deno.serve(async (req) => {
       }
 
       if (conversationId) {
-        // Insert message
+        // Insert message with correct direction based on fromMe
         const { error: msgError } = await supabase
           .from("messages")
           .insert({
             conversation_id: conversationId,
             content: messageContent,
-            direction: "inbound",
+            direction: isFromMe ? "outbound" : "inbound",
             message_type: data.messageType || "text",
-            sent_status: "received",
+            sent_status: isFromMe ? "sent" : "received",
             provider: "evolution",
             provider_payload: data,
           });
@@ -148,20 +158,26 @@ Deno.serve(async (req) => {
           console.error("Error inserting message:", msgError);
         }
 
-        // Update conversation with last message and increment unread
-        const { data: currentConv } = await supabase
-          .from("conversations")
-          .select("unread_count")
-          .eq("id", conversationId)
-          .single();
+        // Update conversation - only increment unread for incoming messages
+        const updateData: Record<string, unknown> = {
+          last_message_at: new Date().toISOString(),
+          last_message_preview: messageContent.slice(0, 100),
+        };
+
+        if (!isFromMe) {
+          // Only increment unread count for incoming messages
+          const { data: currentConv } = await supabase
+            .from("conversations")
+            .select("unread_count")
+            .eq("id", conversationId)
+            .single();
+          
+          updateData.unread_count = (currentConv?.unread_count || 0) + 1;
+        }
 
         await supabase
           .from("conversations")
-          .update({
-            last_message_at: new Date().toISOString(),
-            last_message_preview: messageContent.slice(0, 100),
-            unread_count: (currentConv?.unread_count || 0) + 1,
-          })
+          .update(updateData)
           .eq("id", conversationId);
 
         console.log(`Message saved to conversation ${conversationId}`);

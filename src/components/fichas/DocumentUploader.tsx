@@ -382,7 +382,13 @@ export function DocumentUploader({
                 src={previewUrl || ""}
                 alt="Document preview"
                 className="max-w-full max-h-[70vh] object-contain rounded-lg"
-                onError={() => setPreviewError("Não foi possível carregar a imagem")}
+                onLoad={() => setPreviewLoading(false)}
+                onError={(e) => {
+                  // Only show error if the src is not empty (avoids initial render error)
+                  if (e.currentTarget.src && e.currentTarget.src !== window.location.href) {
+                    setPreviewError("Não foi possível carregar a imagem");
+                  }
+                }}
               />
             )}
           </div>

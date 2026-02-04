@@ -98,7 +98,9 @@ export type Database = {
           channel: Database["public"]["Enums"]["conversation_channel"]
           created_at: string
           external_thread_id: string | null
+          group_name: string | null
           id: string
+          is_group: boolean | null
           last_message_at: string | null
           last_message_preview: string | null
           lead_id: string
@@ -111,7 +113,9 @@ export type Database = {
           channel?: Database["public"]["Enums"]["conversation_channel"]
           created_at?: string
           external_thread_id?: string | null
+          group_name?: string | null
           id?: string
+          is_group?: boolean | null
           last_message_at?: string | null
           last_message_preview?: string | null
           lead_id: string
@@ -124,7 +128,9 @@ export type Database = {
           channel?: Database["public"]["Enums"]["conversation_channel"]
           created_at?: string
           external_thread_id?: string | null
+          group_name?: string | null
           id?: string
+          is_group?: boolean | null
           last_message_at?: string | null
           last_message_preview?: string | null
           lead_id?: string

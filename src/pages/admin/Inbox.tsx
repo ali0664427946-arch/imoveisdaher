@@ -313,20 +313,35 @@ export default function Inbox() {
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-semibold text-accent">
-                      {conv.lead?.name?.charAt(0) || "?"}
-                    </span>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                    conv.is_group ? "bg-blue-500/20" : "bg-accent/20"
+                  }`}>
+                    {conv.is_group ? (
+                      <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58A2.01 2.01 0 000 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85A6.95 6.95 0 0020 14c-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
+                      </svg>
+                    ) : (
+                      <span className="text-sm font-semibold text-accent">
+                        {conv.lead?.name?.charAt(0) || "?"}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">
-                        {conv.lead?.name || "Lead desconhecido"}
+                        {conv.is_group && conv.group_name 
+                          ? conv.group_name 
+                          : conv.lead?.name || "Lead desconhecido"}
                       </span>
                       <span className="text-xs text-muted-foreground shrink-0">
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>
+                    {conv.is_group && conv.group_name && (
+                      <p className="text-[10px] text-blue-400 truncate">
+                        via {conv.lead?.name || "membro"}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
                       {conv.last_message_preview || "Sem mensagens"}
                     </p>
@@ -335,7 +350,7 @@ export default function Inbox() {
                         variant="secondary"
                         className={`text-[10px] ${channelColors[conv.channel] || "bg-gray-500 text-white"}`}
                       >
-                        {channelLabels[conv.channel] || conv.channel}
+                        {conv.is_group ? "Grupo" : channelLabels[conv.channel] || conv.channel}
                       </Badge>
                       {(conv.unread_count || 0) > 0 && (
                         <span className="w-5 h-5 rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center">
@@ -358,16 +373,30 @@ export default function Inbox() {
             {/* Chat Header */}
             <div className="h-16 border-b bg-card flex items-center justify-between px-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-accent">
-                    {selectedConversation.lead?.name?.charAt(0) || "?"}
-                  </span>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  selectedConversation.is_group ? "bg-blue-500/20" : "bg-accent/20"
+                }`}>
+                  {selectedConversation.is_group ? (
+                    <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58A2.01 2.01 0 000 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85A6.95 6.95 0 0020 14c-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
+                    </svg>
+                  ) : (
+                    <span className="text-sm font-semibold text-accent">
+                      {selectedConversation.lead?.name?.charAt(0) || "?"}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div>
-                    <p className="font-medium">{selectedConversation.lead?.name || "Lead"}</p>
+                    <p className="font-medium">
+                      {selectedConversation.is_group && selectedConversation.group_name 
+                        ? selectedConversation.group_name 
+                        : selectedConversation.lead?.name || "Lead"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {selectedConversation.lead?.phone || "Sem telefone"}
+                      {selectedConversation.is_group 
+                        ? `Membro: ${selectedConversation.lead?.name || "Desconhecido"}`
+                        : selectedConversation.lead?.phone || "Sem telefone"}
                     </p>
                   </div>
                   {selectedConversation.lead && (
@@ -530,10 +559,20 @@ export default function Inbox() {
       {/* Lead Details Sidebar */}
       {selectedConversation && (
         <div className="w-72 border-l bg-card p-4 hidden xl:block">
-          <h3 className="font-heading font-semibold mb-4">Detalhes do Lead</h3>
+          <h3 className="font-heading font-semibold mb-4">
+            {selectedConversation.is_group ? "Detalhes do Grupo" : "Detalhes do Lead"}
+          </h3>
           <div className="space-y-4">
+            {selectedConversation.is_group && selectedConversation.group_name && (
+              <div>
+                <p className="text-xs text-muted-foreground">Nome do Grupo</p>
+                <p className="font-medium">{selectedConversation.group_name}</p>
+              </div>
+            )}
             <div>
-              <p className="text-xs text-muted-foreground">Nome</p>
+              <p className="text-xs text-muted-foreground">
+                {selectedConversation.is_group ? "Membro" : "Nome"}
+              </p>
               <p className="font-medium">{selectedConversation.lead?.name || "-"}</p>
             </div>
             <div>
@@ -543,7 +582,7 @@ export default function Inbox() {
             <div>
               <p className="text-xs text-muted-foreground">Canal</p>
               <Badge className={channelColors[selectedConversation.channel] || "bg-gray-500"}>
-                {channelLabels[selectedConversation.channel] || selectedConversation.channel}
+                {selectedConversation.is_group ? "Grupo WhatsApp" : channelLabels[selectedConversation.channel] || selectedConversation.channel}
               </Badge>
             </div>
             {selectedConversation.lead?.property && (

@@ -20,6 +20,7 @@ interface EvolutionWebhookPayload {
       remoteJid: string;
       fromMe: boolean;
       id: string;
+      participant?: string; // Present in group messages - the actual sender
     };
     message?: {
       conversation?: string;
@@ -31,6 +32,12 @@ interface EvolutionWebhookPayload {
     pushName?: string;
     status?: string; // "DELIVERY_ACK" | "READ" | "PLAYED"
     messageTimestamp?: number;
+    // Group info fields that Evolution API may send
+    groupMetadata?: {
+      subject?: string; // Group name
+      desc?: string;
+      owner?: string;
+    };
   };
 }
 
@@ -54,12 +61,37 @@ Deno.serve(async (req) => {
 
     // Handle all messages (incoming AND outgoing from phone)
     if (event === "messages.upsert" && data.key) {
-      const phone = data.key.remoteJid?.replace("@s.whatsapp.net", "").replace("55", "");
+      const remoteJid = data.key.remoteJid || "";
+      const isGroup = remoteJid.includes("@g.us");
+      
+      // For groups, extract phone from participant; for individual, from remoteJid
+      let phone: string;
+      let groupName: string | null = null;
+      
+      if (isGroup) {
+        // Group message - get actual sender from participant field
+        const participant = data.key.participant || "";
+        phone = participant.replace("@s.whatsapp.net", "").replace("55", "");
+        
+        // Try to get group name from metadata or use JID as fallback
+        groupName = data.groupMetadata?.subject || null;
+        
+        // If no group name in metadata, we'll try to fetch it later
+        if (!groupName) {
+          // Extract group ID for logging
+          const groupId = remoteJid.replace("@g.us", "");
+          console.log(`Group message from group ID: ${groupId}, participant: ${phone}`);
+        }
+      } else {
+        // Individual message
+        phone = remoteJid.replace("@s.whatsapp.net", "").replace("55", "");
+      }
+      
       const messageContent = data.message?.conversation || data.message?.extendedTextMessage?.text || "";
       const senderName = data.pushName || "Desconhecido";
       const isFromMe = data.key.fromMe || false;
       
-      console.log(`${isFromMe ? 'Outgoing' : 'Incoming'} message ${isFromMe ? 'to' : 'from'} ${phone}: ${messageContent}`);
+      console.log(`${isFromMe ? 'Outgoing' : 'Incoming'} ${isGroup ? 'GROUP' : ''} message ${isFromMe ? 'to' : 'from'} ${phone}: ${messageContent}`);
 
       // Find or create lead by phone
       let leadId: string | null = null;
@@ -113,23 +145,47 @@ Deno.serve(async (req) => {
       // Find or create conversation
       let conversationId: string | null = null;
       
+      // For groups, also match by external_thread_id (the group JID)
       const { data: existingConv } = await supabase
         .from("conversations")
-        .select("id")
+        .select("id, is_group, group_name")
         .eq("lead_id", leadId)
         .eq("channel", "whatsapp")
         .maybeSingle();
 
       if (existingConv) {
         conversationId = existingConv.id;
+        
+        // If it's a group and we now have a group name but didn't before, update it
+        if (isGroup && groupName && !existingConv.group_name) {
+          await supabase
+            .from("conversations")
+            .update({ 
+              is_group: true, 
+              group_name: groupName,
+              external_thread_id: remoteJid 
+            })
+            .eq("id", conversationId);
+        }
       } else {
+        // Create new conversation with group info if applicable
+        const insertData: Record<string, unknown> = {
+          lead_id: leadId,
+          channel: "whatsapp",
+          unread_count: 1,
+          is_group: isGroup,
+        };
+        
+        if (isGroup) {
+          insertData.external_thread_id = remoteJid;
+          if (groupName) {
+            insertData.group_name = groupName;
+          }
+        }
+        
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
-          .insert({
-            lead_id: leadId,
-            channel: "whatsapp",
-            unread_count: 1,
-          })
+          .insert(insertData)
           .select("id")
           .single();
 
@@ -137,6 +193,45 @@ Deno.serve(async (req) => {
           console.error("Error creating conversation:", convError);
         } else {
           conversationId = newConv.id;
+          
+          // If it's a group and we don't have the name yet, try to fetch it
+          if (isGroup && !groupName) {
+            try {
+              const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+              const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+              const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+              
+              if (evolutionUrl && evolutionKey && instanceName) {
+                const groupInfoRes = await fetch(
+                  `${evolutionUrl}/group/findGroupInfos/${instanceName}`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "apikey": evolutionKey,
+                    },
+                    body: JSON.stringify({ groupJid: remoteJid }),
+                  }
+                );
+                
+                if (groupInfoRes.ok) {
+                  const groupInfo = await groupInfoRes.json();
+                  const fetchedGroupName = groupInfo?.subject || groupInfo?.groupMetadata?.subject;
+                  
+                  if (fetchedGroupName) {
+                    await supabase
+                      .from("conversations")
+                      .update({ group_name: fetchedGroupName })
+                      .eq("id", conversationId);
+                    
+                    console.log(`Updated group name to: ${fetchedGroupName}`);
+                  }
+                }
+              }
+            } catch (groupError) {
+              console.error("Error fetching group info:", groupError);
+            }
+          }
         }
       }
 

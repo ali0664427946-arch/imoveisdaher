@@ -200,7 +200,7 @@ export function DocumentUploader({
       // Generate a signed URL for private bucket access
       const { data, error } = await supabase.storage
         .from("ficha-documents")
-        .createSignedUrl(filePath, 300); // 5 minutes expiry
+        .createSignedUrl(filePath, 86400); // 24 hours expiry
       
       if (error) {
         console.error("Error creating signed URL:", error);

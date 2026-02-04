@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ export default function Settings() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const [testingEvolution, setTestingEvolution] = useState(false);
+  const [syncingGroups, setSyncingGroups] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [savingAutoSync, setSavingAutoSync] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
@@ -278,6 +279,37 @@ export default function Settings() {
       });
     } finally {
       setTestingEvolution(false);
+    }
+  };
+
+  const syncGroupNames = async () => {
+    setSyncingGroups(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-group-names");
+
+      if (error) {
+        throw new Error(error.message || "Erro ao sincronizar grupos");
+      }
+
+      if (data?.success) {
+        toast({
+          title: "Grupos sincronizados! ✅",
+          description: `${data.updated} de ${data.total} grupos atualizados`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      } else {
+        throw new Error(data?.error || "Erro desconhecido");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao sincronizar";
+      toast({
+        title: "Erro na sincronização ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingGroups(false);
     }
   };
 
@@ -657,18 +689,32 @@ export default function Settings() {
                   <Input id="evolution_instance" placeholder="daher-imoveis" />
                 </div>
               </div>
-              <Button 
-                variant="outline"
-                onClick={testEvolutionConnection}
-                disabled={testingEvolution}
-              >
-                {testingEvolution ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Zap className="w-4 h-4 mr-2" />
-                )}
-                Testar Conexão
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={testEvolutionConnection}
+                  disabled={testingEvolution}
+                >
+                  {testingEvolution ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Zap className="w-4 h-4 mr-2" />
+                  )}
+                  Testar Conexão
+                </Button>
+                <Button 
+                  variant="secondary"
+                  onClick={syncGroupNames}
+                  disabled={syncingGroups}
+                >
+                  {syncingGroups ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Users className="w-4 h-4 mr-2" />
+                  )}
+                  Sincronizar Nomes de Grupos
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

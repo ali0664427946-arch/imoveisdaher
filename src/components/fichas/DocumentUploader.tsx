@@ -56,6 +56,8 @@ export function DocumentUploader({
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<"image" | "pdf" | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const getDocumentByCategory = (category: string) => {
@@ -192,6 +194,11 @@ export function DocumentUploader({
   };
 
   const handlePreview = async (doc: UploadedDocument) => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewUrl(null);
+    setPreviewType(doc.mime_type?.includes("pdf") ? "pdf" : "image");
+    
     try {
       // Extract the path from the URL (after /ficha-documents/)
       const urlParts = doc.file_url.split("/ficha-documents/");
@@ -204,15 +211,16 @@ export function DocumentUploader({
       
       if (error) {
         console.error("Error creating signed URL:", error);
-        toast.error("Erro ao carregar documento");
+        setPreviewError("Erro ao acessar documento. Verifique suas permissões.");
         return;
       }
       
       setPreviewUrl(data.signedUrl);
-      setPreviewType(doc.mime_type?.includes("pdf") ? "pdf" : "image");
     } catch (error) {
       console.error("Preview error:", error);
-      toast.error("Erro ao carregar documento");
+      setPreviewError("Erro ao carregar documento");
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -338,13 +346,32 @@ export function DocumentUploader({
       </div>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+      <Dialog open={previewUrl !== null || previewLoading || previewError !== null} onOpenChange={() => {
+        setPreviewUrl(null);
+        setPreviewError(null);
+        setPreviewLoading(false);
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Visualização do Documento</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center min-h-[400px]">
-            {previewType === "pdf" ? (
+            {previewLoading ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                <p className="text-muted-foreground">Carregando documento...</p>
+              </div>
+            ) : previewError ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <X className="w-8 h-8 text-destructive" />
+                </div>
+                <p className="text-destructive font-medium">{previewError}</p>
+                <p className="text-sm text-muted-foreground">
+                  Verifique se você está logado e tem permissão para acessar este documento.
+                </p>
+              </div>
+            ) : previewType === "pdf" ? (
               <iframe
                 src={previewUrl || ""}
                 className="w-full h-[70vh] rounded-lg"
@@ -355,6 +382,7 @@ export function DocumentUploader({
                 src={previewUrl || ""}
                 alt="Document preview"
                 className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                onError={() => setPreviewError("Não foi possível carregar a imagem")}
               />
             )}
           </div>

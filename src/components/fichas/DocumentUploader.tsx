@@ -191,9 +191,29 @@ export function DocumentUploader({
     }
   };
 
-  const handlePreview = (doc: UploadedDocument) => {
-    setPreviewUrl(doc.file_url);
-    setPreviewType(doc.mime_type?.includes("pdf") ? "pdf" : "image");
+  const handlePreview = async (doc: UploadedDocument) => {
+    try {
+      // Extract the path from the URL (after /ficha-documents/)
+      const urlParts = doc.file_url.split("/ficha-documents/");
+      const filePath = urlParts[urlParts.length - 1];
+      
+      // Generate a signed URL for private bucket access
+      const { data, error } = await supabase.storage
+        .from("ficha-documents")
+        .createSignedUrl(filePath, 300); // 5 minutes expiry
+      
+      if (error) {
+        console.error("Error creating signed URL:", error);
+        toast.error("Erro ao carregar documento");
+        return;
+      }
+      
+      setPreviewUrl(data.signedUrl);
+      setPreviewType(doc.mime_type?.includes("pdf") ? "pdf" : "image");
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("Erro ao carregar documento");
+    }
   };
 
   const getStatusBadge = (status: string) => {

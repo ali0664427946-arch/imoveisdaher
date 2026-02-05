@@ -101,6 +101,61 @@ Deno.serve(async (req) => {
             })
             .eq("id", msg.id);
 
+          // Save message to messages table if conversation exists
+          let targetConversationId = msg.conversation_id;
+          
+          if (!targetConversationId && msg.lead_id) {
+            // Find or create conversation for the lead
+            const { data: existingConv } = await supabase
+              .from("conversations")
+              .select("id")
+              .eq("lead_id", msg.lead_id)
+              .eq("channel", "whatsapp")
+              .maybeSingle();
+
+            if (existingConv) {
+              targetConversationId = existingConv.id;
+            } else {
+              // Create new conversation
+              const { data: newConv } = await supabase
+                .from("conversations")
+                .insert({
+                  lead_id: msg.lead_id,
+                  channel: "whatsapp",
+                  last_message_preview: msg.message.substring(0, 100),
+                  last_message_at: new Date().toISOString(),
+                  unread_count: 0,
+                })
+                .select("id")
+                .single();
+              targetConversationId = newConv?.id;
+            }
+          }
+
+          if (targetConversationId) {
+            // Insert message into messages table
+            await supabase.from("messages").insert({
+              conversation_id: targetConversationId,
+              direction: "outbound",
+              content: msg.message,
+              message_type: "text",
+              provider: "evolution",
+              sent_status: "sent",
+              provider_payload: evolutionData,
+            });
+
+            // Update conversation last message
+            await supabase
+              .from("conversations")
+              .update({
+                last_message_preview: msg.message.substring(0, 100),
+                last_message_at: new Date().toISOString(),
+              })
+              .eq("id", targetConversationId);
+
+            console.log(`Scheduled message saved to conversation ${targetConversationId}`);
+          }
+
           // Log activity
           await supabase.from("activity_log").insert({
             action: "scheduled_whatsapp_sent",
@@ -111,6 +166,7 @@ Deno.serve(async (req) => {
               phone: normalizedPhone,
               message_preview: msg.message.substring(0, 100),
               scheduled_at: msg.scheduled_at,
+              conversation_id: targetConversationId,
             },
           });
 

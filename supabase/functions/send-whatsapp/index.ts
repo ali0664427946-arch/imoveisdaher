@@ -284,16 +284,100 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Log activity
+    // Save message to database and log activity
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Determine or create conversation for the message
+    let targetConversationId = conversationId;
+    
+    if (!targetConversationId) {
+      // Try to find existing conversation by phone
+      const phoneNormalized = `+${validPhone}`;
+      const { data: existingConv } = await adminClient
+        .from("conversations")
+        .select("id, lead_id")
+        .eq("channel", "whatsapp")
+        .limit(1)
+        .maybeSingle();
+
+      // If no conversation exists, try to find or create lead and conversation
+      if (!existingConv) {
+        // Find lead by phone
+        const { data: existingLead } = await adminClient
+          .from("leads")
+          .select("id")
+          .or(`phone.eq.${validPhone},phone_normalized.eq.${phoneNormalized}`)
+          .maybeSingle();
+
+        let leadId = existingLead?.id;
+
+        // Create lead if not exists
+        if (!leadId) {
+          const { data: newLead } = await adminClient
+            .from("leads")
+            .insert({
+              name: `WhatsApp ${validPhone}`,
+              phone: validPhone.replace(/^55/, ""),
+              phone_normalized: phoneNormalized,
+              origin: fichaId ? "ficha" : "whatsapp",
+            })
+            .select("id")
+            .single();
+          leadId = newLead?.id;
+        }
+
+        if (leadId) {
+          // Create conversation
+          const { data: newConv } = await adminClient
+            .from("conversations")
+            .insert({
+              lead_id: leadId,
+              channel: "whatsapp",
+              last_message_preview: message.substring(0, 100),
+              last_message_at: new Date().toISOString(),
+              unread_count: 0,
+            })
+            .select("id")
+            .single();
+          targetConversationId = newConv?.id;
+        }
+      } else {
+        targetConversationId = existingConv.id;
+      }
+    }
+
+    // Save message to messages table
+    if (targetConversationId) {
+      await adminClient.from("messages").insert({
+        conversation_id: targetConversationId,
+        direction: "outbound",
+        content: message,
+        message_type: "text",
+        provider: "evolution",
+        sent_status: "sent",
+        provider_payload: evolutionData,
+      });
+
+      // Update conversation last message
+      await adminClient
+        .from("conversations")
+        .update({
+          last_message_preview: message.substring(0, 100),
+          last_message_at: new Date().toISOString(),
+        })
+        .eq("id", targetConversationId);
+
+      console.log(`Message saved to conversation ${targetConversationId}`);
+    }
+
+    // Log activity
     await adminClient.from("activity_log").insert({
       action: "whatsapp_sent",
       entity_type: fichaId ? "ficha" : conversationId ? "conversation" : "message",
-      entity_id: fichaId || conversationId || null,
+      entity_id: fichaId || targetConversationId || null,
       user_id: userId,
       metadata: {
         phone: validPhone,
@@ -301,6 +385,7 @@ Deno.serve(async (req) => {
         message_preview: message.substring(0, 100),
         evolution_message_id: evolutionData.key?.id || evolutionData.id,
         auto_corrected_ddd: phone !== validPhone,
+        conversation_id: targetConversationId,
       },
     });
 

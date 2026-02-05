@@ -294,28 +294,41 @@ Deno.serve(async (req) => {
     let targetConversationId = conversationId;
     
     if (!targetConversationId) {
-      // Try to find existing conversation by phone
+      // Try to find existing lead by phone first
       const phoneNormalized = `+${validPhone}`;
-      const { data: existingConv } = await adminClient
-        .from("conversations")
-        .select("id, lead_id")
-        .eq("channel", "whatsapp")
-        .limit(1)
+      const phoneWithoutCountry = validPhone.replace(/^55/, "");
+      
+      // Search lead by multiple phone formats
+      const { data: existingLead } = await adminClient
+        .from("leads")
+        .select("id")
+        .or(`phone.eq.${validPhone},phone.eq.${phoneWithoutCountry},phone_normalized.eq.${phoneNormalized}`)
         .maybeSingle();
 
-      // If no conversation exists, try to find or create lead and conversation
-      if (!existingConv) {
-        // Find lead by phone
-        const { data: existingLead } = await adminClient
-          .from("leads")
+      let leadId = existingLead?.id;
+
+      // If we found a lead, find their conversation
+      if (leadId) {
+        const { data: existingConv } = await adminClient
+          .from("conversations")
           .select("id")
-          .or(`phone.eq.${validPhone},phone_normalized.eq.${phoneNormalized}`)
+          .eq("lead_id", leadId)
+          .eq("channel", "whatsapp")
+          .order("last_message_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
-        let leadId = existingLead?.id;
+        if (existingConv) {
+          targetConversationId = existingConv.id;
+          console.log(`Found existing conversation ${targetConversationId} for lead ${leadId}`);
+        }
+      }
 
+      // If still no conversation, create lead + conversation
+      if (!targetConversationId) {
         // Create lead if not exists
         if (!leadId) {
+          const phoneNormalized = `+${validPhone}`;
           const { data: newLead } = await adminClient
             .from("leads")
             .insert({
@@ -344,8 +357,6 @@ Deno.serve(async (req) => {
             .single();
           targetConversationId = newConv?.id;
         }
-      } else {
-        targetConversationId = existingConv.id;
       }
     }
 

@@ -191,7 +191,11 @@ export default function Inbox() {
         console.log("Sending message via WhatsApp API...");
         
         const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke("send-whatsapp", {
-          body: { phone, message: content },
+          body: { 
+            phone, 
+            message: content, 
+            conversationId: selectedConversationId,
+          },
         });
 
         if (whatsappError) {
@@ -204,9 +208,13 @@ export default function Inbox() {
         }
 
         console.log("WhatsApp message sent successfully:", whatsappResult);
+        
+        // Edge function already saved message and updated conversation
+        // No need to save again here to avoid duplicates
+        return whatsappResult;
       }
 
-      // Save message to database
+      // For non-WhatsApp channels, save message directly
       const { data, error } = await supabase
         .from("messages")
         .insert({
@@ -215,7 +223,6 @@ export default function Inbox() {
           direction: "outbound",
           message_type: "text",
           sent_status: "sent",
-          provider: "evolution",
         })
         .select()
         .single();

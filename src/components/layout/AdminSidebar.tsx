@@ -11,6 +11,7 @@ import {
   LogOut,
   Contact,
   Download,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logoImage from "@/assets/logo-daher.png";
@@ -40,6 +41,7 @@ const menuItems = [
 
 const adminItems = [
   { title: "Usuários", url: "/admin/usuarios", icon: Users },
+  { title: "Status Integração", url: "/admin/status-integracao", icon: Activity },
   { title: "Configurações", url: "/admin/configuracoes", icon: Settings },
   { title: "Instalar App", url: "/admin/instalar", icon: Download },
 ];

@@ -21,6 +21,7 @@ import Fichas from "./pages/admin/Fichas";
 import FichaDetail from "./pages/admin/FichaDetail";
 import Templates from "./pages/admin/Templates";
 import Settings from "./pages/admin/Settings";
+import IntegrationStatus from "./pages/admin/IntegrationStatus";
 import Users from "./pages/admin/Users";
 import InstallApp from "./pages/InstallApp";
 import InstallPWA from "./pages/admin/InstallPWA";
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="fichas/:id" element={<FichaDetail />} />
               <Route path="templates" element={<Templates />} />
               <Route path="configuracoes" element={<Settings />} />
+              <Route path="status-integracao" element={<IntegrationStatus />} />
               <Route path="usuarios" element={<Users />} />
               <Route path="instalar" element={<InstallPWA />} />
             </Route>

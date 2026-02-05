@@ -577,15 +577,11 @@ export default function FichaDetail() {
                               {aiAnalysis.documentacao.documentos_recebidos.join(", ")}
                             </div>
                           )}
-                          {aiAnalysis.documentacao?.documentos_faltantes?.length > 0 && (
-                            <div>
-                              <span className="text-destructive">✗ Faltantes: </span>
-                              {aiAnalysis.documentacao.documentos_faltantes.join(", ")}
-                            </div>
+                          {aiAnalysis.documentacao?.parecer && (
+                            <p className="text-muted-foreground pt-2 border-t">
+                              {aiAnalysis.documentacao.parecer}
+                            </p>
                           )}
-                          <p className="text-muted-foreground pt-2 border-t">
-                            {aiAnalysis.documentacao?.parecer}
-                          </p>
                         </div>
                       </div>
 

@@ -1,3 +1,4 @@
+// Evolution API Webhook Handler - v2
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -42,6 +43,8 @@ interface EvolutionWebhookPayload {
 }
 
 Deno.serve(async (req) => {
+  console.log("Evolution webhook received request");
+  
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

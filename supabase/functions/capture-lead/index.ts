@@ -187,38 +187,73 @@ async function processOLXInquiry(supabase: any, data: OLXInquiry | OLXInquiry[])
   let lastLead = null;
 
   for (const inquiry of inquiries) {
-    // Find property by clientListingId (your property code like "LO0007", "CA0121A")
-    // or by ad_id, or by extracting code from message
     let propertyId = null;
     
-    // Priority: clientListingId > ad_id > extracted from message
-    const propertyCode = inquiry.clientListingId || inquiry.ad_id || extractPropertyCodeFromMessage(inquiry.message);
+    // Log all available IDs from the webhook
+    console.log(`OLX lead - originListingId: ${inquiry.originListingId}, clientListingId: ${inquiry.clientListingId}, ad_id: ${inquiry.ad_id}`);
     
-    console.log(`OLX lead - clientListingId: ${inquiry.clientListingId}, ad_id: ${inquiry.ad_id}, extracted: ${extractPropertyCodeFromMessage(inquiry.message)}`);
-    
-    if (propertyCode) {
-      // Try to find by origin_id first (exact match)
-      let { data: property } = await supabase
+    // Priority 1: originListingId - this is the OLX numeric ID (matches our origin_id from scraping)
+    if (inquiry.originListingId) {
+      const { data: property } = await supabase
         .from("properties")
         .select("id, origin_id, title")
-        .eq("origin_id", propertyCode)
+        .eq("origin_id", inquiry.originListingId)
         .maybeSingle();
       
-      // If not found, try searching in origin_id with partial match
-      if (!property) {
-        const { data: partialMatch } = await supabase
+      if (property) {
+        propertyId = property.id;
+        console.log(`Property found by originListingId "${inquiry.originListingId}": ${property.title}`);
+      }
+    }
+    
+    // Priority 2: ad_id (sometimes contains the OLX numeric ID)
+    if (!propertyId && inquiry.ad_id) {
+      const { data: property } = await supabase
+        .from("properties")
+        .select("id, origin_id, title")
+        .eq("origin_id", inquiry.ad_id)
+        .maybeSingle();
+      
+      if (property) {
+        propertyId = property.id;
+        console.log(`Property found by ad_id "${inquiry.ad_id}": ${property.title}`);
+      }
+    }
+    
+    // Priority 3: clientListingId - try matching in title (some titles include the internal code)
+    if (!propertyId && inquiry.clientListingId) {
+      const { data: property } = await supabase
+        .from("properties")
+        .select("id, origin_id, title")
+        .ilike("title", `%${inquiry.clientListingId}%`)
+        .limit(1)
+        .maybeSingle();
+      
+      if (property) {
+        propertyId = property.id;
+        console.log(`Property found by clientListingId in title "${inquiry.clientListingId}": ${property.title}`);
+      }
+    }
+    
+    // Priority 4: Extract from message (fallback)
+    if (!propertyId) {
+      const extractedCode = extractPropertyCodeFromMessage(inquiry.message);
+      if (extractedCode) {
+        const { data: property } = await supabase
           .from("properties")
           .select("id, origin_id, title")
-          .ilike("origin_id", `%${propertyCode}%`)
+          .or(`origin_id.eq.${extractedCode},title.ilike.%${extractedCode}%`)
           .limit(1)
           .maybeSingle();
         
-        property = partialMatch;
+        if (property) {
+          propertyId = property.id;
+          console.log(`Property found by extracted code "${extractedCode}": ${property.title}`);
+        }
       }
-      
-      propertyId = property?.id || null;
-      console.log(`Property lookup for code "${propertyCode}": found = ${!!property}, propertyId = ${propertyId}, title = ${property?.title || 'N/A'}`);
     }
+    
+    console.log(`Final property_id for OLX lead: ${propertyId || 'NOT FOUND'}`);
     
     // Build phone from ddd + phone if available
     let phoneNumber = inquiry.phone;

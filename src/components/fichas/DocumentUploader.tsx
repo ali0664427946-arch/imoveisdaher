@@ -197,12 +197,26 @@ export function DocumentUploader({
     setPreviewLoading(true);
     setPreviewError(null);
     setPreviewUrl(null);
-    setPreviewType(doc.mime_type?.includes("pdf") ? "pdf" : "image");
+    
+    // Determine file type from mime_type or file extension
+    const isPdf = doc.mime_type?.includes("pdf") || doc.file_name?.toLowerCase().endsWith(".pdf");
+    setPreviewType(isPdf ? "pdf" : "image");
     
     try {
-      // Extract the path from the URL (after /ficha-documents/)
-      const urlParts = doc.file_url.split("/ficha-documents/");
-      const filePath = urlParts[urlParts.length - 1];
+      // Extract the path from the URL
+      // The URL format is: https://xxx.supabase.co/storage/v1/object/public/ficha-documents/path/to/file
+      let filePath = "";
+      
+      if (doc.file_url.includes("/ficha-documents/")) {
+        // Split by bucket name and get the path after it
+        const urlParts = doc.file_url.split("/ficha-documents/");
+        filePath = decodeURIComponent(urlParts[urlParts.length - 1]);
+      } else {
+        // Fallback: try to get just the filename
+        filePath = doc.file_url.split("/").pop() || "";
+      }
+      
+      console.log("Generating signed URL for path:", filePath);
       
       // Generate a signed URL for private bucket access
       const { data, error } = await supabase.storage
@@ -211,10 +225,13 @@ export function DocumentUploader({
       
       if (error) {
         console.error("Error creating signed URL:", error);
-        setPreviewError("Erro ao acessar documento. Verifique suas permissões.");
+        console.error("File path attempted:", filePath);
+        console.error("Original URL:", doc.file_url);
+        setPreviewError("Erro ao acessar documento. O arquivo pode não existir no storage.");
         return;
       }
       
+      console.log("Signed URL generated successfully");
       setPreviewUrl(data.signedUrl);
     } catch (error) {
       console.error("Preview error:", error);

@@ -166,19 +166,10 @@ export function MediaPreviewDialog({
             <div className="flex flex-col items-center gap-4 p-8">
               <FileText className="w-16 h-16 text-accent" />
               <p className="text-sm font-medium">{fileName || "Documento PDF"}</p>
-              <p className="text-xs text-muted-foreground text-center max-w-sm">
-                Extensões do navegador podem bloquear a visualização direta. Use os botões abaixo.
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleBlobOpen} disabled={pdfDownloading}>
-                  {pdfDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
-                  Abrir PDF
-                </Button>
-                <Button variant="outline" onClick={handleBlobDownload} disabled={pdfDownloading}>
-                  {pdfDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                  Baixar PDF
-                </Button>
-              </div>
+              <Button onClick={handleBlobDownload} disabled={pdfDownloading}>
+                {pdfDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                Baixar PDF
+              </Button>
             </div>
           ) : mediaType === "video" ? (
             <video

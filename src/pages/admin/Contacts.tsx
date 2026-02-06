@@ -17,6 +17,7 @@ import {
   Phone,
   Mail,
   MessageSquare,
+  Send,
   RefreshCw,
   Users,
 } from "lucide-react";
@@ -67,6 +68,7 @@ import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { EditContactDialog } from "@/components/contacts/EditContactDialog";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
+import { SendNowDialog } from "@/components/whatsapp/SendNowDialog";
 
 const originLabels: Record<string, string> = {
   whatsapp_import: "WhatsApp",
@@ -81,6 +83,7 @@ export default function Contacts() {
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [scheduleContact, setScheduleContact] = useState<Contact | null>(null);
+  const [sendNowContact, setSendNowContact] = useState<Contact | null>(null);
 
   const {
     contacts,
@@ -387,9 +390,13 @@ export default function Contacts() {
                           <Tag className="w-4 h-4 mr-2" />
                           Editar / Tags
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSendNowContact(contact)}>
+                          <Send className="w-4 h-4 mr-2" />
+                          Enviar Agora
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setScheduleContact(contact)}>
                           <MessageSquare className="w-4 h-4 mr-2" />
-                          Enviar Mensagem
+                          Agendar Mensagem
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -453,6 +460,16 @@ export default function Contacts() {
           open={!!scheduleContact}
           onOpenChange={(open) => !open && setScheduleContact(null)}
           defaultPhone={scheduleContact.phone}
+        />
+      )}
+
+      {/* Send Now Dialog */}
+      {sendNowContact && (
+        <SendNowDialog
+          open={!!sendNowContact}
+          onOpenChange={(open) => !open && setSendNowContact(null)}
+          defaultPhone={sendNowContact.phone}
+          contactName={sendNowContact.name}
         />
       )}
     </div>

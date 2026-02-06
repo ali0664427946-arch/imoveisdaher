@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, Clock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +49,15 @@ export function ScheduleMessageDialog({
   const [message, setMessage] = useState(defaultMessage);
   const [date, setDate] = useState(format(addHours(new Date(), 1), "yyyy-MM-dd"));
   const [time, setTime] = useState(format(addHours(new Date(), 1), "HH:mm"));
+
+  // Sync phone/message when conversation changes or dialog opens
+  useEffect(() => {
+    setPhone(defaultPhone);
+  }, [defaultPhone]);
+
+  useEffect(() => {
+    setMessage(defaultMessage);
+  }, [defaultMessage]);
 
   const { scheduleMessage, isScheduling } = useScheduledMessages();
 

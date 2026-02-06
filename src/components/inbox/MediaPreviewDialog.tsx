@@ -26,9 +26,49 @@ export function MediaPreviewDialog({
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   const handleDownload = () => {
     window.open(mediaUrl, "_blank");
+  };
+
+  // Blob-based download to bypass ad blocker blocking Supabase URLs
+  const handleBlobDownload = async () => {
+    setPdfDownloading(true);
+    try {
+      const response = await fetch(mediaUrl);
+      if (!response.ok) throw new Error("Falha ao baixar");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileName || "documento.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch {
+      window.open(mediaUrl, "_blank");
+    } finally {
+      setPdfDownloading(false);
+    }
+  };
+
+  // Blob-based open in new tab to bypass ad blocker
+  const handleBlobOpen = async () => {
+    setPdfDownloading(true);
+    try {
+      const response = await fetch(mediaUrl);
+      if (!response.ok) throw new Error("Falha ao abrir");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      window.open(blobUrl, "_blank");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch {
+      window.open(mediaUrl, "_blank");
+    } finally {
+      setPdfDownloading(false);
+    }
   };
 
   const resetState = () => {
@@ -125,13 +165,20 @@ export function MediaPreviewDialog({
           ) : mediaType === "pdf" ? (
             <div className="flex flex-col items-center gap-4 p-8">
               <FileText className="w-16 h-16 text-accent" />
-              <p className="text-sm text-muted-foreground">{fileName || "Documento PDF"}</p>
+              <p className="text-sm font-medium">{fileName || "Documento PDF"}</p>
               <p className="text-xs text-muted-foreground text-center max-w-sm">
-                A visualização inline de PDFs é bloqueada pelo navegador. Use o botão abaixo para abrir o documento.
+                Extensões do navegador podem bloquear a visualização direta. Use os botões abaixo.
               </p>
-              <Button variant="outline" onClick={handleDownload}>
-                <ExternalLink className="w-4 h-4 mr-2" /> Abrir PDF em nova aba
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleBlobOpen} disabled={pdfDownloading}>
+                  {pdfDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+                  Abrir PDF
+                </Button>
+                <Button variant="outline" onClick={handleBlobDownload} disabled={pdfDownloading}>
+                  {pdfDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  Baixar PDF
+                </Button>
+              </div>
             </div>
           ) : mediaType === "video" ? (
             <video

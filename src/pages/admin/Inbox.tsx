@@ -18,6 +18,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { TemplateSelector } from "@/components/templates/TemplateSelector";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
@@ -386,13 +387,28 @@ export default function Inbox() {
     setIsSendingMedia(true);
 
     try {
+      // 0. Compress image if applicable
+      let fileToUpload = selectedFile;
+      if (selectedFile.type.startsWith("image/")) {
+        const originalSize = selectedFile.size;
+        fileToUpload = await compressImage(selectedFile, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.8,
+          maxSizeMB: 2,
+        });
+        if (fileToUpload.size < originalSize) {
+          console.log(`Inbox image compressed: ${formatFileSize(originalSize)} → ${formatFileSize(fileToUpload.size)}`);
+        }
+      }
+
       // 1. Upload file to storage
-      const fileExt = selectedFile.name.split(".").pop() || "bin";
+      const fileExt = fileToUpload.name.split(".").pop() || "bin";
       const filePath = `${selectedConversationId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("inbox-media")
-        .upload(filePath, selectedFile, { contentType: selectedFile.type });
+        .upload(filePath, fileToUpload, { contentType: fileToUpload.type });
 
       if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
 

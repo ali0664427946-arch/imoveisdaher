@@ -1,4 +1,4 @@
-import { Clock, CheckCircle, XCircle, Trash2, Ban, Phone, MessageSquare } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Trash2, Ban, Phone, MessageSquare, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,10 +34,12 @@ function MessageCard({
   message,
   onCancel,
   onDelete,
+  onRetry,
 }: {
   message: ScheduledMessage;
   onCancel: (id: string) => void;
   onDelete: (id: string) => void;
+  onRetry?: (id: string) => void;
 }) {
   const config = statusConfig[message.status];
   const StatusIcon = config.icon;
@@ -58,6 +60,17 @@ function MessageCard({
           )}
         </div>
         <div className="flex items-center gap-1">
+          {(message.status === "failed" || message.status === "cancelled") && onRetry && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={() => onRetry(message.id)}
+              title="Reenviar mensagem"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          )}
           {message.status === "pending" && (
             <Button
               variant="ghost"
@@ -117,6 +130,7 @@ export function ScheduledMessagesList() {
     isLoading,
     cancelMessage,
     deleteMessage,
+    retryMessage,
   } = useScheduledMessages();
 
   const cancelledMessages = (failedMessages || []).filter(
@@ -228,6 +242,7 @@ export function ScheduledMessagesList() {
                     message={msg}
                     onCancel={cancelMessage}
                     onDelete={deleteMessage}
+                    onRetry={retryMessage}
                   />
                 ))}
               </div>

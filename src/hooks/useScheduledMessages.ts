@@ -132,6 +132,57 @@ export function useScheduledMessages() {
     },
   });
 
+  const retryMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Get the original message
+      const { data: original, error: fetchError } = await supabase
+        .from("scheduled_messages")
+        .select("*")
+        .eq("id", messageId)
+        .single();
+
+      if (fetchError || !original) throw new Error("Mensagem não encontrada");
+
+      // Create a new scheduled message with the same content, scheduled for now
+      const { error: insertError } = await supabase
+        .from("scheduled_messages")
+        .insert({
+          phone: original.phone,
+          message: original.message,
+          scheduled_at: new Date().toISOString(),
+          lead_id: original.lead_id,
+          ficha_id: original.ficha_id,
+          conversation_id: original.conversation_id,
+          created_by: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      // Delete the old failed message
+      await supabase
+        .from("scheduled_messages")
+        .delete()
+        .eq("id", messageId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scheduled-messages"] });
+      toast({
+        title: "Mensagem reagendada! ✅",
+        description: "A mensagem será enviada em breve",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao reenviar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const pendingMessages = messages?.filter((m) => m.status === "pending") || [];
   const sentMessages = messages?.filter((m) => m.status === "sent") || [];
   const failedMessages = messages?.filter((m) => m.status === "failed" || m.status === "cancelled") || [];
@@ -149,5 +200,7 @@ export function useScheduledMessages() {
     isCancelling: cancelMutation.isPending,
     deleteMessage: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
+    retryMessage: retryMutation.mutate,
+    isRetrying: retryMutation.isPending,
   };
 }

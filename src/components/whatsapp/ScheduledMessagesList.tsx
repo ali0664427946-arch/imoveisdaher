@@ -170,8 +170,8 @@ export function ScheduledMessagesList() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[400px]">
-              <div className="space-y-3">
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-3 pr-4">
                 {pendingMessages.map((msg) => (
                   <MessageCard
                     key={msg.id}
@@ -195,9 +195,9 @@ export function ScheduledMessagesList() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[300px]">
-              <div className="space-y-3">
-                {sentMessages.slice(0, 10).map((msg) => (
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-3 pr-4">
+                {sentMessages.map((msg) => (
                   <MessageCard
                     key={msg.id}
                     message={msg}
@@ -220,8 +220,8 @@ export function ScheduledMessagesList() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[300px]">
-              <div className="space-y-3">
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-3 pr-4">
                 {[...actualFailedMessages, ...cancelledMessages].map((msg) => (
                   <MessageCard
                     key={msg.id}

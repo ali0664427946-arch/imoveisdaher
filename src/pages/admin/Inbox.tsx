@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter, Image, FileText, X } from "lucide-react";
+import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter, Image, FileText, X, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDial
 import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
 import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { TemplateSelector } from "@/components/templates/TemplateSelector";
+import { MediaPreviewDialog } from "@/components/inbox/MediaPreviewDialog";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
   olx_chat: "bg-amber-500 text-white",
@@ -102,6 +103,7 @@ export default function Inbox() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "pdf" | "other"; name?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -714,28 +716,38 @@ export default function Inbox() {
                       >
                         {/* Media rendering */}
                         {msg.media_url && (msg.message_type === "image" || msg.media_url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) ? (
-                          <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="block mb-1">
+                          <div
+                            className="mb-1 cursor-pointer group relative"
+                            onClick={() => setPreviewMedia({ url: msg.media_url!, type: "image", name: msg.content || "Imagem" })}
+                          >
                             <img
                               src={msg.media_url}
                               alt="Imagem"
-                              className="rounded-lg max-w-full max-h-64 object-contain cursor-pointer"
+                              className="rounded-lg max-w-full max-h-64 object-contain"
                               loading="lazy"
                             />
-                          </a>
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                              <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                            </div>
+                          </div>
                         ) : msg.media_url && (msg.message_type === "document" || msg.media_url.match(/\.pdf(\?|$)/i)) ? (
-                          <a
-                            href={msg.media_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-2 p-2 rounded-lg mb-1 ${
-                              msg.direction === "outbound" ? "bg-accent-foreground/10" : "bg-muted"
+                          <div
+                            className={`flex items-center gap-2 p-3 rounded-lg mb-1 cursor-pointer transition-colors ${
+                              msg.direction === "outbound" ? "bg-accent-foreground/10 hover:bg-accent-foreground/20" : "bg-muted hover:bg-muted/80"
                             }`}
+                            onClick={() => setPreviewMedia({ url: msg.media_url!, type: "pdf", name: msg.content || "Documento PDF" })}
                           >
-                            <FileText className="w-5 h-5 shrink-0" />
-                            <span className="text-sm underline truncate">
-                              {msg.content || "Documento PDF"}
-                            </span>
-                          </a>
+                            <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                              <FileText className="w-5 h-5 text-destructive" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium truncate block">
+                                {msg.content && msg.content !== "📄 Documento" ? msg.content : "Documento PDF"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">Clique para visualizar</span>
+                            </div>
+                            <Eye className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </div>
                         ) : msg.media_url ? (
                           <a
                             href={msg.media_url}
@@ -910,6 +922,14 @@ export default function Inbox() {
           </div>
         </div>
       )}
+      {/* Media Preview Dialog */}
+      <MediaPreviewDialog
+        open={previewMedia !== null}
+        onOpenChange={(open) => { if (!open) setPreviewMedia(null); }}
+        mediaUrl={previewMedia?.url || ""}
+        mediaType={previewMedia?.type || "other"}
+        fileName={previewMedia?.name}
+      />
     </div>
   );
 }

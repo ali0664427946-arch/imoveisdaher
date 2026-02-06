@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.send-whatsapp]
 verify_jwt = false
 
+[functions.send-whatsapp-media]
+verify_jwt = false
+
 [functions.sync-properties]
 verify_jwt = false
 

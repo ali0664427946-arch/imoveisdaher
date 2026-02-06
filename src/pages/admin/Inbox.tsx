@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter } from "lucide-react";
+import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter, Image, FileText, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -83,11 +83,25 @@ function MessageStatusIcon({ status, direction }: { status: string | null; direc
   );
 }
 
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+];
+
+const MAX_FILE_SIZE_MB = 10;
+
 export default function Inbox() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isSendingMedia, setIsSendingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -310,8 +324,129 @@ export default function Inbox() {
     queryClient.invalidateQueries({ queryKey: ["conversations"] });
   };
 
+  // File selection handler
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast({
+        title: "Tipo de arquivo não suportado",
+        description: "Envie apenas imagens (JPG, PNG, WebP, GIF) ou PDFs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: `O limite é ${MAX_FILE_SIZE_MB}MB.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Generate preview for images
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setFilePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Send media file
+  const handleSendMedia = async () => {
+    if (!selectedFile || !selectedConversationId) return;
+
+    const conversation = conversations.find(c => c.id === selectedConversationId);
+    let phone: string | undefined;
+
+    if (conversation?.is_group && conversation?.external_thread_id) {
+      phone = conversation.external_thread_id;
+    } else {
+      phone = conversation?.lead?.phone;
+    }
+
+    if (!phone) {
+      toast({ title: "Erro", description: "Lead não possui telefone.", variant: "destructive" });
+      return;
+    }
+
+    setIsSendingMedia(true);
+
+    try {
+      // 1. Upload file to storage
+      const fileExt = selectedFile.name.split(".").pop() || "bin";
+      const filePath = `${selectedConversationId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("inbox-media")
+        .upload(filePath, selectedFile, { contentType: selectedFile.type });
+
+      if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
+
+      // 2. Get public URL
+      const { data: urlData } = supabase.storage
+        .from("inbox-media")
+        .getPublicUrl(filePath);
+
+      const mediaUrl = urlData.publicUrl;
+
+      // 3. Determine media type
+      const isImage = selectedFile.type.startsWith("image/");
+      const mediaType = isImage ? "image" : "document";
+
+      // 4. Send via edge function
+      const { data, error } = await supabase.functions.invoke("send-whatsapp-media", {
+        body: {
+          phone,
+          mediaUrl,
+          mediaType,
+          mimeType: selectedFile.type,
+          fileName: selectedFile.name,
+          caption: messageText.trim() || undefined,
+          conversationId: selectedConversationId,
+        },
+      });
+
+      if (error) throw new Error(error.message || "Erro ao enviar mídia");
+      if (!data?.success) throw new Error(data?.error || "Falha ao enviar mídia");
+
+      toast({
+        title: "Arquivo enviado! ✅",
+        description: isImage ? "Imagem enviada com sucesso." : "Documento enviado com sucesso.",
+      });
+
+      clearSelectedFile();
+      setMessageText("");
+      queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao enviar arquivo",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingMedia(false);
+    }
+  };
+
   const handleSendMessage = () => {
-    if (messageText.trim()) {
+    if (selectedFile) {
+      handleSendMedia();
+    } else if (messageText.trim()) {
       sendMessage.mutate(messageText.trim());
     }
   };
@@ -561,7 +696,51 @@ export default function Inbox() {
                             : "bg-card border rounded-bl-sm"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {/* Media rendering */}
+                        {msg.media_url && (msg.message_type === "image" || msg.media_url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) ? (
+                          <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="block mb-1">
+                            <img
+                              src={msg.media_url}
+                              alt="Imagem"
+                              className="rounded-lg max-w-full max-h-64 object-contain cursor-pointer"
+                              loading="lazy"
+                            />
+                          </a>
+                        ) : msg.media_url && (msg.message_type === "document" || msg.media_url.match(/\.pdf(\?|$)/i)) ? (
+                          <a
+                            href={msg.media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-2 p-2 rounded-lg mb-1 ${
+                              msg.direction === "outbound" ? "bg-accent-foreground/10" : "bg-muted"
+                            }`}
+                          >
+                            <FileText className="w-5 h-5 shrink-0" />
+                            <span className="text-sm underline truncate">
+                              {msg.content || "Documento PDF"}
+                            </span>
+                          </a>
+                        ) : msg.media_url ? (
+                          <a
+                            href={msg.media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-2 p-2 rounded-lg mb-1 ${
+                              msg.direction === "outbound" ? "bg-accent-foreground/10" : "bg-muted"
+                            }`}
+                          >
+                            <Paperclip className="w-4 h-4 shrink-0" />
+                            <span className="text-sm underline truncate">
+                              {msg.content || "Arquivo"}
+                            </span>
+                          </a>
+                        ) : null}
+
+                        {/* Text content - hide if it's just a media label */}
+                        {msg.content && !(msg.media_url && (msg.content === "📷 Imagem" || msg.content === "📄 Documento")) && (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
+
                         <div
                           className={`flex items-center justify-end gap-1 mt-1 ${
                             msg.direction === "outbound"
@@ -582,6 +761,28 @@ export default function Inbox() {
 
             {/* Input Area */}
             <div className="p-4 border-t bg-card space-y-2">
+              {/* File preview */}
+              {selectedFile && (
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-muted border">
+                  {filePreview ? (
+                    <img src={filePreview} alt="Preview" className="w-16 h-16 rounded object-cover" />
+                  ) : (
+                    <div className="w-16 h-16 rounded bg-secondary flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={clearSelectedFile} className="shrink-0">
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
                 <TemplateSelector 
                   onSelect={(content) => setMessageText(content)}
@@ -596,11 +797,23 @@ export default function Inbox() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Enviar imagem ou PDF"
+                >
                   <Paperclip className="w-4 h-4" />
                 </Button>
                 <Input
-                  placeholder="Digite uma mensagem..."
+                  placeholder={selectedFile ? "Legenda (opcional)..." : "Digite uma mensagem..."}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
@@ -613,9 +826,9 @@ export default function Inbox() {
                   variant="hero" 
                   size="icon"
                   onClick={handleSendMessage}
-                  disabled={!messageText.trim() || sendMessage.isPending}
+                  disabled={(!messageText.trim() && !selectedFile) || sendMessage.isPending || isSendingMedia}
                 >
-                  {sendMessage.isPending ? (
+                  {(sendMessage.isPending || isSendingMedia) ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Send className="w-4 h-4" />

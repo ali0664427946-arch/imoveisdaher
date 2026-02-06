@@ -29,11 +29,34 @@ Deno.serve(async (req) => {
       );
     }
 
+    const now = new Date();
+    // Only send messages scheduled within the last 2 hours
+    // Messages older than that are expired and should NOT be sent
+    const maxAgeMs = 2 * 60 * 60 * 1000; // 2 hours
+    const cutoffTime = new Date(now.getTime() - maxAgeMs).toISOString();
+
+    // First, expire old pending messages that are too old to send
+    const { data: expiredMessages } = await supabase
+      .from("scheduled_messages")
+      .update({
+        status: "failed",
+        error_message: "Expirada: mensagem não foi enviada dentro do prazo de 2 horas",
+      })
+      .eq("status", "pending")
+      .lt("scheduled_at", cutoffTime)
+      .select("id");
+
+    if (expiredMessages && expiredMessages.length > 0) {
+      console.log(`Expired ${expiredMessages.length} old scheduled messages`);
+    }
+
+    // Now fetch only recent pending messages within the valid time window
     const { data: pendingMessages, error: fetchError } = await supabase
       .from("scheduled_messages")
       .select("*")
       .eq("status", "pending")
-      .lte("scheduled_at", new Date().toISOString())
+      .gte("scheduled_at", cutoffTime)
+      .lte("scheduled_at", now.toISOString())
       .order("scheduled_at", { ascending: true })
       .limit(50);
 
@@ -46,7 +69,7 @@ Deno.serve(async (req) => {
 
     if (!pendingMessages || pendingMessages.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, sent: 0 }),
+        JSON.stringify({ success: true, sent: 0, expired: expiredMessages?.length || 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

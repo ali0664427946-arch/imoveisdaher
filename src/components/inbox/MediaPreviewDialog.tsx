@@ -123,13 +123,16 @@ export function MediaPreviewDialog({
               )}
             </>
           ) : mediaType === "pdf" ? (
-            <iframe
-              src={`${mediaUrl}#toolbar=1&navpanes=0`}
-              className="w-full rounded-none"
-              style={{ height: "calc(90vh - 60px)" }}
-              title={fileName || "PDF"}
-              sandbox="allow-same-origin allow-scripts allow-popups"
-            />
+            <div className="flex flex-col items-center gap-4 p-8">
+              <FileText className="w-16 h-16 text-accent" />
+              <p className="text-sm text-muted-foreground">{fileName || "Documento PDF"}</p>
+              <p className="text-xs text-muted-foreground text-center max-w-sm">
+                A visualização inline de PDFs é bloqueada pelo navegador. Use o botão abaixo para abrir o documento.
+              </p>
+              <Button variant="outline" onClick={handleDownload}>
+                <ExternalLink className="w-4 h-4 mr-2" /> Abrir PDF em nova aba
+              </Button>
+            </div>
           ) : mediaType === "video" ? (
             <video
               src={mediaUrl}

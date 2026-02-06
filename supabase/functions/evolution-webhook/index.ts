@@ -1,5 +1,6 @@
-// Evolution API Webhook Handler - v2
+// Evolution API Webhook Handler - v3
 import { createClient } from "npm:@supabase/supabase-js@2.91.1";
+import { decode as decodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,6 +115,7 @@ Deno.serve(async (req) => {
       let messageContent = "";
       let messageType = data.messageType || "text";
       let mediaUrl: string | null = null;
+      let needsMediaDownload = false;
       
       const msg = data.message as Record<string, unknown> | undefined;
       
@@ -125,19 +127,22 @@ Deno.serve(async (req) => {
       } else if (msg?.imageMessage) {
         const imgMsg = msg.imageMessage as { caption?: string; url?: string; directPath?: string };
         messageContent = imgMsg.caption || "📷 Imagem";
-        mediaUrl = imgMsg.url || imgMsg.directPath || null;
         messageType = "image";
+        needsMediaDownload = true;
       } else if (msg?.audioMessage) {
         messageContent = "🎵 Áudio";
         messageType = "audio";
+        needsMediaDownload = true;
       } else if (msg?.videoMessage) {
         const vidMsg = msg.videoMessage as { caption?: string };
         messageContent = vidMsg.caption || "🎬 Vídeo";
         messageType = "video";
+        needsMediaDownload = true;
       } else if (msg?.documentMessage) {
         const docMsg = msg.documentMessage as { fileName?: string; title?: string };
         messageContent = `📎 ${docMsg.fileName || docMsg.title || "Documento"}`;
         messageType = "document";
+        needsMediaDownload = true;
       } else if (msg?.stickerMessage) {
         messageContent = "🎨 Sticker";
         messageType = "sticker";
@@ -240,6 +245,98 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Helper function to download media from Evolution API and re-host it
+      async function downloadAndHostMedia(
+        messageKey: Record<string, unknown>,
+        messageType: string,
+        conversationId: string,
+      ): Promise<string | null> {
+        try {
+          const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+          const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+          const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+
+          if (!evolutionUrl || !evolutionKey || !instanceName) {
+            console.log("Evolution API config missing, skipping media download");
+            return null;
+          }
+
+          console.log(`Downloading media via getBase64FromMediaMessage for key: ${messageKey.id}`);
+
+          const res = await fetch(
+            `${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": evolutionKey,
+              },
+              body: JSON.stringify({
+                message: { key: messageKey },
+                convertToMp4: false,
+              }),
+            }
+          );
+
+          if (!res.ok) {
+            console.error(`getBase64 failed with status ${res.status}: ${await res.text()}`);
+            return null;
+          }
+
+          const result = await res.json();
+          const base64Data: string | undefined = result?.base64;
+          const mimeType: string | undefined = result?.mimetype || result?.mimeType;
+
+          if (!base64Data) {
+            console.error("No base64 data in response");
+            return null;
+          }
+
+          // Clean base64 string (remove data URI prefix if present)
+          const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
+
+          // Determine file extension from mime type
+          const extMap: Record<string, string> = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+            "image/gif": "gif",
+            "application/pdf": "pdf",
+            "video/mp4": "mp4",
+            "audio/ogg": "ogg",
+            "audio/mpeg": "mp3",
+            "audio/mp4": "m4a",
+          };
+          const ext = (mimeType && extMap[mimeType]) || "bin";
+          const contentType = mimeType || "application/octet-stream";
+
+          // Decode base64 to bytes
+          const fileBytes = decodeBase64(cleanBase64);
+          const filePath = `${conversationId}/${Date.now()}_recv.${ext}`;
+
+          // Upload to storage
+          const { error: uploadError } = await supabase.storage
+            .from("inbox-media")
+            .upload(filePath, fileBytes, { contentType, upsert: false });
+
+          if (uploadError) {
+            console.error("Storage upload error:", uploadError);
+            return null;
+          }
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from("inbox-media")
+            .getPublicUrl(filePath);
+
+          console.log(`Media re-hosted successfully: ${urlData.publicUrl}`);
+          return urlData.publicUrl;
+        } catch (error) {
+          console.error("downloadAndHostMedia error:", error);
+          return null;
+        }
+      }
+
       // Find or create conversation
       let conversationId: string | null = null;
       
@@ -328,6 +425,14 @@ Deno.serve(async (req) => {
       }
 
       if (conversationId) {
+        // Download and re-host media if needed (images, documents, audio, video)
+        if (needsMediaDownload && data.key) {
+          mediaUrl = await downloadAndHostMedia(data.key as Record<string, unknown>, messageType, conversationId);
+          if (!mediaUrl) {
+            console.log(`Could not download media for message type ${messageType}, saving without media URL`);
+          }
+        }
+
         // Insert message with correct direction based on fromMe
         const messageInsertData: Record<string, unknown> = {
           conversation_id: conversationId,

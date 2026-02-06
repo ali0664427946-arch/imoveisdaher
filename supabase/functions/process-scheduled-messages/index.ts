@@ -30,9 +30,9 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date();
-    // Only send messages scheduled within the last 2 hours
+    // Only send messages scheduled within the last 24 hours
     // Messages older than that are expired and should NOT be sent
-    const maxAgeMs = 2 * 60 * 60 * 1000; // 2 hours
+    const maxAgeMs = 24 * 60 * 60 * 1000; // 24 hours
     const cutoffTime = new Date(now.getTime() - maxAgeMs).toISOString();
 
     // First, expire old pending messages that are too old to send
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       .from("scheduled_messages")
       .update({
         status: "failed",
-        error_message: "Expirada: mensagem não foi enviada dentro do prazo de 2 horas",
+        error_message: "Expirada: mensagem não foi enviada dentro do prazo de 24 horas",
       })
       .eq("status", "pending")
       .lt("scheduled_at", cutoffTime)

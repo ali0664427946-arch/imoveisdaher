@@ -180,7 +180,16 @@ export default function Inbox() {
       if (!selectedConversationId) throw new Error("Nenhuma conversa selecionada");
       
       const conversation = conversations.find(c => c.id === selectedConversationId);
-      const phone = conversation?.lead?.phone;
+      
+      // For group conversations, use the group JID (external_thread_id)
+      // For individual conversations, use the lead's phone
+      let phone: string | undefined;
+      
+      if (conversation?.is_group && conversation?.external_thread_id) {
+        phone = conversation.external_thread_id; // e.g. "120363401372992755@g.us"
+      } else {
+        phone = conversation?.lead?.phone;
+      }
       
       if (!phone) {
         throw new Error("Lead não possui telefone cadastrado");
@@ -188,7 +197,7 @@ export default function Inbox() {
 
       // First, try to send via WhatsApp if it's a WhatsApp channel
       if (conversation?.channel === "whatsapp" || conversation?.channel === "olx_chat") {
-        console.log("Sending message via WhatsApp API...");
+        console.log("Sending message via WhatsApp API...", { phone, isGroup: conversation?.is_group });
         
         const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke("send-whatsapp", {
           body: { 

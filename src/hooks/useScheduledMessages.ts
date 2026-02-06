@@ -134,7 +134,7 @@ export function useScheduledMessages() {
 
   const pendingMessages = messages?.filter((m) => m.status === "pending") || [];
   const sentMessages = messages?.filter((m) => m.status === "sent") || [];
-  const failedMessages = messages?.filter((m) => m.status === "failed") || [];
+  const failedMessages = messages?.filter((m) => m.status === "failed" || m.status === "cancelled") || [];
 
   return {
     messages,

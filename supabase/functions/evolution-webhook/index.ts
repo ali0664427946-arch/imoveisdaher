@@ -353,10 +353,15 @@ Deno.serve(async (req) => {
         }
 
         // Update conversation - only increment unread for incoming messages
+        // Reopen archived conversations on new inbound messages
         const updateData: Record<string, unknown> = {
           last_message_at: new Date().toISOString(),
           last_message_preview: messageContent.slice(0, 100),
         };
+
+        if (!isFromMe) {
+          updateData.archived = false;
+        }
 
         if (!isFromMe) {
           // Only increment unread count for incoming messages

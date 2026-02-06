@@ -103,7 +103,7 @@ export default function Inbox() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
-  const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "pdf" | "other"; name?: string } | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "pdf" | "video" | "audio" | "other"; name?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -742,11 +742,29 @@ export default function Inbox() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <span className="text-sm font-medium truncate block">
-                                {msg.content && msg.content !== "📄 Documento" ? msg.content : "Documento PDF"}
+                                {msg.content && !msg.content.startsWith("📄") && !msg.content.startsWith("📎") ? msg.content : "Documento PDF"}
                               </span>
                               <span className="text-xs text-muted-foreground">Clique para visualizar</span>
                             </div>
                             <Eye className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </div>
+                        ) : msg.media_url && (msg.message_type === "video" || msg.media_url.match(/\.(mp4|webm|mov)(\?|$)/i)) ? (
+                          <div
+                            className="mb-1 cursor-pointer"
+                            onClick={() => setPreviewMedia({ url: msg.media_url!, type: "video", name: msg.content || "Vídeo" })}
+                          >
+                            <video
+                              src={msg.media_url}
+                              className="rounded-lg max-w-full max-h-64"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                            <span className="text-xs text-muted-foreground mt-1 block">🎬 Clique para reproduzir</span>
+                          </div>
+                        ) : msg.media_url && (msg.message_type === "audio" || msg.media_url.match(/\.(ogg|mp3|m4a|wav)(\?|$)/i)) ? (
+                          <div className="mb-1">
+                            <audio src={msg.media_url} controls className="max-w-full" style={{ maxWidth: "250px" }} />
                           </div>
                         ) : msg.media_url ? (
                           <a
@@ -765,7 +783,7 @@ export default function Inbox() {
                         ) : null}
 
                         {/* Text content - hide if it's just a media label */}
-                        {msg.content && !(msg.media_url && (msg.content === "📷 Imagem" || msg.content === "📄 Documento")) && (
+                        {msg.content && !(msg.media_url && /^(📷 Imagem|📄 Documento|🎵 Áudio|🎬 Vídeo|📎 )/.test(msg.content)) && (
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         )}
 

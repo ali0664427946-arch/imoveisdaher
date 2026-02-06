@@ -100,9 +100,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate auth
+    // Validate auth using getUser (standard Supabase method)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -115,19 +116,22 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: authError } = await supabase.auth.getClaims(token);
-    if (authError || !claims?.claims) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("Auth failed:", authError?.message);
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claims.claims.sub;
+    const userId = user.id;
+    console.log(`Authenticated user: ${userId}`);
 
     // Parse request
     const { phone, mediaUrl, mediaType, mimeType, fileName, caption, conversationId }: SendMediaRequest = await req.json();
+
+    console.log(`Send media request: type=${mediaType}, mime=${mimeType}, phone=${phone}, url=${mediaUrl}`);
 
     if (!phone || !mediaUrl || !mediaType || !mimeType) {
       return new Response(
@@ -142,6 +146,7 @@ Deno.serve(async (req) => {
     const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
+      console.error("WhatsApp integration not configured");
       return new Response(
         JSON.stringify({ success: false, error: "WhatsApp integration not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -155,6 +160,7 @@ Deno.serve(async (req) => {
     const { validPhone } = await resolvePhone(baseUrl, evolutionKey, instanceName, phone);
 
     if (!validPhone) {
+      console.error(`No valid WhatsApp for phone: ${phone}`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -183,6 +189,8 @@ Deno.serve(async (req) => {
     if (caption) mediaBody.caption = caption;
     if (fileName && mediaType === "document") mediaBody.fileName = fileName;
 
+    console.log("Evolution API media body:", JSON.stringify(mediaBody));
+
     const evolutionResponse = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -195,16 +203,16 @@ Deno.serve(async (req) => {
     const evolutionData = await evolutionResponse.json();
 
     if (!evolutionResponse.ok) {
-      console.error("Evolution API media error:", evolutionData);
+      console.error("Evolution API media error:", JSON.stringify(evolutionData));
       return new Response(
         JSON.stringify({ success: false, error: evolutionData.message || "Failed to send media" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Media sent successfully:", evolutionData);
+    console.log("Media sent successfully via Evolution API:", JSON.stringify(evolutionData));
 
-    // Save message to database
+    // Save message to database using service role
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -243,7 +251,7 @@ Deno.serve(async (req) => {
     const messageContent = caption || (mediaType === "image" ? "📷 Imagem" : "📄 Documento");
     
     if (targetConversationId) {
-      await adminClient.from("messages").insert({
+      const { error: msgError } = await adminClient.from("messages").insert({
         conversation_id: targetConversationId,
         direction: "outbound",
         content: messageContent,
@@ -254,6 +262,10 @@ Deno.serve(async (req) => {
         provider_payload: evolutionData,
       });
 
+      if (msgError) {
+        console.error("Error saving message:", msgError);
+      }
+
       await adminClient
         .from("conversations")
         .update({
@@ -263,6 +275,8 @@ Deno.serve(async (req) => {
         .eq("id", targetConversationId);
 
       console.log(`Media message saved to conversation ${targetConversationId}`);
+    } else {
+      console.log("No conversation found, message not saved to DB");
     }
 
     // Log activity

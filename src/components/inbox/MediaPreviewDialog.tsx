@@ -12,7 +12,7 @@ interface MediaPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mediaUrl: string;
-  mediaType: "image" | "pdf" | "other";
+  mediaType: "image" | "pdf" | "video" | "audio" | "other";
   fileName?: string;
 }
 
@@ -49,7 +49,7 @@ export function MediaPreviewDialog({
         {/* Header */}
         <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-sm font-medium truncate flex-1">
-            {fileName || (mediaType === "image" ? "Imagem" : "Documento")}
+            {fileName || (mediaType === "image" ? "Imagem" : mediaType === "video" ? "Vídeo" : mediaType === "audio" ? "Áudio" : "Documento")}
           </DialogTitle>
           <div className="flex items-center gap-1 shrink-0 ml-2">
             {mediaType === "image" && (
@@ -124,11 +124,33 @@ export function MediaPreviewDialog({
             </>
           ) : mediaType === "pdf" ? (
             <iframe
-              src={mediaUrl}
+              src={`${mediaUrl}#toolbar=1&navpanes=0`}
               className="w-full rounded-none"
               style={{ height: "calc(90vh - 60px)" }}
               title={fileName || "PDF"}
+              sandbox="allow-same-origin allow-scripts allow-popups"
             />
+          ) : mediaType === "video" ? (
+            <video
+              src={mediaUrl}
+              controls
+              className="max-w-full max-h-[calc(90vh-60px)]"
+              style={{ objectFit: "contain" }}
+            >
+              Seu navegador não suporta reprodução de vídeo.
+            </video>
+          ) : mediaType === "audio" ? (
+            <div className="flex flex-col items-center gap-4 p-8">
+              <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center">
+                <svg className="w-10 h-10 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              </div>
+              <p className="text-sm text-muted-foreground">{fileName || "Áudio"}</p>
+              <audio src={mediaUrl} controls className="w-full max-w-md" />
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-4 p-8">
               <FileText className="w-16 h-16 text-muted-foreground" />

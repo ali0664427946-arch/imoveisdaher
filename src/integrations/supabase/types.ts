@@ -94,6 +94,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          archived: boolean
           assigned_user_id: string | null
           channel: Database["public"]["Enums"]["conversation_channel"]
           created_at: string
@@ -109,6 +110,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean
           assigned_user_id?: string | null
           channel?: Database["public"]["Enums"]["conversation_channel"]
           created_at?: string
@@ -124,6 +126,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean
           assigned_user_id?: string | null
           channel?: Database["public"]["Enums"]["conversation_channel"]
           created_at?: string

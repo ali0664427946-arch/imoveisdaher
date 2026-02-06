@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil } from "lucide-react";
+import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
@@ -81,6 +87,7 @@ export default function Inbox() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -269,10 +276,39 @@ export default function Inbox() {
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
-  const filteredConversations = conversations.filter((conv) =>
-    conv.lead?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.lead?.phone?.includes(searchTerm)
-  );
+  const filteredConversations = conversations.filter((conv) => {
+    const matchesSearch = conv.lead?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.lead?.phone?.includes(searchTerm);
+    const matchesArchived = showArchived ? conv.archived === true : conv.archived !== true;
+    return matchesSearch && matchesArchived;
+  });
+
+  const archivedCount = conversations.filter((c) => c.archived === true).length;
+
+  const toggleArchive = async (conversationId: string, archive: boolean) => {
+    const { error } = await supabase
+      .from("conversations")
+      .update({ archived: archive })
+      .eq("id", conversationId);
+
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({
+      title: archive ? "Conversa encerrada" : "Conversa reaberta",
+      description: archive
+        ? "A conversa foi movida para o arquivo"
+        : "A conversa voltou para a lista principal",
+    });
+
+    if (archive && selectedConversationId === conversationId) {
+      setSelectedConversationId(null);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["conversations"] });
+  };
 
   const handleSendMessage = () => {
     if (messageText.trim()) {
@@ -297,7 +333,7 @@ export default function Inbox() {
     <div className="h-[calc(100vh-3.5rem)] flex">
       {/* Conversation List */}
       <div className="w-80 border-r bg-card flex flex-col">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b space-y-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
@@ -306,6 +342,17 @@ export default function Inbox() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showArchived ? "default" : "outline"}
+              size="sm"
+              className="text-xs w-full"
+              onClick={() => setShowArchived(!showArchived)}
+            >
+              <Archive className="w-3 h-3 mr-1" />
+              {showArchived ? `Encerradas (${archivedCount})` : `Ver encerradas (${archivedCount})`}
+            </Button>
           </div>
         </div>
         <ScrollArea className="flex-1">
@@ -465,9 +512,26 @@ export default function Inbox() {
                 <Button variant="ghost" size="icon">
                   <Phone className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {selectedConversation.archived ? (
+                      <DropdownMenuItem onClick={() => toggleArchive(selectedConversation.id, false)}>
+                        <ArchiveRestore className="w-4 h-4 mr-2" />
+                        Reabrir conversa
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={() => toggleArchive(selectedConversation.id, true)}>
+                        <Archive className="w-4 h-4 mr-2" />
+                        Encerrar conversa
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 

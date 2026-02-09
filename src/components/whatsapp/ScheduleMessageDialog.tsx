@@ -67,7 +67,8 @@ export function ScheduleMessageDialog({
     if (!phone.trim() || !message.trim()) return;
 
     const [hours, minutes] = time.split(":").map(Number);
-    const scheduledAt = setMinutes(setHours(new Date(date), hours), minutes);
+    const [year, month, day] = date.split("-").map(Number);
+    const scheduledAt = new Date(year, month - 1, day, hours, minutes);
 
     const input: CreateScheduledMessageInput = {
       phone: phone.trim(),

@@ -112,7 +112,7 @@ function MessageCard({
             ? `Enviada ${formatDistanceToNow(new Date(message.sent_at), { addSuffix: true, locale: ptBR })}`
             : message.status === "pending"
             ? `Agendada para ${format(new Date(message.scheduled_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`
-            : `Criada ${formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: ptBR })}`}
+            : `Agendada para ${format(new Date(message.scheduled_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`}
         </span>
         {message.error_message && (
           <span className="text-destructive">{message.error_message}</span>

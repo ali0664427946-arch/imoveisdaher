@@ -349,26 +349,28 @@ Deno.serve(async (req) => {
       
       if (isGroup) {
         // For groups, match by the group JID (external_thread_id)
-        const { data: groupConv } = await supabase
+        const { data: groupConvs } = await supabase
           .from("conversations")
           .select("id, is_group, group_name")
           .eq("external_thread_id", remoteJid)
           .eq("channel", "whatsapp")
-          .maybeSingle();
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .limit(1);
         
-        existingConv = groupConv;
+        existingConv = groupConvs?.[0] || null;
       }
       
       if (!existingConv) {
         // Fallback to lead-based matching
-        const { data: leadConv } = await supabase
+        const { data: leadConvs } = await supabase
           .from("conversations")
           .select("id, is_group, group_name")
           .eq("lead_id", leadId)
           .eq("channel", "whatsapp")
-          .maybeSingle();
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .limit(1);
         
-        existingConv = leadConv;
+        existingConv = leadConvs?.[0] || null;
       }
 
       if (existingConv) {

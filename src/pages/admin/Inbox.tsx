@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter, Image, FileText, X, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -95,6 +95,8 @@ const ALLOWED_FILE_TYPES = [
 
 const MAX_FILE_SIZE_MB = 10;
 
+const MESSAGES_PER_PAGE = 50;
+
 export default function Inbox() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
@@ -108,7 +110,8 @@ export default function Inbox() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  const messagesTopRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   // Subscribe to realtime updates for messages - debounced to avoid cascading queries
   useEffect(() => {
     let conversationsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -180,30 +183,92 @@ export default function Inbox() {
     retry: 2,
   });
 
-  // Fetch messages for selected conversation
-  const { data: messages = [], isLoading: loadingMessages, isError: errorMessages, refetch: refetchMessages } = useQuery({
+  // Fetch messages with infinite pagination (load older messages on scroll up)
+  const {
+    data: messagesData,
+    isLoading: loadingMessages,
+    isError: errorMessages,
+    refetch: refetchMessages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["messages", selectedConversationId],
-    queryFn: async () => {
-      if (!selectedConversationId) return [];
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!selectedConversationId) return { data: [], nextOffset: null };
       
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("conversation_id", selectedConversationId)
         .order("created_at", { ascending: false })
-        .limit(200);
+        .range(pageParam, pageParam + MESSAGES_PER_PAGE - 1);
 
       if (error) throw error;
-      return (data || []).reverse();
+      const messages = data || [];
+      return {
+        data: messages,
+        nextOffset: messages.length === MESSAGES_PER_PAGE ? pageParam + MESSAGES_PER_PAGE : null,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
     enabled: !!selectedConversationId,
     retry: 2,
+    initialPageParam: 0,
   });
 
-  // Scroll to bottom when messages change
+  // Flatten all pages into a single chronological array
+  const messages = (messagesData?.pages ?? [])
+    .flatMap((page) => page.data)
+    .reverse(); // oldest first
+
+  // Track if this is the initial load (for auto-scroll to bottom)
+  const isInitialLoadRef = useRef(true);
+
+  // Scroll to bottom on initial load or new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (isInitialLoadRef.current && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      isInitialLoadRef.current = false;
+    } else if (!isFetchingNextPage) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length, isFetchingNextPage]);
+
+  // Reset initial load flag when switching conversations
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+  }, [selectedConversationId]);
+
+  // Intersection observer for loading older messages
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !hasNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          // Save scroll position before loading more
+          const scrollEl = el.closest('[data-radix-scroll-area-viewport]');
+          const prevHeight = scrollEl?.scrollHeight || 0;
+          
+          fetchNextPage().then(() => {
+            // Restore scroll position after new messages are prepended
+            requestAnimationFrame(() => {
+              if (scrollEl) {
+                const newHeight = scrollEl.scrollHeight;
+                scrollEl.scrollTop += newHeight - prevHeight;
+              }
+            });
+          });
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Mark conversation as read when selected
   useEffect(() => {
@@ -740,6 +805,16 @@ export default function Inbox() {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Infinite scroll trigger - loads older messages */}
+                  <div ref={loadMoreRef} className="flex justify-center py-2">
+                    {isFetchingNextPage ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    ) : hasNextPage ? (
+                      <span className="text-xs text-muted-foreground">Role para cima para ver mais</span>
+                    ) : messages.length > MESSAGES_PER_PAGE ? (
+                      <span className="text-xs text-muted-foreground">Início da conversa</span>
+                    ) : null}
+                  </div>
                   {messages.map((msg) => (
                     <div
                       key={msg.id}

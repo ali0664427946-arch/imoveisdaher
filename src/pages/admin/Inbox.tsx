@@ -172,10 +172,11 @@ export default function Inbox() {
         .from("messages")
         .select("*")
         .eq("conversation_id", selectedConversationId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false })
+        .limit(200);
 
       if (error) throw error;
-      return data || [];
+      return (data || []).reverse();
     },
     enabled: !!selectedConversationId,
   });

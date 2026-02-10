@@ -438,6 +438,13 @@ Deno.serve(async (req) => {
         }
 
         // Insert message with correct direction based on fromMe
+        // Only save minimal provider metadata (not the full heavy payload)
+        const minimalPayload = {
+          key: data.key ? { id: data.key.id, remoteJid: data.key.remoteJid, fromMe: data.key.fromMe } : null,
+          pushName: data.pushName,
+          messageType: messageType,
+        };
+
         const messageInsertData: Record<string, unknown> = {
           conversation_id: conversationId,
           content: messageContent,
@@ -445,7 +452,7 @@ Deno.serve(async (req) => {
           message_type: messageType,
           sent_status: isFromMe ? "sent" : "received",
           provider: "evolution",
-          provider_payload: data,
+          provider_payload: minimalPayload,
         };
         
         // Add media URL if present

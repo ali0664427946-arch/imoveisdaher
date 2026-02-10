@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.sync-group-names]
 verify_jwt = false
+
+[functions.archive-messages]
+verify_jwt = false

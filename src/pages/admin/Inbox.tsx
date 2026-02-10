@@ -21,6 +21,7 @@ import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
 import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { TemplateSelector } from "@/components/templates/TemplateSelector";
 import { MediaPreviewDialog } from "@/components/inbox/MediaPreviewDialog";
+import { useArchivedMessages } from "@/hooks/useArchivedMessages";
 const channelColors: Record<string, string> = {
   whatsapp: "bg-success text-success-foreground",
   olx_chat: "bg-amber-500 text-white",
@@ -106,6 +107,7 @@ export default function Inbox() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "pdf" | "video" | "audio" | "other"; name?: string } | null>(null);
+  const [showArchivedMessages, setShowArchivedMessages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -218,9 +220,21 @@ export default function Inbox() {
   });
 
   // Flatten all pages into a single chronological array
-  const messages = (messagesData?.pages ?? [])
+  const liveMessages = (messagesData?.pages ?? [])
     .flatMap((page) => page.data)
     .reverse(); // oldest first
+
+  // Load archived messages when user has scrolled to the top (no more live pages)
+  const { data: archivedMessages = [], isLoading: loadingArchived } = useArchivedMessages(
+    selectedConversationId,
+    showArchivedMessages && !hasNextPage
+  );
+
+  // Merge archived + live messages (archived first, then live)
+  const messages = [
+    ...archivedMessages.map(m => ({ ...m, provider_payload: null })),
+    ...liveMessages,
+  ];
 
   // Track if this is the initial load (for auto-scroll to bottom)
   const isInitialLoadRef = useRef(true);
@@ -235,9 +249,10 @@ export default function Inbox() {
     }
   }, [messages.length, isFetchingNextPage]);
 
-  // Reset initial load flag when switching conversations
+  // Reset initial load flag and archived state when switching conversations
   useEffect(() => {
     isInitialLoadRef.current = true;
+    setShowArchivedMessages(false);
   }, [selectedConversationId]);
 
   // Intersection observer for loading older messages
@@ -811,9 +826,25 @@ export default function Inbox() {
                       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                     ) : hasNextPage ? (
                       <span className="text-xs text-muted-foreground">Role para cima para ver mais</span>
-                    ) : messages.length > MESSAGES_PER_PAGE ? (
+                    ) : !showArchivedMessages ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowArchivedMessages(true)}
+                      >
+                        📦 Carregar mensagens arquivadas
+                      </Button>
+                    ) : loadingArchived ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Carregando arquivo...</span>
+                      </div>
+                    ) : archivedMessages.length > 0 ? (
+                      <span className="text-xs text-muted-foreground">📦 {archivedMessages.length} mensagens do arquivo</span>
+                    ) : (
                       <span className="text-xs text-muted-foreground">Início da conversa</span>
-                    ) : null}
+                    )}
                   </div>
                   {messages.map((msg) => (
                     <div

@@ -77,8 +77,12 @@ Deno.serve(async (req) => {
     let sentCount = 0;
 
     for (const msg of pendingMessages) {
-      let phone = msg.phone.replace(/\D/g, "");
-      if (!phone.startsWith("55")) phone = "55" + phone;
+      // Group IDs (e.g. "21982095993-1566916426@g.us") must be sent as-is
+      let phone = msg.phone;
+      if (!phone.includes("@")) {
+        phone = phone.replace(/\D/g, "");
+        if (!phone.startsWith("55")) phone = "55" + phone;
+      }
 
       const res = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
         method: "POST",

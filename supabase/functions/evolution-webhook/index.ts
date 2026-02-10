@@ -72,6 +72,15 @@ Deno.serve(async (req) => {
       let phone: string;
       let groupName: string | null = null;
       
+      // Helper: extract clean phone from JID, removing country code 55 from start only
+      function cleanPhoneFromJid(jid: string): string {
+        const raw = jid
+          .replace("@s.whatsapp.net", "")
+          .replace("@lid", "");
+        // Only remove country code "55" from the START of the number
+        return raw.startsWith("55") ? raw.substring(2) : raw;
+      }
+
       if (isGroup) {
         // Group message - get actual sender from participant field
         // First try participantAlt (actual phone) then participant (may be LID)
@@ -83,18 +92,12 @@ Deno.serve(async (req) => {
           ? participantAlt 
           : participant;
         
-        // Extract clean phone number
-        phone = phoneSource
-          .replace("@s.whatsapp.net", "")
-          .replace("@lid", "")
-          .replace("55", "");
+        phone = cleanPhoneFromJid(phoneSource);
         
         // Try to get group name from metadata or use JID as fallback
         groupName = data.groupMetadata?.subject || null;
         
-        // If no group name in metadata, we'll try to fetch it later
         if (!groupName) {
-          // Extract group ID for logging
           const groupId = remoteJid.replace("@g.us", "");
           console.log(`Group message from group ID: ${groupId}, participant: ${phone}`);
         }
@@ -105,10 +108,7 @@ Deno.serve(async (req) => {
           ? remoteJidAlt
           : remoteJid;
         
-        phone = phoneSource
-          .replace("@s.whatsapp.net", "")
-          .replace("@lid", "")
-          .replace("55", "");
+        phone = cleanPhoneFromJid(phoneSource);
       }
       
       // Extract message content - support text, images, audio, video, documents, stickers
@@ -163,15 +163,19 @@ Deno.serve(async (req) => {
       // Find or create lead by phone
       let leadId: string | null = null;
       
-      // Try to find existing lead by phone (normalized)
-      const { data: existingLead } = await supabase
+      // Try to find existing lead by phone using exact matches on multiple formats
+      const phoneWith55 = phone.startsWith("55") ? phone : `55${phone}`;
+      const phoneWithout55 = phone.startsWith("55") ? phone.substring(2) : phone;
+      const phoneNormalized = `+${phoneWith55}`;
+      
+      const { data: existingLeads } = await supabase
         .from("leads")
         .select("id")
-        .or(`phone.ilike.%${phone}%,phone_normalized.ilike.%${phone}%`)
-        .maybeSingle();
+        .or(`phone.eq.${phone},phone.eq.${phoneWith55},phone.eq.${phoneWithout55},phone_normalized.eq.${phoneNormalized}`)
+        .limit(1);
 
-      if (existingLead) {
-        leadId = existingLead.id;
+      if (existingLeads && existingLeads.length > 0) {
+        leadId = existingLeads[0].id;
       } else if (!isFromMe) {
         // Only create new lead for incoming messages (not outgoing)
         const { data: newLead, error: leadError } = await supabase

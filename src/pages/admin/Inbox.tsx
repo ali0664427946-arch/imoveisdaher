@@ -146,7 +146,7 @@ export default function Inbox() {
   }, [selectedConversationId, queryClient]);
 
   // Fetch conversations with lead info
-  const { data: conversations = [], isLoading: loadingConversations } = useQuery({
+  const { data: conversations = [], isLoading: loadingConversations, isError: errorConversations, refetch: refetchConversations } = useQuery({
     queryKey: ["conversations"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -160,10 +160,11 @@ export default function Inbox() {
       if (error) throw error;
       return data || [];
     },
+    retry: 2,
   });
 
   // Fetch messages for selected conversation
-  const { data: messages = [], isLoading: loadingMessages } = useQuery({
+  const { data: messages = [], isLoading: loadingMessages, isError: errorMessages, refetch: refetchMessages } = useQuery({
     queryKey: ["messages", selectedConversationId],
     queryFn: async () => {
       if (!selectedConversationId) return [];
@@ -179,6 +180,7 @@ export default function Inbox() {
       return (data || []).reverse();
     },
     enabled: !!selectedConversationId,
+    retry: 2,
   });
 
   // Scroll to bottom when messages change
@@ -483,6 +485,18 @@ export default function Inbox() {
     );
   }
 
+  if (errorConversations) {
+    return (
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center gap-4">
+        <MessageSquare className="w-12 h-12 text-muted-foreground" />
+        <p className="text-muted-foreground text-sm">Não foi possível carregar as conversas.</p>
+        <Button variant="outline" size="sm" onClick={() => refetchConversations()}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-3.5rem)] flex">
       {/* Conversation List */}
@@ -694,6 +708,14 @@ export default function Inbox() {
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                </div>
+              ) : errorMessages ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <MessageSquare className="w-10 h-10 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Erro ao carregar mensagens.</p>
+                  <Button variant="outline" size="sm" onClick={() => refetchMessages()}>
+                    Tentar novamente
+                  </Button>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">

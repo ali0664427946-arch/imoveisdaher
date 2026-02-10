@@ -109,38 +109,55 @@ export default function Inbox() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Subscribe to realtime updates for messages
+  // Subscribe to realtime updates for messages - debounced to avoid cascading queries
   useEffect(() => {
+    let conversationsTimer: ReturnType<typeof setTimeout> | null = null;
+    let messagesTimer: ReturnType<typeof setTimeout> | null = null;
+
     const channel = supabase
       .channel("inbox-messages")
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "messages",
         },
         (payload) => {
-          console.log("Realtime message update:", payload);
-          // Refresh messages when there's any change
-          queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] });
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          // Only refresh messages for the currently selected conversation
+          const newMsg = payload.new as { conversation_id?: string };
+          if (newMsg.conversation_id === selectedConversationId) {
+            if (messagesTimer) clearTimeout(messagesTimer);
+            messagesTimer = setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ["messages", selectedConversationId] });
+            }, 500);
+          }
+          // Debounce conversation list refresh
+          if (conversationsTimer) clearTimeout(conversationsTimer);
+          conversationsTimer = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          }, 2000);
         }
       )
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "UPDATE",
           schema: "public",
           table: "conversations",
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          if (conversationsTimer) clearTimeout(conversationsTimer);
+          conversationsTimer = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          }, 2000);
         }
       )
       .subscribe();
 
     return () => {
+      if (conversationsTimer) clearTimeout(conversationsTimer);
+      if (messagesTimer) clearTimeout(messagesTimer);
       supabase.removeChannel(channel);
     };
   }, [selectedConversationId, queryClient]);

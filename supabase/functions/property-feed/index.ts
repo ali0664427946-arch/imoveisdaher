@@ -155,6 +155,44 @@ Deno.serve(async (req) => {
         <Garage type="Parking Spaces">${prop.parking}</Garage>`;
       }
 
+      // Features
+      const features = prop.features || {};
+      const featureKeys = Object.keys(features).filter(k => features[k] === true);
+      if (featureKeys.length > 0) {
+        xml += `
+        <Features>`;
+        // Map feature keys to VRSync feature names
+        const featureMap: Record<string, string> = {
+          'area_servico': 'Laundry Area',
+          'ar_condicionado': 'Air Conditioning',
+          'armarios_quarto': 'Bedroom Closets',
+          'armarios_cozinha': 'Kitchen Cabinets',
+          'churrasqueira': 'BBQ',
+          'quarto_servico': 'Service Room',
+          'varanda': 'Balcony',
+          'piscina': 'Pool',
+          'sauna': 'Sauna',
+          'academia': 'Gym',
+          'playground': 'Playground',
+          'salao_festas': 'Party Room',
+          'salao_jogos': 'Game Room',
+          'espaco_gourmet': 'Gourmet Area',
+          'quadra': 'Sports Court',
+          'condominio_fechado': 'Gated Community',
+          'portaria_24h': '24-Hour Concierge',
+          'seguranca_24h': '24-Hour Security',
+          'elevador': 'Elevator',
+          'permitido_animais': 'Pets Allowed',
+        };
+        for (const key of featureKeys) {
+          const featureName = featureMap[key] || key;
+          xml += `
+          <Feature>${escapeXml(featureName)}</Feature>`;
+        }
+        xml += `
+        </Features>`;
+      }
+
       xml += `
       </Details>
       <Location displayAddress="Neighborhood">

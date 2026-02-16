@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Pause,
   Play,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,9 @@ import {
 import { useProperties, Property } from "@/hooks/useProperties";
 import { NewPropertyDialog } from "@/components/properties/NewPropertyDialog";
 import { EditPropertyDialog } from "@/components/properties/EditPropertyDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 const formatPrice = (price: number, purpose: string) => {
   const formatted = new Intl.NumberFormat("pt-BR", {
@@ -79,10 +83,57 @@ export default function Properties() {
     publishToPortal,
     refetch,
   } = useProperties();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [syncingOlx, setSyncingOlx] = useState(false);
+
+  // Get OLX profile URL from settings
+  const { data: olxProfileUrl } = useQuery({
+    queryKey: ["olx-profile-url"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "olx_auto_sync")
+        .maybeSingle();
+      const settings = data?.value as Record<string, unknown> | null;
+      return (settings?.profile_url as string) || null;
+    },
+  });
+
+  const handleSyncOlx = async () => {
+    if (!olxProfileUrl) {
+      toast({
+        title: "URL não configurada",
+        description: "Configure a URL do perfil OLX em Configurações primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSyncingOlx(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-olx", {
+        body: { profileUrl: olxProfileUrl },
+      });
+      if (error) throw error;
+      toast({
+        title: "Sincronização OLX concluída",
+        description: `${data.synced} imóveis sincronizados de ${data.found} encontrados`,
+      });
+      refetch();
+    } catch (err: any) {
+      toast({
+        title: "Erro na sincronização",
+        description: err.message || "Falha ao sincronizar com OLX",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingOlx(false);
+    }
+  };
 
   const filteredProperties = properties.filter(
     (p) =>
@@ -136,6 +187,19 @@ export default function Properties() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSyncOlx}
+            disabled={syncingOlx}
+            className="gap-2"
+          >
+            {syncingOlx ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            {syncingOlx ? "Sincronizando..." : "Sync OLX"}
+          </Button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input

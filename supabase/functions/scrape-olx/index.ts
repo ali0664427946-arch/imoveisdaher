@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
 
     // Scrape multiple pages of the profile (OLX paginates results)
     const allPropertyUrls: Set<string> = new Set();
-    const pagesToScrape = 5; // Scrape up to 5 pages (10 items each = 50 items)
+    const pagesToScrape = 10; // Scrape up to 10 pages to get all properties
 
     for (let page = 1; page <= pagesToScrape; page++) {
       // Build paginated URL

@@ -8,6 +8,7 @@ const corsHeaders = {
 interface ScrapedProperty {
   id: string;
   title: string;
+  description: string;
   price: number;
   url: string;
   neighborhood?: string;
@@ -17,7 +18,7 @@ interface ScrapedProperty {
   bathrooms?: number;
   parking?: number;
   area?: number;
-  imageUrl?: string;
+  imageUrls: string[];
 }
 
 Deno.serve(async (req) => {
@@ -162,8 +163,9 @@ Deno.serve(async (req) => {
             },
             body: JSON.stringify({
               url: propUrl,
-              formats: ["markdown", "html"],
-              onlyMainContent: true,
+              formats: ["markdown", "html", "links"],
+              onlyMainContent: false,
+              waitFor: 3000,
             }),
           });
 
@@ -215,6 +217,7 @@ Deno.serve(async (req) => {
         origin: "olx" as const,
         origin_id: prop.id,
         title: prop.title,
+        description: prop.description || null,
         price: prop.price,
         type: detectPropertyType(prop.title),
         neighborhood: prop.neighborhood || "Centro",
@@ -245,6 +248,7 @@ Deno.serve(async (req) => {
           .from("properties")
           .update({
             title: propertyData.title,
+            description: propertyData.description,
             price: propertyData.price,
             type: propertyData.type,
             neighborhood: propertyData.neighborhood,
@@ -276,25 +280,29 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Add photo if available and not already exists
-      if (prop.imageUrl && propertyId) {
-        const { data: existingPhoto } = await supabase
+      // Add ALL photos (deduplicated)
+      if (prop.imageUrls.length > 0 && propertyId) {
+        // Get existing photos for this property
+        const { data: existingPhotos } = await supabase
           .from("property_photos")
-          .select("id")
-          .eq("property_id", propertyId)
-          .eq("url", prop.imageUrl)
-          .maybeSingle();
+          .select("url")
+          .eq("property_id", propertyId);
 
-        if (!existingPhoto) {
-          await supabase.from("property_photos").insert({
-            property_id: propertyId,
-            url: prop.imageUrl,
-            sort_order: 0,
-          });
+        const existingUrls = new Set((existingPhotos || []).map(p => p.url));
+
+        const newPhotos = prop.imageUrls
+          .filter(url => !existingUrls.has(url))
+          .map((url, index) => ({
+            property_id: propertyId!,
+            url,
+            sort_order: (existingPhotos?.length || 0) + index,
+          }));
+
+        if (newPhotos.length > 0) {
+          await supabase.from("property_photos").insert(newPhotos);
+          console.log(`Added ${newPhotos.length} photos for property ${prop.id}`);
         }
       }
-
-      syncedCount++;
     }
 
     // Log activity
@@ -406,6 +414,31 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
       state = titleLocationMatch[3]?.trim() || "RJ";
     }
 
+    // Extract description from markdown content
+    let description = "";
+    // Look for the description section - usually after "Descrição" header or main content block
+    const descMatch = content.match(/(?:Descrição|DESCRIÇÃO|descrição)\s*\n+([\s\S]*?)(?=\n(?:##|Detalhes|Localização|Características|---|$))/i);
+    if (descMatch) {
+      description = descMatch[1].trim();
+    } else {
+      // Fallback: grab content after the first heading, excluding price lines
+      const lines = content.split("\n").filter(l => 
+        l.trim() && 
+        !l.startsWith("#") && 
+        !l.match(/^R\$/) && 
+        !l.match(/^\*\*/) &&
+        !l.match(/^-\s*$/) &&
+        l.length > 20
+      );
+      description = lines.slice(0, 10).join("\n").trim();
+    }
+    // Clean up description
+    description = description
+      .replace(/\[.*?\]\(.*?\)/g, '') // Remove markdown links
+      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove markdown images
+      .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
+      .trim();
+
     // Extract bedrooms
     const bedroomMatch = content.match(/(\d+)\s*(?:quarto|quartos|dormitório|dormitórios|dorm)/i) ||
                          title.match(/(\d+)\s*(?:quarto|quartos|dorm)/i);
@@ -424,14 +457,44 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
     const areaMatch = content.match(/(\d+)\s*m²/) || title.match(/(\d+)\s*m²/) || title.match(/(\d+)m/);
     const area = areaMatch ? parseInt(areaMatch[1]) : undefined;
 
-    // Get image
-    let imageUrl = metadata.ogImage || metadata.image;
-    if (!imageUrl && html) {
-      const imgMatch = html.match(/<img[^>]+src="(https:\/\/[^"]*(?:olxbr|olximg)[^"]*)"/);
-      if (imgMatch) imageUrl = imgMatch[1];
+    // Extract ALL images from HTML
+    const imageUrls: string[] = [];
+    const seenUrls = new Set<string>();
+    
+    // Pattern 1: OLX image CDN URLs from HTML
+    const imgPatterns = [
+      /src="(https:\/\/img\.olx\.com\.br\/images\/[^"]+)"/g,
+      /src="(https:\/\/[^"]*olxbr[^"]*\.jpg[^"]*)"/g,
+      /src="(https:\/\/[^"]*olximg[^"]*\.jpg[^"]*)"/g,
+      /"(https:\/\/img\.olx\.com\.br\/images\/[^"]+)"/g,
+    ];
+    
+    for (const pattern of imgPatterns) {
+      const matches = html.matchAll(pattern);
+      for (const match of matches) {
+        let imgUrl = match[1];
+        // Skip thumbnails - get full size
+        imgUrl = imgUrl.replace(/\/thumbs\//, '/images/');
+        // Remove query params for dedup
+        const cleanImgUrl = imgUrl.split('?')[0];
+        if (!seenUrls.has(cleanImgUrl) && !cleanImgUrl.includes('logo') && !cleanImgUrl.includes('icon')) {
+          seenUrls.add(cleanImgUrl);
+          imageUrls.push(imgUrl);
+        }
+      }
     }
 
-    return { id, title, price, url, neighborhood, city, state, bedrooms, bathrooms, parking, area, imageUrl };
+    // Pattern 2: og:image from metadata
+    if (metadata.ogImage && !seenUrls.has(metadata.ogImage.split('?')[0])) {
+      imageUrls.unshift(metadata.ogImage); // Primary image first
+    }
+    if (metadata.image && !seenUrls.has(metadata.image.split('?')[0])) {
+      imageUrls.push(metadata.image);
+    }
+
+    console.log(`Property ${id}: ${imageUrls.length} photos, desc: ${description.length} chars`);
+
+    return { id, title, description, price, url, neighborhood, city, state, bedrooms, bathrooms, parking, area, imageUrls };
   } catch (err) {
     console.error("Parse error:", err);
     return null;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users, Megaphone, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -323,10 +323,14 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="integrations" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="integrations">
             <Link2 className="w-4 h-4 mr-2" />
             Integrações
+          </TabsTrigger>
+          <TabsTrigger value="anuncios">
+            <Megaphone className="w-4 h-4 mr-2" />
+            Integração de Anúncios
           </TabsTrigger>
           <TabsTrigger value="scheduling">
             <CalendarClock className="w-4 h-4 mr-2" />
@@ -713,6 +717,86 @@ export default function Settings() {
                     <Users className="w-4 h-4 mr-2" />
                   )}
                   Sincronizar Nomes de Grupos
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="anuncios" className="space-y-6">
+          <Card className="border-primary/50 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground">
+                  <Megaphone className="w-4 h-4" />
+                </span>
+                Integração de Anúncios
+              </CardTitle>
+              <CardDescription>
+                Publique seus imóveis automaticamente nos portais OLX, ZAP Imóveis e VivaReal
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                <h4 className="font-medium text-sm">Como funciona:</h4>
+                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Copie a <strong>URL de integração</strong> abaixo</li>
+                  <li>Acesse o <a href="https://canalpro.grupozap.com" target="_blank" rel="noreferrer" className="text-primary underline">Canal Pro</a> (portal do Grupo ZAP/OLX/VivaReal)</li>
+                  <li>Em <strong>Configurações &gt; Integração de anúncios</strong>, selecione o software e cole a URL</li>
+                  <li>Todos os imóveis <strong>ativos</strong> serão publicados automaticamente</li>
+                  <li>Ao <strong>suspender</strong> um imóvel no sistema, ele será removido dos portais na próxima sincronização</li>
+                </ol>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">URL de Integração (Feed XML VRSync)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    value={`${supabaseFunctionsUrl}/property-feed`}
+                    readOnly
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(`${supabaseFunctionsUrl}/property-feed`, "feed-xml")}
+                  >
+                    {copiedField === "feed-xml" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Esta URL gera um feed XML no padrão VRSync, compatível com OLX, ZAP Imóveis e VivaReal
+                </p>
+              </div>
+
+              <div className="p-4 bg-accent/10 rounded-lg border border-accent/30">
+                <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded bg-accent flex items-center justify-center text-accent-foreground font-bold text-[10px]">!</span>
+                  Controle de Publicação
+                </h4>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li><strong>Imóvel Ativo:</strong> aparece no site e nos portais (OLX, ZAP, VivaReal)</li>
+                  <li><strong>Imóvel Suspenso (Inativo):</strong> sai do site e dos portais, mas permanece no sistema para reativação</li>
+                  <li><strong>Alugado/Vendido:</strong> removido dos portais automaticamente</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(`${supabaseFunctionsUrl}/property-feed`, '_blank')}
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  Visualizar Feed XML
+                </Button>
+                <Button
+                  variant="outline"
+                  asChild
+                >
+                  <a href="https://canalpro.grupozap.com" target="_blank" rel="noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir Canal Pro
+                  </a>
                 </Button>
               </div>
             </CardContent>

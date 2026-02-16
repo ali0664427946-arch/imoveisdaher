@@ -71,13 +71,14 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             url,
-            formats: ["markdown"],
+            formats: ["markdown", "rawHtml"],
             waitFor: 10000,
           }),
         });
 
         const scrapeData = await scrapeResp.json();
         const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
+        const rawHtml = scrapeData.data?.rawHtml || scrapeData.rawHtml || "";
 
         if (!markdown) {
           results.push({ url, matched: null, photos: 0, error: "Sem conteúdo" });
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
         }
 
         // Extract photos
-        const photos = extractPhotos(markdown);
+        const photos = extractPhotos(markdown, rawHtml);
         
         if (!matchedProp) {
           // Try matching by title similarity
@@ -177,42 +178,66 @@ Deno.serve(async (req) => {
   }
 });
 
-function extractPhotos(markdown: string): string[] {
+function extractPhotos(markdown: string, rawHtml?: string): string[] {
   const photos: string[] = [];
   const seen = new Set<string>();
 
-  // Cut markdown at the recommendations section to avoid picking up other listings' photos
-  const cutPoints = [
-    "Adicionar aos favoritos",
-    "Anúncios recomendados",
-    "Você também pode gostar",
-    "publicidade",
-  ];
-  let mainContent = markdown;
-  for (const cut of cutPoints) {
-    const idx = mainContent.indexOf(cut);
-    if (idx > 200) { // only cut if it's not at the very beginning
-      mainContent = mainContent.substring(0, idx);
-      break;
+  // Strategy 1: Extract from rawHtml - OLX embeds all photos in img tags or JSON data
+  if (rawHtml) {
+    // Look for all full-size OLX image URLs in the HTML before the recommendations section
+    // OLX uses data attributes and img src for the gallery
+    const htmlCutPoints = ["Anúncios recomendados", "ad__sc-1bk2s2s", "recommendations"];
+    let mainHtml = rawHtml;
+    for (const cut of htmlCutPoints) {
+      const idx = mainHtml.indexOf(cut);
+      if (idx > 500) {
+        mainHtml = mainHtml.substring(0, idx);
+        break;
+      }
+    }
+
+    // Extract from img src attributes and srcset
+    const imgPattern = /(?:src|srcset|data-src)="(https:\/\/img\.olx\.com\.br\/(?:images|thumbs256x256)\/\d+\/[^"]+\.(?:jpg|webp|jpeg|png))"/gi;
+    for (const match of mainHtml.matchAll(imgPattern)) {
+      let url = match[1].replace("/thumbs256x256/", "/images/");
+      const baseUrl = url.replace(/\.(jpg|webp|jpeg|png)$/i, "");
+      if (!seen.has(baseUrl)) {
+        seen.add(baseUrl);
+        photos.push(url);
+      }
+    }
+
+    // Also check for URLs in JSON-like structures (OLX sometimes embeds gallery data in scripts)
+    const jsonPattern = /"(https:\\\/\\\/img\.olx\.com\.br\\\/images\\\/\d+\\\/[^"]+\.(?:jpg|webp|jpeg|png))"/gi;
+    for (const match of mainHtml.matchAll(jsonPattern)) {
+      let url = match[1].replace(/\\\//g, "/");
+      const baseUrl = url.replace(/\.(jpg|webp|jpeg|png)$/i, "");
+      if (!seen.has(baseUrl)) {
+        seen.add(baseUrl);
+        photos.push(url);
+      }
     }
   }
 
-  // Extract only images with "Daher" in the alt text (markdown format: ![alt](url))
-  const daherPattern = /!\[([^\]]*[Dd]aher[^\]]*)\]\((https:\/\/img\.olx\.com\.br\/(?:images|thumbs256x256)\/\d+\/[^\s)]+\.(?:jpg|webp|jpeg|png))\)/gi;
-  for (const match of mainContent.matchAll(daherPattern)) {
-    let url = match[2].replace("/thumbs256x256/", "/images/");
-    const baseUrl = url.replace(/\.(jpg|webp|jpeg|png)$/i, "");
-    if (!seen.has(baseUrl)) {
-      seen.add(baseUrl);
-      photos.push(url);
+  // Strategy 2: If HTML didn't yield enough, use markdown with Daher filter
+  if (photos.length < 5) {
+    const cutPoints = [
+      "Adicionar aos favoritos",
+      "Anúncios recomendados",
+      "Você também pode gostar",
+    ];
+    let mainContent = markdown;
+    for (const cut of cutPoints) {
+      const idx = mainContent.indexOf(cut);
+      if (idx > 200) {
+        mainContent = mainContent.substring(0, idx);
+        break;
+      }
     }
-  }
 
-  // If no Daher-specific photos found, fall back to all photos in main content only
-  if (photos.length === 0) {
-    const fallbackPattern = /https:\/\/img\.olx\.com\.br\/images\/\d+\/[^\s)"\]]+\.(?:jpg|webp|jpeg|png)/gi;
-    for (const match of mainContent.matchAll(fallbackPattern)) {
-      const url = match[0];
+    const daherPattern = /!\[([^\]]*[Dd]aher[^\]]*)\]\((https:\/\/img\.olx\.com\.br\/(?:images|thumbs256x256)\/\d+\/[^\s)]+\.(?:jpg|webp|jpeg|png))\)/gi;
+    for (const match of mainContent.matchAll(daherPattern)) {
+      let url = match[2].replace("/thumbs256x256/", "/images/");
       const baseUrl = url.replace(/\.(jpg|webp|jpeg|png)$/i, "");
       if (!seen.has(baseUrl)) {
         seen.add(baseUrl);

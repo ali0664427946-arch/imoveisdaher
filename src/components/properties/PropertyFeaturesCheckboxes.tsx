@@ -17,6 +17,7 @@ export interface PropertyFeatures {
   portao_eletronico?: boolean;
   academia?: boolean;
   piscina?: boolean;
+  elevador?: boolean;
 }
 
 export const PROPERTY_FEATURES = {
@@ -38,6 +39,7 @@ export const PROPERTY_FEATURES = {
     { key: "portao_eletronico", label: "Portão eletrônico" },
     { key: "academia", label: "Academia" },
     { key: "piscina", label: "Piscina" },
+    { key: "elevador", label: "Elevador" },
   ],
 } as const;
 

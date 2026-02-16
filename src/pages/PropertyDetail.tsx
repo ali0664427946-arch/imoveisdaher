@@ -332,6 +332,8 @@ export default function PropertyDetail() {
                 "Segurança 24h": "seguranca_24h",
                 "Condomínio fechado": "condominio_fechado",
                 "Portão eletrônico": "portao_eletronico",
+                "Elevador": "elevador",
+                "elevador": "elevador",
               };
               
               // Collect unique labels using a Set to deduplicate

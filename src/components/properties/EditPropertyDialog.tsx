@@ -21,6 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Property, PropertyPurpose, PropertyStatus } from "@/hooks/useProperties";
 import { PropertyPhotoUploader } from "./PropertyPhotoUploader";
+import { PropertyFeaturesCheckboxes, PropertyFeatures } from "./PropertyFeaturesCheckboxes";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,6 +48,7 @@ export function EditPropertyDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [photos, setPhotos] = useState<PropertyPhoto[]>([]);
   const [initialPhotos, setInitialPhotos] = useState<PropertyPhoto[]>([]);
+  const [features, setFeatures] = useState<PropertyFeatures>({});
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -89,6 +91,9 @@ export function EditPropertyDialog({
         featured: property.featured || false,
         youtube_url: (property as any).youtube_url || "",
       });
+
+      // Load features
+      setFeatures(((property as any).features as PropertyFeatures) || {});
 
       // Load existing photos
       loadPropertyPhotos();
@@ -198,6 +203,7 @@ export function EditPropertyDialog({
         status: formData.status,
         featured: formData.featured,
         youtube_url: formData.youtube_url || null,
+        features: features,
       } as any);
 
       toast({
@@ -451,6 +457,9 @@ export function EditPropertyDialog({
               placeholder="Descreva o imóvel..."
             />
           </div>
+
+          {/* Features */}
+          <PropertyFeaturesCheckboxes features={features} onChange={setFeatures} />
 
           <div>
             <Label htmlFor="youtube_url">Vídeo do YouTube (opcional)</Label>

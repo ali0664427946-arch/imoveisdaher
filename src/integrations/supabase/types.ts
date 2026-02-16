@@ -495,6 +495,7 @@ export type Database = {
           created_at: string
           description: string | null
           featured: boolean | null
+          features: Json | null
           id: string
           meta_description: string | null
           meta_title: string | null
@@ -522,6 +523,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           featured?: boolean | null
+          features?: Json | null
           id?: string
           meta_description?: string | null
           meta_title?: string | null
@@ -549,6 +551,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           featured?: boolean | null
+          features?: Json | null
           id?: string
           meta_description?: string | null
           meta_title?: string | null

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { PropertyPurpose } from "@/hooks/useProperties";
 import { PropertyPhotoUploader } from "./PropertyPhotoUploader";
+import { PropertyFeaturesCheckboxes, PropertyFeatures } from "./PropertyFeaturesCheckboxes";
 
 interface PropertyPhoto {
   url: string;
@@ -44,6 +45,7 @@ interface NewPropertyDialogProps {
     bathrooms?: number | null;
     parking?: number | null;
     youtube_url?: string | null;
+    features?: PropertyFeatures;
     photos?: PropertyPhoto[];
   }) => Promise<any>;
 }
@@ -52,6 +54,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [photos, setPhotos] = useState<PropertyPhoto[]>([]);
+  const [features, setFeatures] = useState<PropertyFeatures>({});
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -88,6 +91,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
       parking: formData.parking ? parseInt(formData.parking) : null,
       youtube_url: formData.youtube_url || null,
+      features: features,
       photos: photos,
     });
 
@@ -109,6 +113,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       youtube_url: "",
     });
     setPhotos([]);
+    setFeatures({});
     setIsLoading(false);
     setOpen(false);
   };
@@ -309,6 +314,9 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
               placeholder="Descreva o imóvel..."
             />
           </div>
+
+          {/* Features */}
+          <PropertyFeaturesCheckboxes features={features} onChange={setFeatures} />
 
           <div>
             <Label htmlFor="youtube_url">Vídeo do YouTube (opcional)</Label>

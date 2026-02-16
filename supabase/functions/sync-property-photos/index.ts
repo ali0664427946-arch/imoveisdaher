@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("=== SYNC PROPERTY PHOTOS (v5 - search by title) ===");
+    console.log("=== SYNC PROPERTY PHOTOS (v6 - crawl) ===");
 
     // 1. Load properties needing photos
     const { data: properties } = await supabase
@@ -65,111 +65,171 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Search OLX for each property by title
-    let matched = 0;
-    const notFound: string[] = [];
-
-    for (let i = 0; i < needingPhotos.length; i++) {
-      const prop = needingPhotos[i];
-      const code = prop.origin_id || "";
-      
-      // Build search query from title - take the most distinctive part
-      // Remove "Daher Vende:" / "Daher Aluga:" prefix for better search
-      const cleanTitle = prop.title
-        .replace(/^Daher\s+(Vende|Aluga)[:\s]*/i, "")
-        .replace(/\s+Cód\.?\s*\w+/i, "")
-        .replace(/\s+[A-Z]{2}\d{4}$/i, "")
-        .trim();
-      
-      // Use first ~60 chars of clean title for search
-      const searchTitle = cleanTitle.substring(0, 60);
-      const query = `site:olx.com.br "${searchTitle}"`;
-
-      console.log(`[${i+1}/${needingPhotos.length}] ${code}: searching "${searchTitle.substring(0, 40)}..."`);
-
-      try {
-        const searchResp = await fetch("https://api.firecrawl.dev/v1/search", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query,
-            limit: 2,
-            scrapeOptions: { formats: ["markdown"] },
-          }),
-        });
-
-        const searchData = await searchResp.json();
-        if (!searchResp.ok) {
-          console.error(`Search error for ${code}:`, searchData);
-          notFound.push(code);
-          continue;
-        }
-
-        const results = searchData.data || [];
-        let foundPhotos: string[] = [];
-
-        for (const result of results) {
-          const url = result.url || "";
-          const markdown = result.markdown || "";
-
-          if (!url.includes("olx.com.br") || !url.includes("/d/")) continue;
-
-          const photos = extractPhotosFromMarkdown(markdown);
-          if (photos.length > 0) {
-            foundPhotos = photos;
-            await supabase
-              .from("properties")
-              .update({ url_original: url })
-              .eq("id", prop.id);
-            console.log(`  Found: ${url.substring(0, 70)}...`);
-            break;
-          }
-        }
-
-        if (foundPhotos.length > 0) {
-          const photoRows = foundPhotos.slice(0, 20).map((photoUrl, index) => ({
-            property_id: prop.id,
-            url: photoUrl,
-            sort_order: index,
-          }));
-
-          const { error } = await supabase.from("property_photos").insert(photoRows);
-          if (!error) {
-            console.log(`  ✓ ${code} → ${foundPhotos.length} photos`);
-            matched++;
-          } else {
-            console.error(`  DB error for ${code}:`, error.message);
-          }
-        } else {
-          console.log(`  ✗ ${code}: not found on OLX`);
-          notFound.push(code);
-        }
-
-        // Delay between requests
-        if (i < needingPhotos.length - 1) {
-          await new Promise(r => setTimeout(r, 300));
-        }
-      } catch (e) {
-        console.error(`Error for ${code}:`, e);
-        notFound.push(code);
+    // Build lookup by origin_id (uppercase)
+    const propByCode = new Map<string, typeof needingPhotos[0]>();
+    for (const p of needingPhotos) {
+      if (p.origin_id) {
+        propByCode.set(p.origin_id.toUpperCase(), p);
       }
     }
 
-    console.log(`=== DONE: ${matched}/${needingPhotos.length} synced ===`);
-    if (notFound.length > 0) {
-      console.log(`Not found: ${notFound.join(", ")}`);
+    // 2. Start a crawl of the OLX profile 
+    const baseUrl = profileUrl.split("?")[0];
+    console.log(`Starting crawl of: ${baseUrl}`);
+
+    const crawlResp = await fetch("https://api.firecrawl.dev/v1/crawl", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: baseUrl,
+        limit: 100, // Crawl up to 100 pages (profile + individual listings)
+        maxDepth: 2,
+        scrapeOptions: {
+          formats: ["markdown"],
+          waitFor: 3000,
+        },
+      }),
+    });
+
+    const crawlData = await crawlResp.json();
+    if (!crawlResp.ok) {
+      console.error("Crawl start error:", crawlData);
+      return new Response(
+        JSON.stringify({ success: false, error: "Erro ao iniciar crawl" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    // Crawl returns a job ID - we need to poll for results
+    const crawlId = crawlData.id;
+    if (!crawlId) {
+      console.error("No crawl ID returned:", crawlData);
+      return new Response(
+        JSON.stringify({ success: false, error: "Crawl não retornou ID" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Crawl started, ID: ${crawlId}. Polling for results...`);
+
+    // Poll for crawl results (max 3 minutes)
+    let crawlResults: any[] = [];
+    const maxPolls = 36; // 36 * 5s = 180s
+    
+    for (let poll = 0; poll < maxPolls; poll++) {
+      await new Promise(r => setTimeout(r, 5000));
+
+      const statusResp = await fetch(`https://api.firecrawl.dev/v1/crawl/${crawlId}`, {
+        headers: {
+          "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+        },
+      });
+
+      const statusData = await statusResp.json();
+      
+      if (statusData.status === "completed") {
+        crawlResults = statusData.data || [];
+        console.log(`Crawl completed: ${crawlResults.length} pages scraped`);
+        break;
+      } else if (statusData.status === "failed") {
+        console.error("Crawl failed:", statusData);
+        break;
+      } else {
+        const completed = statusData.completed || 0;
+        const total = statusData.total || "?";
+        if (poll % 3 === 0) {
+          console.log(`  Crawl in progress: ${completed}/${total} pages...`);
+        }
+      }
+    }
+
+    if (crawlResults.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Crawl não retornou resultados" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Process each crawled page - match to properties
+    let matched = 0;
+    const matchedCodes = new Set<string>();
+
+    for (const page of crawlResults) {
+      const markdown = page.markdown || "";
+      const pageUrl = page.metadata?.sourceURL || "";
+
+      // Try to find property code in the page URL or content
+      let matchedProp: typeof needingPhotos[0] | null = null;
+
+      // Check URL for code patterns
+      for (const [code, prop] of propByCode.entries()) {
+        if (matchedCodes.has(code)) continue;
+        
+        const codeLower = code.toLowerCase();
+        const codeWithDash = codeLower.replace(/(\D+)(\d+)/, "$1-$2");
+        
+        if (pageUrl.toLowerCase().includes(codeLower) || pageUrl.toLowerCase().includes(codeWithDash)) {
+          matchedProp = prop;
+          break;
+        }
+      }
+
+      // If not found in URL, check markdown content for code
+      if (!matchedProp) {
+        for (const [code, prop] of propByCode.entries()) {
+          if (matchedCodes.has(code)) continue;
+          
+          // Search for the code in the markdown (case insensitive)
+          const codeRegex = new RegExp(`\\b${code}\\b`, "i");
+          if (codeRegex.test(markdown)) {
+            matchedProp = prop;
+            break;
+          }
+        }
+      }
+
+      if (!matchedProp) continue;
+
+      // Extract photos from this page
+      const photos = extractPhotosFromMarkdown(markdown);
+      if (photos.length === 0) continue;
+
+      const code = matchedProp.origin_id!.toUpperCase();
+      const photoRows = photos.slice(0, 20).map((photoUrl, index) => ({
+        property_id: matchedProp!.id,
+        url: photoUrl,
+        sort_order: index,
+      }));
+
+      const { error } = await supabase.from("property_photos").insert(photoRows);
+      if (!error) {
+        console.log(`✓ ${code} → ${photos.length} photos (from ${pageUrl.substring(0, 60)})`);
+        matched++;
+        matchedCodes.add(code);
+
+        // Save URL
+        await supabase
+          .from("properties")
+          .update({ url_original: pageUrl })
+          .eq("id", matchedProp.id);
+      } else {
+        console.error(`DB error for ${code}:`, error.message);
+      }
+    }
+
+    const remaining = needingPhotos.length - matched;
+    console.log(`=== DONE: ${matched}/${needingPhotos.length} synced, ${remaining} still need photos ===`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        pages_crawled: crawlResults.length,
         total_needing: needingPhotos.length,
         total_synced: matched,
-        still_needing: needingPhotos.length - matched,
-        not_found: notFound,
+        still_needing: remaining,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.property-feed]
 verify_jwt = false
+
+[functions.import-properties-batch]
+verify_jwt = false

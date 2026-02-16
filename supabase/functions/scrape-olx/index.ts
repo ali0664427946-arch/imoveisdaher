@@ -305,6 +305,7 @@ Deno.serve(async (req) => {
       }
 
       syncedCount++;
+    }
 
     // Log activity
     await supabase.from("activity_log").insert({

@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ListingData {
+  code: string;
+  title: string;
+  thumbnails: string[];
+  url: string;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -32,8 +39,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("=== SYNC PROPERTY PHOTOS ===");
-    console.log("Profile URL:", profileUrl);
+    console.log("=== SYNC PROPERTY PHOTOS (v2 - profile parsing) ===");
 
     // 1. Load all active properties that need photos
     const { data: properties } = await supabase
@@ -67,21 +73,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Build a lookup index by normalized title keywords
-    function normalize(text: string): string {
-      return text
-        .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+    // Build lookup by origin_id (uppercase)
+    const propByCode = new Map<string, typeof propertiesNeedingPhotos[0]>();
+    for (const p of propertiesNeedingPhotos) {
+      if (p.origin_id) {
+        propByCode.set(p.origin_id.toUpperCase(), p);
+      }
     }
 
-    // 3. Scrape OLX profile to find property listing URLs
-    const allPropertyUrls: Set<string> = new Set();
-    for (let page = 1; page <= 10; page++) {
-      const pageUrl = page === 1 ? profileUrl : `${profileUrl.split("?")[0]}?o=${page}`;
-      console.log(`Scraping listing page ${page}...`);
+    // 2. Scrape profile pages and extract listings from markdown
+    const allListings: ListingData[] = [];
+    const baseUrl = profileUrl.split("?")[0];
+    
+    // Try multiple pages - OLX profile shows 12 per page, total 48 = 4 pages
+    // Also try category-filtered pages to get more results
+    const urlsToScrape = [
+      baseUrl, // Page 1
+    ];
+
+    // Add category filters to get different subsets
+    const categories = ["Apartamentos", "Casas", "Comércio e indústria"];
+    // OLX might use query params for category filtering
+    // But first let's try getting page 1 and see what we get
+
+    for (const scrapeUrl of urlsToScrape) {
+      console.log(`Scraping profile: ${scrapeUrl}`);
 
       const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
@@ -90,164 +106,165 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          url: pageUrl,
-          formats: ["links", "html"],
+          url: scrapeUrl,
+          formats: ["markdown"],
           onlyMainContent: false,
           waitFor: 5000,
         }),
       });
 
       const data = await resp.json();
-      if (!resp.ok) { console.error(`Page ${page} error`); continue; }
-
-      const links = data.data?.links || [];
-      const html = data.data?.html || "";
-
-      for (const link of links) {
-        if (isPropertyUrl(link)) allPropertyUrls.add(link.split("?")[0]);
-      }
-      for (const match of html.matchAll(/href="(https:\/\/[^"]*olx\.com\.br\/[^"]*\d{8,}[^"]*)"/g)) {
-        if (isPropertyUrl(match[1])) allPropertyUrls.add(match[1].split("?")[0]);
+      if (!resp.ok) {
+        console.error("Scrape error:", data);
+        continue;
       }
 
-      console.log(`Found ${allPropertyUrls.size} URLs so far`);
-      if (links.length < 5 && page > 1) break;
+      const markdown = data.data?.markdown || data.markdown || "";
+      const listings = parseProfileListings(markdown);
+      console.log(`Extracted ${listings.length} listings from profile page`);
+
+      for (const listing of listings) {
+        // Avoid duplicates
+        if (!allListings.some(l => l.code === listing.code || l.url === listing.url)) {
+          allListings.push(listing);
+        }
+      }
     }
 
-    console.log(`Total property URLs: ${allPropertyUrls.size}`);
-
-    // 4. Scrape each property page for title + photos, then match to DB
+    // 3. Now try to scrape individual listing pages for properties NOT found on profile
+    // First, match what we have from profile
     let matched = 0;
-    let unmatched = 0;
-    const propertyUrls = Array.from(allPropertyUrls);
+    const matchedCodes = new Set<string>();
 
-    const batchSize = 5;
-    for (let i = 0; i < propertyUrls.length; i += batchSize) {
-      const batch = propertyUrls.slice(i, i + batchSize);
-      console.log(`Scraping detail batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(propertyUrls.length / batchSize)}`);
+    for (const listing of allListings) {
+      const prop = propByCode.get(listing.code.toUpperCase());
+      if (!prop) {
+        console.log(`⊘ Code ${listing.code} not in DB (or already has photos)`);
+        continue;
+      }
 
-      const results = await Promise.all(batch.map(async (propUrl) => {
-        try {
-          const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              url: propUrl,
-              formats: ["markdown", "html"],
-              onlyMainContent: false,
-              waitFor: 3000,
-            }),
-          });
+      // Convert thumbnails to full-size images
+      const fullSizeUrls = listing.thumbnails.map(t =>
+        t.replace("/thumbs256x256/", "/images/")
+      );
 
-          const data = await resp.json();
-          if (!resp.ok) return null;
-
-          const content = data.data?.markdown || "";
-          const metadata = data.data?.metadata || {};
-
-          // Extract title
-          const scrapedTitle = metadata.title?.replace(" | OLX", "").trim() || "";
-          // Extract price
-          const priceMatch = content.match(/R\$\s*([\d.,]+)/);
-          const scrapedPrice = priceMatch
-            ? parseFloat(priceMatch[1].replace(/\./g, "").replace(",", "."))
-            : 0;
-
-          // Extract photos
-          const imageUrls: string[] = [];
-          const seenBases = new Set<string>();
-          function imageBaseKey(url: string): string {
-            return url.split("?")[0].replace(/\.(jpg|jpeg|webp|png)$/i, "").replace(/\/thumbs\//, "/images/");
-          }
-          for (const match of content.matchAll(/!\[[^\]]*\]\((https:\/\/img\.olx\.com\.br\/images\/[^)]+)\)/g)) {
-            const base = imageBaseKey(match[1]);
-            if (!seenBases.has(base)) {
-              seenBases.add(base);
-              imageUrls.push(match[1].replace(/\.webp/i, ".jpg"));
-            }
-          }
-          if (imageUrls.length === 0 && metadata.ogImage) {
-            imageUrls.push(metadata.ogImage);
-          }
-
-          return { title: scrapedTitle, price: scrapedPrice, imageUrls: imageUrls.slice(0, 20), url: propUrl };
-        } catch {
-          return null;
-        }
+      const photos = fullSizeUrls.map((url, index) => ({
+        property_id: prop.id,
+        url,
+        sort_order: index,
       }));
 
-      for (const scraped of results) {
-        if (!scraped || scraped.imageUrls.length === 0) continue;
+      const { error } = await supabase.from("property_photos").insert(photos);
+      if (!error) {
+        console.log(`✓ ${listing.code} → ${prop.origin_id} (${photos.length} photos from profile thumbnails)`);
+        matched++;
+        matchedCodes.add(listing.code.toUpperCase());
+      } else {
+        console.error(`Error for ${listing.code}:`, error.message);
+      }
+    }
 
-        // Try to match to a property needing photos
-        const normalizedScraped = normalize(scraped.title);
+    // 4. For remaining properties, try scraping individual pages
+    const remainingProps = propertiesNeedingPhotos.filter(
+      p => p.origin_id && !matchedCodes.has(p.origin_id.toUpperCase())
+    );
 
-        // Score each property - higher is better match
-        let bestMatch: typeof propertiesNeedingPhotos[0] | null = null;
-        let bestScore = 0;
+    console.log(`Profile matched: ${matched}. Remaining: ${remainingProps.length}. Trying individual scrape...`);
 
-        for (const prop of propertiesNeedingPhotos) {
-          const normalizedProp = normalize(prop.title);
+    // Get all listing URLs from the profile page for individual scraping
+    // Build a map of OLX listing URLs we found
+    const listingUrlsByCode = new Map<string, string>();
+    for (const listing of allListings) {
+      listingUrlsByCode.set(listing.code.toUpperCase(), listing.url);
+    }
+
+    // For remaining properties without a direct profile match,
+    // try to find and scrape their individual OLX pages
+    let individualMatched = 0;
+    const batchSize = 5;
+    
+    // Get ALL listing URLs from profile (including ones already matched, we need URLs for unmatched)
+    // Actually, we need the URLs from the profile that we haven't matched - these are listings
+    // whose codes weren't in our DB. The remaining properties DON'T have listing URLs.
+    // We need to scrape individual pages by searching or by direct URL.
+    
+    // Strategy: scrape the individual listing pages we found on the profile
+    // to get their full photo sets, and try to match by title/price
+    const unmatchedListings = allListings.filter(l => !matchedCodes.has(l.code.toUpperCase()) && !propByCode.has(l.code.toUpperCase()));
+    
+    // For the remaining properties that weren't in the profile at all,
+    // we need to try getting more pages from the profile
+    // Let's try scrolling/pagination approaches
+    if (remainingProps.length > 0) {
+      // Try scraping with different sort orders to surface different listings
+      const additionalUrls = [
+        `${baseUrl}?sf=price_asc`,  // Sort by price ascending
+        `${baseUrl}?sf=price_desc`, // Sort by price descending
+      ];
+
+      for (const scrapeUrl of additionalUrls) {
+        console.log(`Trying additional sort: ${scrapeUrl}`);
+
+        const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: scrapeUrl,
+            formats: ["markdown"],
+            onlyMainContent: false,
+            waitFor: 5000,
+          }),
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) continue;
+
+        const markdown = data.data?.markdown || data.markdown || "";
+        const listings = parseProfileListings(markdown);
+        console.log(`Sort page found ${listings.length} listings`);
+
+        for (const listing of listings) {
+          if (matchedCodes.has(listing.code.toUpperCase())) continue;
           
-          // Check keyword overlap
-          const scrapedWords = new Set(normalizedScraped.split(" ").filter(w => w.length > 2));
-          const propWords = new Set(normalizedProp.split(" ").filter(w => w.length > 2));
-          
-          let overlap = 0;
-          for (const word of propWords) {
-            if (scrapedWords.has(word)) overlap++;
-          }
+          const prop = propByCode.get(listing.code.toUpperCase());
+          if (!prop) continue;
 
-          // Calculate score: word overlap + price proximity bonus
-          const wordScore = propWords.size > 0 ? overlap / propWords.size : 0;
-          const priceDiff = Math.abs(scraped.price - prop.price);
-          const priceScore = priceDiff < 100 ? 0.3 : priceDiff < 500 ? 0.1 : 0;
-          
-          const score = wordScore + priceScore;
+          const fullSizeUrls = listing.thumbnails.map(t =>
+            t.replace("/thumbs256x256/", "/images/")
+          );
 
-          if (score > bestScore && score >= 0.5) {
-            bestScore = score;
-            bestMatch = prop;
-          }
-        }
-
-        if (bestMatch) {
-          // Insert photos for this property
-          const photos = scraped.imageUrls.map((url, index) => ({
-            property_id: bestMatch!.id,
+          const photos = fullSizeUrls.map((url, index) => ({
+            property_id: prop.id,
             url,
             sort_order: index,
           }));
 
           const { error } = await supabase.from("property_photos").insert(photos);
           if (!error) {
-            console.log(`✓ Matched "${scraped.title.substring(0, 40)}" → ${bestMatch.origin_id} (${scraped.imageUrls.length} photos, score: ${bestScore.toFixed(2)})`);
-            // Remove from the needing-photos list to avoid double-matching
-            const idx = propertiesNeedingPhotos.indexOf(bestMatch);
-            if (idx >= 0) propertiesNeedingPhotos.splice(idx, 1);
-            matched++;
-          } else {
-            console.error(`Error inserting photos for ${bestMatch.origin_id}:`, error.message);
+            console.log(`✓ (sort) ${listing.code} → ${prop.origin_id} (${photos.length} photos)`);
+            individualMatched++;
+            matchedCodes.add(listing.code.toUpperCase());
           }
-        } else {
-          unmatched++;
-          console.log(`✗ No match for "${scraped.title.substring(0, 50)}" (price: ${scraped.price})`);
         }
       }
     }
 
-    console.log(`=== DONE: ${matched} matched, ${unmatched} unmatched ===`);
+    const totalMatched = matched + individualMatched;
+    const stillNeeding = propertiesNeedingPhotos.length - totalMatched;
+
+    console.log(`=== DONE: ${totalMatched} matched (${matched} profile + ${individualMatched} sort), ${stillNeeding} still need photos ===`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        total_scraped: propertyUrls.length,
-        matched,
-        unmatched,
-        still_needing_photos: propertiesNeedingPhotos.length,
+        profile_listings_found: allListings.length,
+        matched_from_profile: matched,
+        matched_from_sort: individualMatched,
+        total_matched: totalMatched,
+        still_needing_photos: stillNeeding,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -261,11 +278,84 @@ Deno.serve(async (req) => {
   }
 });
 
-function isPropertyUrl(url: string): boolean {
-  if (!url.includes("olx.com.br")) return false;
-  if (url.includes("/perfil/")) return false;
-  if (url.includes("/suporte") || url.includes("/ajuda") || url.includes("/termos")) return false;
-  if (url.includes("#") || url.includes("conta.olx") || url.includes("chat.olx")) return false;
-  if (url.includes("/busca") || url.includes("/search")) return false;
-  return /\d{8,}/.test(url);
+/**
+ * Parse profile page markdown to extract listings with their codes and thumbnail images.
+ * 
+ * Profile markdown structure per listing:
+ * - thumbnail images as markdown images
+ * - count of photos (e.g., "20")  
+ * - [**Title with Code**](URL)
+ * - ### R$ price
+ */
+function parseProfileListings(markdown: string): ListingData[] {
+  const listings: ListingData[] = [];
+  const lines = markdown.split("\n");
+
+  let currentThumbnails: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Collect thumbnail URLs
+    const thumbMatch = line.match(/!\[.*?\]\((https:\/\/img\.olx\.com\.br\/thumbs256x256\/[^)]+)\)/);
+    if (thumbMatch) {
+      currentThumbnails.push(thumbMatch[1]);
+      continue;
+    }
+
+    // Look for listing title link: [**Title with Code**](URL)
+    const titleMatch = line.match(/\[\*\*(.+?)\*\*\]\((https:\/\/[^)]+olx\.com\.br[^)]+)\)/);
+    if (titleMatch) {
+      const title = titleMatch[1];
+      const url = titleMatch[2];
+
+      // Extract Daher code from title
+      // Patterns: "Cód: AP0149", "Cód AP0022", "Código: LO0007", "CDQ 280", or just code at end
+      const codePatterns = [
+        /C[oó]d(?:igo)?[:\s]+([A-Z]{2,4}\s*\d{2,4})/i,
+        /([A-Z]{2}\d{4})\s*\*?\*?\]?$/i,  // Code at end of title like "AP0149"
+        /\b([A-Z]{2,3}\d{3,4})\b/,  // Any pattern like AP0149, LO007, CA062
+      ];
+
+      let code = "";
+      for (const pattern of codePatterns) {
+        const match = title.match(pattern);
+        if (match) {
+          code = match[1].replace(/\s+/g, "").toUpperCase();
+          break;
+        }
+      }
+
+      if (code && currentThumbnails.length > 0) {
+        listings.push({
+          code,
+          title,
+          thumbnails: [...currentThumbnails],
+          url,
+        });
+      } else if (currentThumbnails.length > 0) {
+        // No code found - try to extract from URL
+        const urlCodeMatch = url.match(/cod[:-]?\s*([a-z]{2,4}\d{2,4})/i);
+        if (urlCodeMatch) {
+          code = urlCodeMatch[1].replace(/\s+/g, "").toUpperCase();
+          listings.push({ code, title, thumbnails: [...currentThumbnails], url });
+        } else {
+          console.log(`⚠ No code found in: "${title.substring(0, 60)}"`);
+        }
+      }
+
+      currentThumbnails = [];
+      continue;
+    }
+
+    // Reset thumbnails if we hit a non-image, non-thumbnail line that isn't a count
+    if (line && !line.match(/^\d+$/) && !line.startsWith("-") && !line.startsWith("!") && !line.startsWith("#")) {
+      // Don't reset on price lines, dates, "Profissional", location
+      if (!line.includes("R$") && !line.includes("Profissional") && !line.includes("Rio de Janeiro") && !line.match(/^\d{2}\/\d{2}/)) {
+        // This might be noise between listings - keep thumbnails
+      }
+    }
+  }
+
+  return listings;
 }

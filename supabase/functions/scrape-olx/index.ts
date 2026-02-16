@@ -417,49 +417,53 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
     }
 
     // Extract description from markdown content
+    // OLX markdown structure: title appears, then description text, then "Ver descrição completa" or "Localização"
     let description = "";
-    // OLX descriptions are typically after "Descrição" or "DESCRIÇÃO" section
-    const descPatterns = [
-      /(?:Descrição|DESCRIÇÃO|descrição)\s*\n+([\s\S]*?)(?=\n(?:##|Detalhes|Localização|Características|Informações|Perguntas|Anúncios|---|$))/i,
-      /(?:Sobre este imóvel|Sobre o imóvel)\s*\n+([\s\S]*?)(?=\n(?:##|Detalhes|Localização|Características|---|$))/i,
-    ];
     
-    for (const pattern of descPatterns) {
-      const descMatch = content.match(pattern);
-      if (descMatch && descMatch[1].trim().length > 20) {
-        description = descMatch[1].trim();
-        break;
+    // Find the title in content and grab text after it until markers
+    const titleEscaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').substring(0, 50);
+    const afterTitleMatch = content.match(new RegExp(titleEscaped.substring(0, 30) + '[\\s\\S]*?\\n\\n([\\s\\S]*?)(?=\\n\\s*(?:Ver descrição completa|Localização|\\* \\* \\*|publicidade|Detalhes do imóvel))', 'i'));
+    
+    if (afterTitleMatch && afterTitleMatch[1]) {
+      // Get lines after the title, filter out noise
+      const descLines = afterTitleMatch[1].split("\n").filter(l => {
+        const trimmed = l.trim();
+        return trimmed.length > 0 &&
+          !trimmed.startsWith("![") &&
+          !trimmed.startsWith("+") &&
+          !trimmed.match(/^Código do anúncio/) &&
+          !trimmed.match(/^R\$/) &&
+          !trimmed.match(/^Exibir no mapa/) &&
+          trimmed !== title.trim();
+      });
+      description = descLines.join("\n").trim();
+    }
+    
+    if (!description || description.length < 20) {
+      // Fallback: look for the description block pattern in OLX
+      const descPatterns = [
+        /(?:Descrição|DESCRIÇÃO)\s*\n+([\s\S]*?)(?=\n\s*(?:Ver descrição|Localização|\* \* \*|publicidade))/i,
+      ];
+      for (const pattern of descPatterns) {
+        const m = content.match(pattern);
+        if (m && m[1].trim().length > 20) {
+          description = m[1].trim();
+          break;
+        }
       }
     }
     
-    if (!description) {
-      // Try extracting from HTML - OLX puts description in a specific container
-      const htmlDescMatch = html.match(/(?:class="[^"]*(?:description|ad__sc-)[^"]*"[^>]*>)([\s\S]*?)(?:<\/(?:div|section|p)>)/i);
-      if (htmlDescMatch) {
-        description = htmlDescMatch[1]
-          .replace(/<[^>]+>/g, ' ')  // Strip HTML tags
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-    }
-
-    if (!description) {
-      // Fallback: grab meaningful content lines (skip nav menu items)
+    if (!description || description.length < 20) {
+      // Last fallback: grab meaningful text paragraphs
       const lines = content.split("\n").filter(l => {
         const trimmed = l.trim();
-        return trimmed && 
-          trimmed.length > 30 && 
+        return trimmed.length > 40 && 
+          !trimmed.startsWith("!") &&
           !trimmed.startsWith("#") && 
           !trimmed.startsWith("-") &&
-          !trimmed.startsWith("*") &&
-          !trimmed.match(/^R\$/) && 
+          !trimmed.startsWith("[") &&
           !trimmed.match(/^Menu/) &&
-          !trimmed.match(/^Publicar/) &&
-          !trimmed.match(/^Entrar/) &&
-          !trimmed.match(/^Criar conta/) &&
-          !trimmed.match(/^\[/) &&
+          !trimmed.match(/^R\$/) &&
           !trimmed.match(/^https?:\/\//);
       });
       description = lines.slice(0, 5).join("\n").trim();
@@ -467,10 +471,10 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
 
     // Clean up description
     description = description
-      .replace(/\[.*?\]\(.*?\)/g, '') // Remove markdown links
-      .replace(/!\[.*?\]\(.*?\)/g, '') // Remove markdown images
-      .replace(/Menu\s*\n[-\s]*/g, '') // Remove "Menu" nav artifacts
-      .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
+      .replace(/\[.*?\]\(.*?\)/g, '')
+      .replace(/!\[.*?\]\(.*?\)/g, '')
+      .replace(/Menu\s*\n[-\s]*/g, '')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
 
     // Extract bedrooms
@@ -491,55 +495,41 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
     const areaMatch = content.match(/(\d+)\s*m²/) || title.match(/(\d+)\s*m²/) || title.match(/(\d+)m/);
     const area = areaMatch ? parseInt(areaMatch[1]) : undefined;
 
-    // Extract ALL images from HTML
+    // Extract images from MARKDOWN (most reliable - these are the actual property photos)
     const imageUrls: string[] = [];
     const seenUrls = new Set<string>();
     
-    // Pattern 1: OLX image CDN URLs from HTML - prefer .jpg over .webp
-    const imgPatterns = [
-      /src="(https:\/\/img\.olx\.com\.br\/images\/[^"]+\.jpg)"/g,
-      /"(https:\/\/img\.olx\.com\.br\/images\/[^"]+\.jpg)"/g,
-    ];
-    
-    for (const pattern of imgPatterns) {
-      const matches = html.matchAll(pattern);
-      for (const match of matches) {
-        let imgUrl = match[1];
-        imgUrl = imgUrl.replace(/\/thumbs\//, '/images/');
-        // Normalize: remove extension for dedup key
-        const baseName = imgUrl.split('?')[0].replace(/\.(jpg|webp|png|jpeg)$/i, '');
-        if (!seenUrls.has(baseName) && !baseName.includes('logo') && !baseName.includes('icon') && !baseName.includes('avatar')) {
-          seenUrls.add(baseName);
-          imageUrls.push(imgUrl);
-        }
-      }
-    }
-
-    // If no .jpg found, try .webp
-    if (imageUrls.length === 0) {
-      const webpPattern = /src="(https:\/\/img\.olx\.com\.br\/images\/[^"]+\.webp)"/g;
-      const matches = html.matchAll(webpPattern);
-      for (const match of matches) {
-        let imgUrl = match[1];
-        const baseName = imgUrl.split('?')[0].replace(/\.(jpg|webp|png|jpeg)$/i, '');
-        if (!seenUrls.has(baseName) && !baseName.includes('logo') && !baseName.includes('icon')) {
-          seenUrls.add(baseName);
-          imageUrls.push(imgUrl);
-        }
-      }
-    }
-
-    // Pattern 2: og:image from metadata
-    if (metadata.ogImage) {
-      const baseName = metadata.ogImage.split('?')[0].replace(/\.(jpg|webp|png|jpeg)$/i, '');
+    // Pattern 1: Markdown images ![alt](url) - these are the actual property photos
+    const mdImgPattern = /!\[[^\]]*\]\((https:\/\/img\.olx\.com\.br\/images\/[^)]+)\)/g;
+    const mdMatches = content.matchAll(mdImgPattern);
+    for (const match of mdMatches) {
+      const imgUrl = match[1];
+      const baseName = imgUrl.split('?')[0].replace(/\.(jpg|webp|png|jpeg)$/i, '');
       if (!seenUrls.has(baseName)) {
-        imageUrls.unshift(metadata.ogImage);
+        seenUrls.add(baseName);
+        imageUrls.push(imgUrl);
       }
     }
 
-    console.log(`Property ${id}: ${imageUrls.length} photos, desc: ${description.length} chars`);
+    // Pattern 2: If markdown gave NO images, try og:image or a single HTML image
+    if (imageUrls.length === 0) {
+      if (metadata.ogImage) {
+        imageUrls.push(metadata.ogImage);
+      } else {
+        // Get just the first property image from HTML
+        const singleImgMatch = html.match(/src="(https:\/\/img\.olx\.com\.br\/images\/[^"]+\.jpg)"/);
+        if (singleImgMatch) {
+          imageUrls.push(singleImgMatch[1]);
+        }
+      }
+    }
 
-    return { id, title, description, price, url, neighborhood, city, state, bedrooms, bathrooms, parking, area, imageUrls };
+    // Limit to max 20 photos per property
+    const finalImages = imageUrls.slice(0, 20);
+
+    console.log(`Property ${id}: ${finalImages.length} photos, desc: ${description.length} chars`);
+
+    return { id, title, description, price, url, neighborhood, city, state, bedrooms, bathrooms, parking, area, imageUrls: finalImages };
   } catch (err) {
     console.error("Parse error:", err);
     return null;

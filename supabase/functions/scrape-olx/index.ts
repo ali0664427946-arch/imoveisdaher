@@ -416,66 +416,69 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
       state = titleLocationMatch[3]?.trim() || "RJ";
     }
 
-    // Extract description from markdown content
-    // OLX markdown structure: title appears, then description text, then "Ver descrição completa" or "Localização"
+    // === DESCRIPTION EXTRACTION ===
     let description = "";
     
-    // Find the title in content and grab text after it until markers
-    const titleEscaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').substring(0, 50);
-    const afterTitleMatch = content.match(new RegExp(titleEscaped.substring(0, 30) + '[\\s\\S]*?\\n\\n([\\s\\S]*?)(?=\\n\\s*(?:Ver descrição completa|Localização|\\* \\* \\*|publicidade|Detalhes do imóvel))', 'i'));
+    // Noise words/patterns to filter out from descriptions
+    const noisePatterns = [
+      /^Menu$/i, /^Entrar$/i, /^Publicar$/i, /^Sair$/i, /^Buscar$/i,
+      /^Compartilhar/i, /^Favoritar/i, /^Denunciar/i, /^Chat$/i,
+      /^\d+\.\s*$/, // Just "1. " or "2. " (carousel indicators)
+      /^!\[/, // Markdown images
+      /^\+\d+/, // "+5 more photos"
+      /^Código do anúncio/i, /^R\$/, /^Exibir no mapa/i,
+      /^Ver descrição/i, /^Ver telefone/i, /^Enviar mensagem/i,
+      /^https?:\/\//, /^\[.*\]\(.*\)$/, // Links
+      /^Detalhes$/i, /^Localização$/i, /^publicidade$/i,
+      /^Anúncios do/i, /^Outros anúncios/i,
+      /^Escolha como deseja/i, /CompartilharEscolha/i,
+      /^Anúncio profissional/i, /^Proteja-se/i,
+      /^Dicas de segurança/i, /^OLX/i,
+      /^\*\s*\*\s*\*/, // "* * *" separators
+      /^Você também pode/i, /^Anúncios relacionados/i,
+    ];
     
-    if (afterTitleMatch && afterTitleMatch[1]) {
-      // Get lines after the title, filter out noise
-      const descLines = afterTitleMatch[1].split("\n").filter(l => {
-        const trimmed = l.trim();
-        return trimmed.length > 0 &&
-          !trimmed.startsWith("![") &&
-          !trimmed.startsWith("+") &&
-          !trimmed.match(/^Código do anúncio/) &&
-          !trimmed.match(/^R\$/) &&
-          !trimmed.match(/^Exibir no mapa/) &&
-          trimmed !== title.trim();
-      });
-      description = descLines.join("\n").trim();
-    }
-    
-    if (!description || description.length < 20) {
-      // Fallback: look for the description block pattern in OLX
-      const descPatterns = [
-        /(?:Descrição|DESCRIÇÃO)\s*\n+([\s\S]*?)(?=\n\s*(?:Ver descrição|Localização|\* \* \*|publicidade))/i,
-      ];
-      for (const pattern of descPatterns) {
-        const m = content.match(pattern);
-        if (m && m[1].trim().length > 20) {
-          description = m[1].trim();
-          break;
-        }
-      }
-    }
-    
-    if (!description || description.length < 20) {
-      // Last fallback: grab meaningful text paragraphs
-      const lines = content.split("\n").filter(l => {
-        const trimmed = l.trim();
-        return trimmed.length > 40 && 
-          !trimmed.startsWith("!") &&
-          !trimmed.startsWith("#") && 
-          !trimmed.startsWith("-") &&
-          !trimmed.startsWith("[") &&
-          !trimmed.match(/^Menu/) &&
-          !trimmed.match(/^R\$/) &&
-          !trimmed.match(/^https?:\/\//);
-      });
-      description = lines.slice(0, 5).join("\n").trim();
+    function isNoiseLine(line: string): boolean {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) return true;
+      if (trimmed.length < 3) return true;
+      return noisePatterns.some(p => p.test(trimmed));
     }
 
-    // Clean up description
+    // Strategy 1: Look for "Descrição" section in markdown
+    const descSection = content.match(/(?:^|\n)(?:##?\s*)?Descrição\s*\n([\s\S]*?)(?=\n(?:##?\s*)?(?:Localização|Detalhes|Ver descrição completa|Anúncios do|\* \* \*|publicidade))/i);
+    if (descSection && descSection[1]) {
+      const lines = descSection[1].split("\n").filter(l => !isNoiseLine(l));
+      description = lines.join("\n").trim();
+    }
+
+    // Strategy 2: Look for long text paragraphs (actual description content)
+    if (!description || description.length < 20) {
+      const lines = content.split("\n");
+      const meaningfulLines: string[] = [];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length > 50 && !isNoiseLine(trimmed) && !trimmed.startsWith("#")) {
+          meaningfulLines.push(trimmed);
+        }
+      }
+      if (meaningfulLines.length > 0) {
+        description = meaningfulLines.slice(0, 8).join("\n").trim();
+      }
+    }
+
+    // Final cleanup: remove any remaining markdown artifacts
     description = description
       .replace(/\[.*?\]\(.*?\)/g, '')
       .replace(/!\[.*?\]\(.*?\)/g, '')
-      .replace(/Menu\s*\n[-\s]*/g, '')
+      .replace(/#{1,3}\s*/g, '')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
+    
+    // If description still looks like noise, set to empty
+    if (description && (description.match(/^\d+\.\s*$/gm)?.length || 0) > 2) {
+      description = "";
+    }
 
     // Extract bedrooms
     const bedroomMatch = content.match(/(\d+)\s*(?:quarto|quartos|dormitório|dormitórios|dorm)/i) ||
@@ -495,36 +498,36 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
     const areaMatch = content.match(/(\d+)\s*m²/) || title.match(/(\d+)\s*m²/) || title.match(/(\d+)m/);
     const area = areaMatch ? parseInt(areaMatch[1]) : undefined;
 
-    // Extract images from MARKDOWN (most reliable - these are the actual property photos)
+    // === PHOTO EXTRACTION ===
     const imageUrls: string[] = [];
-    const seenUrls = new Set<string>();
+    const seenBases = new Set<string>();
     
-    // Pattern 1: Markdown images ![alt](url) - these are the actual property photos
+    // Normalize image URL to a base key for dedup (remove extension and query params)
+    function imageBaseKey(imgUrl: string): string {
+      return imgUrl.split('?')[0]
+        .replace(/\.(jpg|jpeg|webp|png)$/i, '')
+        .replace(/\/thumbs\//, '/images/'); // normalize thumbs to images
+    }
+
+    // Extract from markdown: only img.olx.com.br/images/ (actual property photos)
     const mdImgPattern = /!\[[^\]]*\]\((https:\/\/img\.olx\.com\.br\/images\/[^)]+)\)/g;
-    const mdMatches = content.matchAll(mdImgPattern);
-    for (const match of mdMatches) {
+    for (const match of content.matchAll(mdImgPattern)) {
       const imgUrl = match[1];
-      const baseName = imgUrl.split('?')[0].replace(/\.(jpg|webp|png|jpeg)$/i, '');
-      if (!seenUrls.has(baseName)) {
-        seenUrls.add(baseName);
-        imageUrls.push(imgUrl);
+      const base = imageBaseKey(imgUrl);
+      if (!seenBases.has(base)) {
+        seenBases.add(base);
+        // Prefer .jpg version
+        const jpgUrl = imgUrl.replace(/\.webp/i, '.jpg');
+        imageUrls.push(jpgUrl);
       }
     }
 
-    // Pattern 2: If markdown gave NO images, try og:image or a single HTML image
-    if (imageUrls.length === 0) {
-      if (metadata.ogImage) {
-        imageUrls.push(metadata.ogImage);
-      } else {
-        // Get just the first property image from HTML
-        const singleImgMatch = html.match(/src="(https:\/\/img\.olx\.com\.br\/images\/[^"]+\.jpg)"/);
-        if (singleImgMatch) {
-          imageUrls.push(singleImgMatch[1]);
-        }
-      }
+    // Fallback: og:image
+    if (imageUrls.length === 0 && metadata.ogImage) {
+      imageUrls.push(metadata.ogImage);
     }
 
-    // Limit to max 20 photos per property
+    // Limit to max 20 photos
     const finalImages = imageUrls.slice(0, 20);
 
     console.log(`Property ${id}: ${finalImages.length} photos, desc: ${description.length} chars`);

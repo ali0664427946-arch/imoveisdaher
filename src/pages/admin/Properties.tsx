@@ -259,7 +259,6 @@ export default function Properties() {
               Sem foto
             </Button>
           </div>
-          <ImportPropertiesDialog onSuccess={refetch} />
           <NewPropertyDialog onSubmit={createProperty} />
         </div>
       </div>

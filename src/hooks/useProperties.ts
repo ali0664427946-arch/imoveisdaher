@@ -28,6 +28,7 @@ export interface Property {
   url_original: string | null;
   featured: boolean | null;
   youtube_url: string | null;
+  features: any;
   created_at: string;
   updated_at: string;
   photos?: { url: string; sort_order: number | null }[];
@@ -57,6 +58,7 @@ interface CreatePropertyInput {
   status?: PropertyStatus;
   featured?: boolean;
   youtube_url?: string | null;
+  features?: Record<string, boolean> | null;
   photos?: PropertyPhotoInput[];
 }
 

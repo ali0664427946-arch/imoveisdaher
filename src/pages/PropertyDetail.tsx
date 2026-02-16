@@ -24,6 +24,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { WhatsAppContactDialog } from "@/components/properties/WhatsAppContactDialog";
 
+import { PROPERTY_FEATURES, PropertyFeatures } from "@/components/properties/PropertyFeaturesCheckboxes";
+
 interface PropertyData {
   id: string;
   title: string;
@@ -42,6 +44,7 @@ interface PropertyData {
   featured: boolean | null;
   youtube_url: string | null;
   origin: string | null;
+  features: PropertyFeatures | null;
   photos: { url: string; sort_order: number | null }[];
 }
 
@@ -301,28 +304,27 @@ export default function PropertyDetail() {
               </div>
             )}
 
-            {/* Amenities */}
-            <div>
-              <h2 className="text-xl font-heading font-semibold mb-4">Comodidades</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  "Portaria 24h",
-                  "Piscina",
-                  "Academia",
-                  "Salão de Festas",
-                  "Playground",
-                  "Churrasqueira",
-                  "Pet Friendly",
-                  "Elevador",
-                  "Ar Condicionado",
-                ].map((amenity, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    <span>{amenity}</span>
+            {/* Amenities - show only checked features */}
+            {(() => {
+              const allFeatures = [...PROPERTY_FEATURES.property, ...PROPERTY_FEATURES.condo];
+              const activeFeatures = allFeatures.filter(
+                (f) => property.features?.[f.key as keyof PropertyFeatures]
+              );
+              if (activeFeatures.length === 0) return null;
+              return (
+                <div>
+                  <h2 className="text-xl font-heading font-semibold mb-4">Comodidades</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {activeFeatures.map((feature, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="w-4 h-4 text-success" />
+                        <span>{feature.label}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Sidebar */}

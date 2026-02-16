@@ -250,17 +250,39 @@ function extractPhotosFromMarkdown(markdown: string): string[] {
   const photos: string[] = [];
   const seen = new Set<string>();
 
-  const patterns = [
-    /https:\/\/img\.olx\.com\.br\/images\/\d+\/[^\s)"\]]+\.(?:jpg|webp|jpeg|png)/gi,
-    /https:\/\/img\.olx\.com\.br\/thumbs256x256\/\d+\/[^\s)"\]]+\.(?:jpg|webp|jpeg|png)/gi,
+  // Cut markdown at the recommendations section
+  const cutPoints = [
+    "Adicionar aos favoritos",
+    "Anúncios recomendados",
+    "Você também pode gostar",
+    "publicidade",
   ];
+  let mainContent = markdown;
+  for (const cut of cutPoints) {
+    const idx = mainContent.indexOf(cut);
+    if (idx > 200) {
+      mainContent = mainContent.substring(0, idx);
+      break;
+    }
+  }
 
-  for (const pattern of patterns) {
-    const matches = markdown.matchAll(pattern);
-    for (const match of matches) {
-      let url = match[0].replace("/thumbs256x256/", "/images/");
+  // Extract only images with "Daher" in the alt text
+  const daherPattern = /!\[([^\]]*[Dd]aher[^\]]*)\]\((https:\/\/img\.olx\.com\.br\/(?:images|thumbs256x256)\/\d+\/[^\s)]+\.(?:jpg|webp|jpeg|png))\)/gi;
+  for (const match of mainContent.matchAll(daherPattern)) {
+    let url = match[2].replace("/thumbs256x256/", "/images/");
+    const baseUrl = url.replace(/\.(jpg|webp|jpeg|png)$/i, "");
+    if (!seen.has(baseUrl)) {
+      seen.add(baseUrl);
+      photos.push(url);
+    }
+  }
+
+  // Fallback: all OLX images in main content
+  if (photos.length === 0) {
+    const fallbackPattern = /https:\/\/img\.olx\.com\.br\/images\/\d+\/[^\s)"\]]+\.(?:jpg|webp|jpeg|png)/gi;
+    for (const match of mainContent.matchAll(fallbackPattern)) {
+      const url = match[0];
       const baseUrl = url.replace(/\.(jpg|webp|jpeg|png)$/i, "");
-
       if (!seen.has(baseUrl)) {
         seen.add(baseUrl);
         photos.push(url);

@@ -49,26 +49,39 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch all groups from Evolution API
+    // Fetch all groups from Evolution API (with retry)
     console.log("Fetching all groups from Evolution API...");
-    const response = await fetch(
-      `${evolutionUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": evolutionKey,
-        },
+    let response: Response | null = null;
+    let lastError = "";
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/3...`);
+        response = await fetch(
+          `${evolutionUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": evolutionKey,
+            },
+          }
+        );
+        if (response.ok) break;
+        lastError = await response.text();
+        console.error(`Attempt ${attempt} failed: ${response.status} - ${lastError}`);
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+        console.error(`Attempt ${attempt} network error: ${lastError}`);
       }
-    );
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch groups: ${response.status} - ${errorText}`);
-      const isConnectionClosed = errorText.includes("Connection Closed");
+    if (!response || !response.ok) {
+      const isConnectionClosed = lastError.includes("Connection Closed");
       const userMessage = isConnectionClosed
-        ? "WhatsApp desconectado. Reconecte a instância na Evolution API e tente novamente."
-        : `Evolution API error: ${response.status}`;
+        ? "WhatsApp desconectado ou instável. Tente reiniciar a instância na Evolution API."
+        : `Evolution API error: ${lastError}`;
       return new Response(
         JSON.stringify({ success: false, error: userMessage }),
         { status: isConnectionClosed ? 503 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

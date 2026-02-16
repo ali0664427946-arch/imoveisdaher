@@ -352,11 +352,11 @@ export default function PropertyDetail() {
                 if (seenKeys.has(canonicalKey)) continue;
                 seenKeys.add(canonicalKey);
                 
+                // Only show features that map to predefined checkboxes
                 if (keyToLabel[canonicalKey]) {
                   activeLabels.push(keyToLabel[canonicalKey]);
-                } else {
-                  activeLabels.push(key.charAt(0).toUpperCase() + key.slice(1));
                 }
+                // Ignore imported features that don't match any predefined checkbox
               }
               
               if (activeLabels.length === 0) return null;

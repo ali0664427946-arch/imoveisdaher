@@ -436,12 +436,19 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
       /^Dicas de segurança/i, /^OLX/i,
       /^\*\s*\*\s*\*/, // "* * *" separators
       /^Você também pode/i, /^Anúncios relacionados/i,
+      /^-\s*$/, // Empty list items "- "
+      /^\d+\.\s*$/, // Just numbered items "1. "
+      /^-\s+$/, // Dash with spaces
     ];
     
     function isNoiseLine(line: string): boolean {
       const trimmed = line.trim();
       if (trimmed.length === 0) return true;
-      if (trimmed.length < 3) return true;
+      if (trimmed.length < 5) return true; // Very short lines are noise
+      if (trimmed === "-") return true;
+      if (/^-\s*$/.test(trimmed)) return true;
+      if (/^\d+\.\s*$/.test(trimmed)) return true;
+      if (trimmed.startsWith("- ") && trimmed.length < 15) return true; // Short list items
       return noisePatterns.some(p => p.test(trimmed));
     }
 
@@ -458,7 +465,7 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
       const meaningfulLines: string[] = [];
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.length > 50 && !isNoiseLine(trimmed) && !trimmed.startsWith("#")) {
+        if (trimmed.length > 50 && !isNoiseLine(trimmed) && !trimmed.startsWith("#") && !trimmed.startsWith("- ")) {
           meaningfulLines.push(trimmed);
         }
       }
@@ -472,12 +479,18 @@ function parseOLXProperty(content: string, html: string, metadata: any, url: str
       .replace(/\[.*?\]\(.*?\)/g, '')
       .replace(/!\[.*?\]\(.*?\)/g, '')
       .replace(/#{1,3}\s*/g, '')
+      .replace(/^-\s*$/gm, '') // Remove empty list items
+      .replace(/^\d+\.\s*$/gm, '') // Remove numbered items
       .replace(/\n{3,}/g, '\n\n')
       .trim();
     
-    // If description still looks like noise, set to empty
-    if (description && (description.match(/^\d+\.\s*$/gm)?.length || 0) > 2) {
-      description = "";
+    // If description still looks like noise (mostly short lines or list items), set to empty
+    if (description) {
+      const descLines = description.split("\n").filter(l => l.trim().length > 0);
+      const shortLines = descLines.filter(l => l.trim().length < 10);
+      if (shortLines.length > descLines.length * 0.5) {
+        description = ""; // More than half are short/noise lines
+      }
     }
 
     // Extract bedrooms

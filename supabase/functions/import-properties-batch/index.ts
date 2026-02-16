@@ -100,22 +100,41 @@ Deno.serve(async (req) => {
         status,
       };
 
-      // Upsert by origin + origin_id
-      const { data, error } = await supabase
+      // Check if property already exists
+      const { data: existing } = await supabase
         .from("properties")
-        .upsert(propertyData, {
-          onConflict: "origin,origin_id",
-          ignoreDuplicates: false,
-        })
         .select("id")
-        .single();
+        .eq("origin", "olx")
+        .eq("origin_id", p.codigo)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        // Update existing
+        const { error: updateErr } = await supabase
+          .from("properties")
+          .update(propertyData)
+          .eq("id", existing.id);
+        error = updateErr;
+        if (!error) {
+          updated++;
+          console.log(`↻ ${p.codigo} - updated`);
+        }
+      } else {
+        // Insert new
+        const { error: insertErr } = await supabase
+          .from("properties")
+          .insert(propertyData);
+        error = insertErr;
+        if (!error) {
+          inserted++;
+          console.log(`✓ ${p.codigo} - inserted`);
+        }
+      }
 
       if (error) {
-        console.error(`Error inserting ${p.codigo}:`, error.message);
+        console.error(`Error ${p.codigo}:`, error.message);
         errors++;
-      } else {
-        inserted++;
-        console.log(`✓ ${p.codigo} - ${p.titulo?.substring(0, 50)}`);
       }
     }
 

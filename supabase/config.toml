@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.archive-messages]
 verify_jwt = false
+
+[functions.property-feed]
+verify_jwt = false

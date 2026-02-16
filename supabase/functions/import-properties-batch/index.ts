@@ -81,8 +81,17 @@ Deno.serve(async (req) => {
       const price = hasRentPrice ? p.valor_aluguel : p.valor_venda;
       const status = p.status_anuncio === "Inativo" ? "inactive" : "active";
 
+      // Parse features from beneficios string
+      const featuresObj: Record<string, boolean> = {};
+      if (p.beneficios) {
+        const items = String(p.beneficios).split(",").map((s: string) => s.trim()).filter(Boolean);
+        for (const item of items) {
+          featuresObj[item.toLowerCase()] = true;
+        }
+      }
+
       const propertyData = {
-        origin: "olx" as const,
+        origin: "import" as const,
         origin_id: p.codigo,
         title: p.titulo,
         description: cleanDescription(p.descricao || ""),
@@ -98,13 +107,13 @@ Deno.serve(async (req) => {
         parking: p.vagas || 0,
         purpose,
         status,
+        features: Object.keys(featuresObj).length > 0 ? featuresObj : {},
       };
 
-      // Check if property already exists
+      // Check if property already exists (by origin_id across any origin)
       const { data: existing } = await supabase
         .from("properties")
         .select("id")
-        .eq("origin", "olx")
         .eq("origin_id", p.codigo)
         .maybeSingle();
 

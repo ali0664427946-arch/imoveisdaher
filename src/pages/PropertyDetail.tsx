@@ -311,15 +311,50 @@ export default function PropertyDetail() {
               const allPredefined = [...PROPERTY_FEATURES.property, ...PROPERTY_FEATURES.condo];
               const keyToLabel: Record<string, string> = {};
               allPredefined.forEach((f) => { keyToLabel[f.key] = f.label; });
+
+              // Synonyms map: imported Portuguese keys → predefined keys
+              const synonymMap: Record<string, string> = {
+                "Cozinha": "armarios_cozinha",
+                "cozinha": "armarios_cozinha",
+                "Área de serviço": "area_servico",
+                "área de serviço": "area_servico",
+                "Area de servico": "area_servico",
+                "Aceita animais": "permitido_animais",
+                "aceita animais": "permitido_animais",
+                "Aceita Animais": "permitido_animais",
+                "Permitido animais": "permitido_animais",
+                "Mobiliado": "mobiliado",
+                "Ar condicionado": "ar_condicionado",
+                "Churrasqueira": "churrasqueira",
+                "Varanda": "varanda",
+                "Academia": "academia",
+                "Piscina": "piscina",
+                "Segurança 24h": "seguranca_24h",
+                "Condomínio fechado": "condominio_fechado",
+                "Portão eletrônico": "portao_eletronico",
+              };
               
-              // Collect all truthy features
+              // Collect unique labels using a Set to deduplicate
+              const seenKeys = new Set<string>();
               const activeLabels: string[] = [];
+              
               for (const [key, value] of Object.entries(property.features)) {
                 if (!value) continue;
+                
+                // Resolve to a canonical key
+                let canonicalKey = key;
                 if (keyToLabel[key]) {
-                  activeLabels.push(keyToLabel[key]);
+                  canonicalKey = key; // already a predefined key
+                } else if (synonymMap[key]) {
+                  canonicalKey = synonymMap[key];
+                }
+                
+                if (seenKeys.has(canonicalKey)) continue;
+                seenKeys.add(canonicalKey);
+                
+                if (keyToLabel[canonicalKey]) {
+                  activeLabels.push(keyToLabel[canonicalKey]);
                 } else {
-                  // Imported feature with Portuguese key - capitalize first letter
                   activeLabels.push(key.charAt(0).toUpperCase() + key.slice(1));
                 }
               }

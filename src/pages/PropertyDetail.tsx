@@ -126,6 +126,10 @@ export default function PropertyDetail() {
     : ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&h=800&fit=crop"];
 
   const youtubeVideoId = property.youtube_url ? getYouTubeVideoId(property.youtube_url) : null;
+  
+  // If video exists, it becomes slide 0; photos start at slide 1
+  const hasVideo = !!youtubeVideoId;
+  const totalSlides = galleryImages.length + (hasVideo ? 1 : 0);
 
   const formatPrice = (price: number, purpose: string) => {
     const formatted = new Intl.NumberFormat("pt-BR", {
@@ -137,11 +141,11 @@ export default function PropertyDetail() {
   };
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
+    setCurrentImageIndex((prev) => (prev + 1) % totalSlides);
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
+    setCurrentImageIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
   };
 
   return (
@@ -165,21 +169,32 @@ export default function PropertyDetail() {
           <div className="lg:col-span-2 space-y-8">
             {/* Gallery */}
             <div className="relative rounded-2xl overflow-hidden aspect-[16/10] bg-muted">
-              <AnimatePresence mode="wait">
-                <motion.img
-                  key={currentImageIndex}
-                  src={galleryImages[currentImageIndex]}
-                  alt={property.title}
-                  className="w-full h-full object-cover"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+              {/* Video or Image */}
+              {hasVideo && currentImageIndex === 0 ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeVideoId}`}
+                  title="Vídeo do imóvel"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
                 />
-              </AnimatePresence>
+              ) : (
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={currentImageIndex}
+                    src={galleryImages[hasVideo ? currentImageIndex - 1 : currentImageIndex]}
+                    alt={property.title}
+                    className="w-full h-full object-cover"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </AnimatePresence>
+              )}
 
               {/* Navigation */}
-              {galleryImages.length > 1 && (
+              {totalSlides > 1 && (
                 <>
                   <button
                     onClick={prevImage}
@@ -196,10 +211,10 @@ export default function PropertyDetail() {
                 </>
               )}
 
-              {/* Thumbnails */}
-              {galleryImages.length > 1 && (
+              {/* Dots */}
+              {totalSlides > 1 && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                  {galleryImages.map((_, i) => (
+                  {Array.from({ length: totalSlides }).map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentImageIndex(i)}
@@ -285,24 +300,8 @@ export default function PropertyDetail() {
               </div>
             </div>
 
-            {/* YouTube Video */}
-            {youtubeVideoId && (
-              <div>
-                <h2 className="text-xl font-heading font-semibold mb-4 flex items-center gap-2">
-                  <Youtube className="w-5 h-5 text-red-600" />
-                  Vídeo do Imóvel
-                </h2>
-                <div className="relative rounded-2xl overflow-hidden aspect-video bg-muted">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${youtubeVideoId}`}
-                    title="Vídeo do imóvel"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="absolute inset-0 w-full h-full"
-                  />
-                </div>
-              </div>
-            )}
+
+
 
             {/* Amenities - show only checked features */}
             {(() => {

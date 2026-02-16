@@ -269,6 +269,7 @@ export default function Properties() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Código</TableHead>
               <TableHead>Imóvel</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Preço</TableHead>
@@ -283,7 +284,7 @@ export default function Properties() {
             {filteredProperties.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="text-center py-12 text-muted-foreground"
                 >
                   {searchQuery
@@ -294,6 +295,11 @@ export default function Properties() {
             ) : (
               filteredProperties.map((property) => (
                 <TableRow key={property.id}>
+                  <TableCell>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {property.origin_id || "—"}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">

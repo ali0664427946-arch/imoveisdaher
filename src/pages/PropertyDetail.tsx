@@ -305,19 +305,34 @@ export default function PropertyDetail() {
 
             {/* Amenities - show only checked features */}
             {(() => {
-              const allFeatures = [...PROPERTY_FEATURES.property, ...PROPERTY_FEATURES.condo];
-              const activeFeatures = allFeatures.filter(
-                (f) => property.features?.[f.key as keyof PropertyFeatures]
-              );
-              if (activeFeatures.length === 0) return null;
+              if (!property.features) return null;
+              
+              // Build label map from predefined features
+              const allPredefined = [...PROPERTY_FEATURES.property, ...PROPERTY_FEATURES.condo];
+              const keyToLabel: Record<string, string> = {};
+              allPredefined.forEach((f) => { keyToLabel[f.key] = f.label; });
+              
+              // Collect all truthy features
+              const activeLabels: string[] = [];
+              for (const [key, value] of Object.entries(property.features)) {
+                if (!value) continue;
+                if (keyToLabel[key]) {
+                  activeLabels.push(keyToLabel[key]);
+                } else {
+                  // Imported feature with Portuguese key - capitalize first letter
+                  activeLabels.push(key.charAt(0).toUpperCase() + key.slice(1));
+                }
+              }
+              
+              if (activeLabels.length === 0) return null;
               return (
                 <div>
                   <h2 className="text-xl font-heading font-semibold mb-4">Comodidades</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {activeFeatures.map((feature, i) => (
+                    {activeLabels.map((label, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <CheckCircle className="w-4 h-4 text-success" />
-                        <span>{feature.label}</span>
+                        <span>{label}</span>
                       </div>
                     ))}
                   </div>

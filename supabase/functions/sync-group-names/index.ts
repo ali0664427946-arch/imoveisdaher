@@ -65,9 +65,13 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to fetch groups: ${response.status} - ${errorText}`);
+      const isConnectionClosed = errorText.includes("Connection Closed");
+      const userMessage = isConnectionClosed
+        ? "WhatsApp desconectado. Reconecte a instância na Evolution API e tente novamente."
+        : `Evolution API error: ${response.status}`;
       return new Response(
-        JSON.stringify({ success: false, error: `Evolution API error: ${response.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: userMessage }),
+        { status: isConnectionClosed ? 503 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

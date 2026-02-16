@@ -182,6 +182,13 @@ export function EditPropertyDialog({
             .from("property_photos")
             .update({ sort_order: photo.sort_order })
             .eq("id", photo.id);
+        } else if (!photo.id && !photo.file && photo.url && !photo.url.startsWith("blob:")) {
+          // Photo was already uploaded by PropertyPhotoUploader but not yet in DB
+          await supabase.from("property_photos").insert({
+            property_id: property.id,
+            url: photo.url,
+            sort_order: photo.sort_order,
+          });
         }
       }
 

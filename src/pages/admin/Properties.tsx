@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Search,
@@ -85,6 +85,8 @@ export default function Properties() {
   } = useProperties();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterPurpose, setFilterPurpose] = useState<"all" | "rent" | "sale">("all");
+  const [filterPhoto, setFilterPhoto] = useState<"all" | "with" | "without">("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -135,12 +137,22 @@ export default function Properties() {
     }
   };
 
-  const filteredProperties = properties.filter(
-    (p) =>
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProperties = useMemo(() => {
+    return properties.filter((p) => {
+      const matchesSearch =
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.type.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesPurpose =
+        filterPurpose === "all" || p.purpose === filterPurpose;
+      const hasPhotos = p.photos && p.photos.length > 0;
+      const matchesPhoto =
+        filterPhoto === "all" ||
+        (filterPhoto === "with" && hasPhotos) ||
+        (filterPhoto === "without" && !hasPhotos);
+      return matchesSearch && matchesPurpose && matchesPhoto;
+    });
+  }, [properties, searchQuery, filterPurpose, filterPhoto]);
 
   const handleDelete = async () => {
     if (deleteId) {
@@ -209,9 +221,43 @@ export default function Properties() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="icon">
-            <Filter className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant={filterPurpose === "all" && filterPhoto === "all" ? "outline" : "default"}
+              size="sm"
+              onClick={() => { setFilterPurpose("all"); setFilterPhoto("all"); }}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={filterPurpose === "rent" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterPurpose(filterPurpose === "rent" ? "all" : "rent")}
+            >
+              Aluguel
+            </Button>
+            <Button
+              variant={filterPurpose === "sale" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterPurpose(filterPurpose === "sale" ? "all" : "sale")}
+            >
+              Venda
+            </Button>
+            <Button
+              variant={filterPhoto === "with" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterPhoto(filterPhoto === "with" ? "all" : "with")}
+            >
+              Com foto
+            </Button>
+            <Button
+              variant={filterPhoto === "without" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterPhoto(filterPhoto === "without" ? "all" : "without")}
+            >
+              Sem foto
+            </Button>
+          </div>
           <NewPropertyDialog onSubmit={createProperty} />
         </div>
       </div>

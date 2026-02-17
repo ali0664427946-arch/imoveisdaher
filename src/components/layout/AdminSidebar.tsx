@@ -146,6 +146,11 @@ export function AdminSidebar() {
           <LogOut className="w-4 h-4" />
           {!collapsed && <span className="ml-2">Sair</span>}
         </Button>
+        {!collapsed && (
+          <p className="text-[10px] text-muted-foreground/50 text-center mt-2">
+            v1.4.0
+          </p>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

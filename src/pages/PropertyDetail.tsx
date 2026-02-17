@@ -127,7 +127,7 @@ export default function PropertyDetail() {
 
   const youtubeVideoId = property.youtube_url ? getYouTubeVideoId(property.youtube_url) : null;
   
-  // If video exists, it becomes slide 0; photos start at slide 1
+  // Video comes after cover photo: Cover (0) → Video (1) → Rest of photos (2+)
   const hasVideo = !!youtubeVideoId;
   const totalSlides = galleryImages.length + (hasVideo ? 1 : 0);
 
@@ -170,7 +170,7 @@ export default function PropertyDetail() {
             {/* Gallery */}
             <div className="relative rounded-2xl overflow-hidden aspect-[16/10] bg-muted">
               {/* Video or Image */}
-              {hasVideo && currentImageIndex === 0 ? (
+              {hasVideo && currentImageIndex === 1 ? (
                 <iframe
                   src={`https://www.youtube.com/embed/${youtubeVideoId}`}
                   title="Vídeo do imóvel"
@@ -182,7 +182,7 @@ export default function PropertyDetail() {
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={currentImageIndex}
-                    src={galleryImages[hasVideo ? currentImageIndex - 1 : currentImageIndex]}
+                    src={galleryImages[hasVideo ? (currentImageIndex > 1 ? currentImageIndex - 1 : currentImageIndex) : currentImageIndex]}
                     alt={property.title}
                     className="w-full h-full object-cover"
                     initial={{ opacity: 0 }}

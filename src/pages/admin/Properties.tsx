@@ -196,7 +196,7 @@ export default function Properties() {
         <div>
           <h1 className="text-2xl font-heading font-bold">Imóveis</h1>
           <p className="text-muted-foreground">
-            Gerencie e publique seus imóveis nos portais
+            {properties.length} imóveis cadastrados — Gerencie e publique nos portais
           </p>
         </div>
         <div className="flex items-center gap-2">

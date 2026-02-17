@@ -156,10 +156,10 @@ export default function Index() {
                   Destaques
                 </span>
                 <h2 className="text-3xl md:text-4xl font-heading font-bold mt-2">
-                  Imóveis em Destaque em Jacarepaguá
+                  Imóveis em Destaque no Rio de Janeiro
                 </h2>
                 <p className="text-muted-foreground mt-2 max-w-lg">
-                  Selecionamos as melhores opções de imóveis na Zona Sudoeste do Rio de Janeiro para você.
+                  Selecionamos as melhores opções de imóveis no estado do Rio de Janeiro para você.
                 </p>
               </div>
               <Button variant="outline" asChild>

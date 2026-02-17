@@ -23,6 +23,7 @@ export interface Lead {
     neighborhood: string;
     city: string;
   } | null;
+  allConversationsArchived?: boolean;
 }
 
 interface CreateLeadInput {
@@ -37,8 +38,40 @@ interface CreateLeadInput {
 
 export function useLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [archivedLeadIds, setArchivedLeadIds] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  const fetchArchivedLeadIds = async () => {
+    try {
+      // Get all lead_ids that have at least one conversation
+      const { data: allConvs, error: err1 } = await supabase
+        .from("conversations")
+        .select("lead_id, archived");
+
+      if (err1) throw err1;
+
+      // Group by lead_id: a lead is "all archived" if it has conversations AND all are archived
+      const leadConvMap = new Map<string, { total: number; archived: number }>();
+      for (const conv of allConvs || []) {
+        const existing = leadConvMap.get(conv.lead_id) || { total: 0, archived: 0 };
+        existing.total++;
+        if (conv.archived) existing.archived++;
+        leadConvMap.set(conv.lead_id, existing);
+      }
+
+      const archived = new Set<string>();
+      for (const [leadId, counts] of leadConvMap) {
+        if (counts.total > 0 && counts.total === counts.archived) {
+          archived.add(leadId);
+        }
+      }
+      setArchivedLeadIds(archived);
+    } catch (error) {
+      console.error("Error fetching archived lead ids:", error);
+    }
+  };
 
   const fetchLeads = async () => {
     try {
@@ -133,18 +166,26 @@ export function useLeads() {
     }
   };
 
+  // Filter leads: hide those with all conversations archived (unless showArchived is on)
+  const visibleLeads = showArchived
+    ? leads
+    : leads.filter((lead) => !archivedLeadIds.has(lead.id));
+
+  const archivedCount = archivedLeadIds.size;
+
   useEffect(() => {
     fetchLeads();
+    fetchArchivedLeadIds();
 
     // Subscribe to realtime changes
-    const channel = supabase
+    const leadsChannel = supabase
       .channel("leads-changes")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "leads" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            fetchLeads(); // Refetch to get relations
+            fetchLeads();
           } else if (payload.eventType === "UPDATE") {
             setLeads((prev) =>
               prev.map((lead) =>
@@ -162,16 +203,33 @@ export function useLeads() {
       )
       .subscribe();
 
+    // Subscribe to conversation changes to update archived status
+    const convsChannel = supabase
+      .channel("convs-archived-changes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversations" },
+        () => {
+          fetchArchivedLeadIds();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(convsChannel);
     };
   }, []);
 
   return {
-    leads,
+    leads: visibleLeads,
+    allLeads: leads,
     isLoading,
     updateLeadStatus,
     createLead,
-    refetch: fetchLeads,
+    refetch: () => { fetchLeads(); fetchArchivedLeadIds(); },
+    showArchived,
+    setShowArchived,
+    archivedCount,
   };
 }

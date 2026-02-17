@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { Search, Filter, Loader2 } from "lucide-react";
+import { Search, Filter, Loader2, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useLeads, LeadStatus, Lead } from "@/hooks/useLeads";
 import { KanbanColumn } from "@/components/leads/KanbanColumn";
 import { NewLeadDialog } from "@/components/leads/NewLeadDialog";
@@ -16,7 +17,7 @@ const columns: { id: LeadStatus; title: string; color: string }[] = [
 ];
 
 export default function Leads() {
-  const { leads, isLoading, updateLeadStatus, createLead } = useLeads();
+  const { leads, isLoading, updateLeadStatus, createLead, showArchived, setShowArchived, archivedCount } = useLeads();
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<LeadStatus | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,8 +88,19 @@ export default function Leads() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="icon">
-            <Filter className="w-4 h-4" />
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowArchived(!showArchived)}
+            className="gap-1.5"
+          >
+            <Archive className="w-4 h-4" />
+            Encerrados
+            {archivedCount > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                {archivedCount}
+              </Badge>
+            )}
           </Button>
           <NewLeadDialog onSubmit={createLead} />
         </div>

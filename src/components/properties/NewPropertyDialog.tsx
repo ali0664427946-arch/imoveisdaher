@@ -40,6 +40,7 @@ interface NewPropertyDialogProps {
     city: string;
     state?: string;
     address?: string | null;
+    cep?: string | null;
     area?: number | null;
     bedrooms?: number | null;
     bathrooms?: number | null;
@@ -65,6 +66,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
     city: "Rio de Janeiro",
     state: "RJ",
     address: "",
+    cep: "",
     area: "",
     bedrooms: "",
     bathrooms: "",
@@ -86,6 +88,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       city: formData.city,
       state: formData.state,
       address: formData.address || null,
+      cep: formData.cep || null,
       area: formData.area ? parseFloat(formData.area) : null,
       bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
       bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
@@ -106,6 +109,7 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       city: "Rio de Janeiro",
       state: "RJ",
       address: "",
+      cep: "",
       area: "",
       bedrooms: "",
       bathrooms: "",
@@ -294,14 +298,26 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="address">Endereço</Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="Rua das Flores, 123"
-            />
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <Label htmlFor="address">Endereço</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="Rua das Flores, 123"
+              />
+            </div>
+            <div>
+              <Label htmlFor="cep">CEP</Label>
+              <Input
+                id="cep"
+                value={formData.cep}
+                onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                placeholder="22770-020"
+                maxLength={9}
+              />
+            </div>
           </div>
 
           <div>

@@ -18,6 +18,7 @@ export interface Property {
   city: string;
   state: string;
   address: string | null;
+  cep: string | null;
   area: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
@@ -51,6 +52,7 @@ interface CreatePropertyInput {
   city: string;
   state?: string;
   address?: string | null;
+  cep?: string | null;
   area?: number | null;
   bedrooms?: number | null;
   bathrooms?: number | null;

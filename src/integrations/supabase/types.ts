@@ -491,6 +491,7 @@ export type Database = {
           area: number | null
           bathrooms: number | null
           bedrooms: number | null
+          cep: string | null
           city: string
           created_at: string
           description: string | null
@@ -519,6 +520,7 @@ export type Database = {
           area?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
+          cep?: string | null
           city: string
           created_at?: string
           description?: string | null
@@ -547,6 +549,7 @@ export type Database = {
           area?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
+          cep?: string | null
           city?: string
           created_at?: string
           description?: string | null

@@ -205,6 +205,10 @@ Deno.serve(async (req) => {
         xml += `
         <Address>${cdata(prop.address)}</Address>`;
       }
+      if (prop.cep) {
+        xml += `
+        <PostalCode>${escapeXml(prop.cep)}</PostalCode>`;
+      }
 
       xml += `
       </Location>`;

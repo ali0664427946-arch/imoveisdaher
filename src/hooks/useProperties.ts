@@ -28,6 +28,8 @@ export interface Property {
   origin_id: string | null;
   url_original: string | null;
   featured: boolean | null;
+  condominio: number | null;
+  iptu: number | null;
   youtube_url: string | null;
   features: any;
   created_at: string;
@@ -59,6 +61,8 @@ interface CreatePropertyInput {
   parking?: number | null;
   status?: PropertyStatus;
   featured?: boolean;
+  condominio?: number | null;
+  iptu?: number | null;
   youtube_url?: string | null;
   features?: Record<string, boolean> | null;
   photos?: PropertyPhotoInput[];

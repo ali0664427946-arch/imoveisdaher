@@ -41,6 +41,8 @@ interface NewPropertyDialogProps {
     state?: string;
     address?: string | null;
     cep?: string | null;
+    condominio?: number | null;
+    iptu?: number | null;
     area?: number | null;
     bedrooms?: number | null;
     bathrooms?: number | null;
@@ -67,6 +69,8 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
     state: "RJ",
     address: "",
     cep: "",
+    condominio: "",
+    iptu: "",
     area: "",
     bedrooms: "",
     bathrooms: "",
@@ -89,6 +93,8 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       state: formData.state,
       address: formData.address || null,
       cep: formData.cep || null,
+      condominio: formData.condominio ? parseFloat(formData.condominio) : null,
+      iptu: formData.iptu ? parseFloat(formData.iptu) : null,
       area: formData.area ? parseFloat(formData.area) : null,
       bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
       bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
@@ -110,6 +116,8 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
       state: "RJ",
       address: "",
       cep: "",
+      condominio: "",
+      iptu: "",
       area: "",
       bedrooms: "",
       bathrooms: "",
@@ -231,6 +239,29 @@ export function NewPropertyDialog({ onSubmit }: NewPropertyDialogProps) {
                 value={formData.area}
                 onChange={(e) => setFormData({ ...formData, area: e.target.value })}
                 placeholder="60"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="condominio">Condomínio (R$)</Label>
+              <Input
+                id="condominio"
+                type="number"
+                value={formData.condominio}
+                onChange={(e) => setFormData({ ...formData, condominio: e.target.value })}
+                placeholder="500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="iptu">IPTU (R$)</Label>
+              <Input
+                id="iptu"
+                type="number"
+                value={formData.iptu}
+                onChange={(e) => setFormData({ ...formData, iptu: e.target.value })}
+                placeholder="150"
               />
             </div>
           </div>

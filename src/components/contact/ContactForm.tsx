@@ -170,7 +170,7 @@ export function ContactForm() {
                   <div>
                     <p className="font-medium">Horário de Atendimento</p>
                     <p className="text-muted-foreground">
-                      Segunda a Sábado: 9h às 18h
+                      Segunda a Sexta: 9h às 17h
                     </p>
                   </div>
                 </div>

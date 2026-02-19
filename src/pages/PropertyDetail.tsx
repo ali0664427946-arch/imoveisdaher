@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { WhatsAppContactDialog } from "@/components/properties/WhatsAppContactDialog";
 
 import { PROPERTY_FEATURES, PropertyFeatures } from "@/components/properties/PropertyFeaturesCheckboxes";
@@ -244,7 +245,22 @@ export default function PropertyDetail() {
                 >
                   <Heart className={`w-5 h-5 ${isFavorite ? "fill-destructive text-destructive" : ""}`} />
                 </button>
-                <button className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg">
+              <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/imovel/${property.id}`;
+                    if (navigator.share) {
+                      navigator.share({
+                        title: property.title,
+                        text: `Confira este imóvel: ${property.title} - ${property.neighborhood}, ${property.city}`,
+                        url,
+                      });
+                    } else {
+                      navigator.clipboard.writeText(url);
+                      toast.success("Link copiado!");
+                    }
+                  }}
+                  className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+                >
                   <Share2 className="w-5 h-5" />
                 </button>
               </div>

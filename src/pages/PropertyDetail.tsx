@@ -245,18 +245,39 @@ export default function PropertyDetail() {
                 >
                   <Heart className={`w-5 h-5 ${isFavorite ? "fill-destructive text-destructive" : ""}`} />
                 </button>
-              <button
-                  onClick={() => {
+                <button
+                  onClick={async () => {
                     const url = `${window.location.origin}/imovel/${property.id}`;
-                    if (navigator.share) {
-                      navigator.share({
-                        title: property.title,
-                        text: `Confira este imóvel: ${property.title} - ${property.neighborhood}, ${property.city}`,
-                        url,
-                      });
-                    } else {
-                      navigator.clipboard.writeText(url);
-                      toast.success("Link copiado!");
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({
+                          title: property.title,
+                          text: `Confira este imóvel: ${property.title} - ${property.neighborhood}, ${property.city}`,
+                          url,
+                        });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Link copiado para a área de transferência!");
+                      }
+                    } catch (err: any) {
+                      if (err?.name !== "AbortError") {
+                        // Fallback: copy manually
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          toast.success("Link copiado para a área de transferência!");
+                        } catch {
+                          // Ultimate fallback
+                          const textArea = document.createElement("textarea");
+                          textArea.value = url;
+                          textArea.style.position = "fixed";
+                          textArea.style.opacity = "0";
+                          document.body.appendChild(textArea);
+                          textArea.select();
+                          document.execCommand("copy");
+                          document.body.removeChild(textArea);
+                          toast.success("Link copiado para a área de transferência!");
+                        }
+                      }
                     }
                   }}
                   className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors shadow-lg"

@@ -137,6 +137,15 @@ Deno.serve(async (req) => {
         <RentalPrice currency="BRL" period="Monthly">${Math.round(prop.price)}</RentalPrice>`;
       }
 
+      if (prop.condominio && prop.condominio > 0) {
+        xml += `
+        <PropertyAdministrationFee currency="BRL">${Math.round(prop.condominio)}</PropertyAdministrationFee>`;
+      }
+      if (prop.iptu && prop.iptu > 0) {
+        xml += `
+        <YearlyTax currency="BRL">${Math.round(prop.iptu)}</YearlyTax>`;
+      }
+
       if (prop.area) {
         const areaType = ['terreno', 'lote'].includes((prop.type || '').toLowerCase()) ? 'LotArea' : 'LivingArea';
         xml += `

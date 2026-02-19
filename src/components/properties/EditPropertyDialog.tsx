@@ -62,6 +62,8 @@ export function EditPropertyDialog({
     state: "",
     address: "",
     cep: "",
+    condominio: "",
+    iptu: "",
     area: "",
     bedrooms: "",
     bathrooms: "",
@@ -85,6 +87,8 @@ export function EditPropertyDialog({
         state: property.state,
         address: property.address || "",
         cep: (property as any).cep || "",
+        condominio: (property as any).condominio?.toString() || "",
+        iptu: (property as any).iptu?.toString() || "",
         area: property.area?.toString() || "",
         bedrooms: property.bedrooms?.toString() || "",
         bathrooms: property.bathrooms?.toString() || "",
@@ -206,6 +210,8 @@ export function EditPropertyDialog({
         state: formData.state,
         address: formData.address || null,
         cep: formData.cep || null,
+        condominio: formData.condominio ? parseFloat(formData.condominio) : null,
+        iptu: formData.iptu ? parseFloat(formData.iptu) : null,
         area: formData.area ? parseFloat(formData.area) : null,
         bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
         bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
@@ -372,6 +378,29 @@ export function EditPropertyDialog({
                 value={formData.area}
                 onChange={(e) => setFormData({ ...formData, area: e.target.value })}
                 placeholder="60"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="condominio">Condomínio (R$)</Label>
+              <Input
+                id="condominio"
+                type="number"
+                value={formData.condominio}
+                onChange={(e) => setFormData({ ...formData, condominio: e.target.value })}
+                placeholder="500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="iptu">IPTU (R$)</Label>
+              <Input
+                id="iptu"
+                type="number"
+                value={formData.iptu}
+                onChange={(e) => setFormData({ ...formData, iptu: e.target.value })}
+                placeholder="150"
               />
             </div>
           </div>

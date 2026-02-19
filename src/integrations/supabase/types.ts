@@ -493,11 +493,13 @@ export type Database = {
           bedrooms: number | null
           cep: string | null
           city: string
+          condominio: number | null
           created_at: string
           description: string | null
           featured: boolean | null
           features: Json | null
           id: string
+          iptu: number | null
           meta_description: string | null
           meta_title: string | null
           neighborhood: string
@@ -522,11 +524,13 @@ export type Database = {
           bedrooms?: number | null
           cep?: string | null
           city: string
+          condominio?: number | null
           created_at?: string
           description?: string | null
           featured?: boolean | null
           features?: Json | null
           id?: string
+          iptu?: number | null
           meta_description?: string | null
           meta_title?: string | null
           neighborhood: string
@@ -551,11 +555,13 @@ export type Database = {
           bedrooms?: number | null
           cep?: string | null
           city?: string
+          condominio?: number | null
           created_at?: string
           description?: string | null
           featured?: boolean | null
           features?: Json | null
           id?: string
+          iptu?: number | null
           meta_description?: string | null
           meta_title?: string | null
           neighborhood?: string

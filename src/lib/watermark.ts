@@ -32,8 +32,8 @@ export async function applyWatermark(
         // Draw the original image
         ctx.drawImage(img, 0, 0);
 
-        // Calculate watermark size (similar to header logo - about 150px width)
-        const targetWatermarkWidth = Math.min(150, img.width * 0.2);
+        // Calculate watermark size - 40% of image width for better visibility
+        const targetWatermarkWidth = Math.min(img.width * 0.4, 600);
         const aspectRatio = watermark.height / watermark.width;
         const watermarkWidth = targetWatermarkWidth;
         const watermarkHeight = watermarkWidth * aspectRatio;

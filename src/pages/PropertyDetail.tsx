@@ -46,6 +46,8 @@ interface PropertyData {
   youtube_url: string | null;
   origin: string | null;
   features: PropertyFeatures | null;
+  condominio: number | null;
+  iptu: number | null;
   photos: { url: string; sort_order: number | null }[];
 }
 
@@ -427,8 +429,21 @@ export default function PropertyDetail() {
                   <div className="text-3xl font-heading font-bold text-accent">
                     {formatPrice(property.price, property.purpose)}
                   </div>
-                  {property.purpose === "rent" && (
-                    <span className="text-sm text-muted-foreground">+ taxas</span>
+                  {property.purpose === "rent" && property.condominio != null && property.condominio > 0 && (
+                    <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                      <span>Condomínio</span>
+                      <span className="font-medium text-foreground">
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }).format(property.condominio)}
+                      </span>
+                    </div>
+                  )}
+                  {property.iptu != null && property.iptu > 0 && (
+                    <div className="flex justify-between text-sm text-muted-foreground mt-1">
+                      <span>IPTU</span>
+                      <span className="font-medium text-foreground">
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }).format(property.iptu)}
+                      </span>
+                    </div>
                   )}
                 </div>
 

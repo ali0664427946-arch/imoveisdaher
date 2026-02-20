@@ -483,7 +483,7 @@ export default function PropertyDetail() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  <span>Atendimento de Seg a Sáb</span>
+                  <span>Atendimento de Seg a Sex, 09:00 às 17:00</span>
                 </div>
               </div>
 

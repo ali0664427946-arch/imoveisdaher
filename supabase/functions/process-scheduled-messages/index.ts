@@ -98,15 +98,36 @@ Deno.serve(async (req) => {
           sent_at: new Date().toISOString(),
         }).eq("id", msg.id);
 
-        let convId = msg.conversation_id;
-        if (!convId && msg.lead_id) {
-          const { data: conv } = await supabase
+        // Always look for a whatsapp conversation for this lead
+        let convId = null;
+        
+        if (msg.lead_id) {
+          // First try to find an existing whatsapp conversation for this lead
+          const { data: whatsappConv } = await supabase
             .from("conversations")
             .select("id")
             .eq("lead_id", msg.lead_id)
             .eq("channel", "whatsapp")
             .maybeSingle();
-          convId = conv?.id;
+          convId = whatsappConv?.id;
+          
+          // If no whatsapp conversation exists, create one
+          if (!convId) {
+            const { data: newConv } = await supabase
+              .from("conversations")
+              .insert({
+                lead_id: msg.lead_id,
+                channel: "whatsapp",
+                last_message_preview: msg.message.substring(0, 100),
+                last_message_at: new Date().toISOString(),
+              })
+              .select("id")
+              .single();
+            convId = newConv?.id;
+          }
+        } else if (msg.conversation_id) {
+          // Fallback: use the provided conversation_id only if no lead_id
+          convId = msg.conversation_id;
         }
 
         if (convId) {

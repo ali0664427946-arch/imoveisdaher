@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SearchFilters } from "@/components/properties/SearchFilters";
+import { SearchFilters, type SearchFiltersState } from "@/components/properties/SearchFilters";
 import { PropertyGrid } from "@/components/properties/PropertyGrid";
 import { type Property } from "@/components/properties/PropertyCard";
 import { SlidersHorizontal, Grid3X3, List, MapPin } from "lucide-react";
@@ -16,9 +16,28 @@ import {
 } from "@/components/ui/select";
 
 export default function PropertiesList() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState("recent");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeFilters, setActiveFilters] = useState<SearchFiltersState>({
+    query: searchParams.get("q") || "",
+    purpose: searchParams.get("purpose") || "",
+    type: searchParams.get("type") || "",
+    neighborhood: searchParams.get("neighborhood") || "",
+    priceMin: searchParams.get("priceMin") || "",
+    priceMax: searchParams.get("priceMax") || "",
+  });
+
+  const handleSearch = (filters: SearchFiltersState) => {
+    setActiveFilters(filters);
+    const params = new URLSearchParams();
+    if (filters.query) params.set("q", filters.query);
+    if (filters.purpose) params.set("purpose", filters.purpose);
+    if (filters.type) params.set("type", filters.type);
+    if (filters.neighborhood) params.set("neighborhood", filters.neighborhood);
+    if (filters.priceMax) params.set("priceMax", filters.priceMax);
+    setSearchParams(params);
+  };
 
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["properties-list", searchParams.toString()],
@@ -53,19 +72,49 @@ export default function PropertiesList() {
     },
   });
 
-  const sortedProperties = useMemo(() => {
-    const sorted = [...properties];
+  const filteredAndSorted = useMemo(() => {
+    let result = [...properties];
+
+    // Apply filters
+    if (activeFilters.query) {
+      const q = activeFilters.query.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.neighborhood.toLowerCase().includes(q) ||
+          p.city.toLowerCase().includes(q) ||
+          p.type.toLowerCase().includes(q)
+      );
+    }
+    if (activeFilters.purpose) {
+      result = result.filter((p) => p.purpose === activeFilters.purpose);
+    }
+    if (activeFilters.type) {
+      result = result.filter(
+        (p) => p.type.toLowerCase() === activeFilters.type.toLowerCase()
+      );
+    }
+    if (activeFilters.neighborhood) {
+      result = result.filter(
+        (p) => p.neighborhood.toLowerCase() === activeFilters.neighborhood.toLowerCase()
+      );
+    }
+    if (activeFilters.priceMax) {
+      result = result.filter((p) => p.price <= Number(activeFilters.priceMax));
+    }
+
+    // Sort
     switch (sortBy) {
       case "price-asc":
-        return sorted.sort((a, b) => a.price - b.price);
+        return result.sort((a, b) => a.price - b.price);
       case "price-desc":
-        return sorted.sort((a, b) => b.price - a.price);
+        return result.sort((a, b) => b.price - a.price);
       case "area-desc":
-        return sorted.sort((a, b) => (b.area ?? 0) - (a.area ?? 0));
+        return result.sort((a, b) => (b.area ?? 0) - (a.area ?? 0));
       default:
-        return sorted;
+        return result;
     }
-  }, [properties, sortBy]);
+  }, [properties, sortBy, activeFilters]);
 
   return (
     <div className="min-h-screen bg-secondary/30">
@@ -85,7 +134,7 @@ export default function PropertiesList() {
 
       {/* Search Bar */}
       <div className="container mx-auto px-4 -mt-8 relative z-10 mb-8">
-        <SearchFilters />
+        <SearchFilters onSearch={handleSearch} initialFilters={activeFilters} />
       </div>
 
       {/* Results */}
@@ -95,7 +144,7 @@ export default function PropertiesList() {
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-accent" />
             <span className="text-muted-foreground">
-              <strong className="text-foreground">{sortedProperties.length}</strong> imóveis encontrados
+              <strong className="text-foreground">{filteredAndSorted.length}</strong> imóveis encontrados
             </span>
           </div>
 
@@ -135,7 +184,7 @@ export default function PropertiesList() {
         </div>
 
         {/* Properties Grid */}
-        <PropertyGrid properties={sortedProperties} loading={isLoading} />
+        <PropertyGrid properties={filteredAndSorted} loading={isLoading} />
       </div>
     </div>
   );

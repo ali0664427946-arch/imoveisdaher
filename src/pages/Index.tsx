@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { SearchFilters } from "@/components/properties/SearchFilters";
+import { SearchFilters, type SearchFiltersState } from "@/components/properties/SearchFilters";
 import { PropertyGrid } from "@/components/properties/PropertyGrid";
 import { ContactForm } from "@/components/contact/ContactForm";
 import { Building2, Users, Award, ArrowRight } from "lucide-react";
@@ -10,6 +10,18 @@ import { supabase } from "@/integrations/supabase/client";
 import heroBg from "@/assets/hero-bg.jpg";
 
 export default function Index() {
+  const navigate = useNavigate();
+
+  const handleHeroSearch = (filters: SearchFiltersState) => {
+    const params = new URLSearchParams();
+    if (filters.query) params.set("q", filters.query);
+    if (filters.purpose) params.set("purpose", filters.purpose);
+    if (filters.type) params.set("type", filters.type);
+    if (filters.neighborhood) params.set("neighborhood", filters.neighborhood);
+    if (filters.priceMax) params.set("priceMax", filters.priceMax);
+    navigate(`/imoveis?${params.toString()}`);
+  };
+
   // Fetch featured properties from database
   const { data: featuredProperties = [], isLoading: loadingFeatured } = useQuery({
     queryKey: ["featured-properties"],
@@ -112,7 +124,7 @@ export default function Index() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <SearchFilters variant="hero" />
+            <SearchFilters variant="hero" onSearch={handleHeroSearch} />
           </motion.div>
 
           {/* Stats */}

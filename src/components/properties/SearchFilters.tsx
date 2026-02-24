@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, MapPin, Home, DollarSign, ChevronDown } from "lucide-react";
+import { Search, MapPin, Home, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,6 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SearchFiltersProps {
   onSearch?: (filters: SearchFiltersState) => void;
@@ -36,6 +38,32 @@ export function SearchFilters({ onSearch, variant = "inline", initialFilters }: 
       priceMax: "",
     }
   );
+
+  const { data: propertyTypes = [] } = useQuery({
+    queryKey: ["property-types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("type")
+        .eq("status", "active");
+      if (error) throw error;
+      const unique = [...new Set(data.map((p) => p.type))].sort();
+      return unique;
+    },
+  });
+
+  const { data: neighborhoods = [] } = useQuery({
+    queryKey: ["neighborhoods"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("neighborhood")
+        .eq("status", "active");
+      if (error) throw error;
+      const unique = [...new Set(data.map((p) => p.neighborhood))].sort();
+      return unique;
+    },
+  });
 
   const handleChange = (key: keyof SearchFiltersState, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -91,11 +119,9 @@ export function SearchFilters({ onSearch, variant = "inline", initialFilters }: 
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="apartamento">Apartamento</SelectItem>
-                <SelectItem value="casa">Casa</SelectItem>
-                <SelectItem value="comercial">Comercial</SelectItem>
-                <SelectItem value="terreno">Terreno</SelectItem>
-                <SelectItem value="cobertura">Cobertura</SelectItem>
+                {propertyTypes.map((t) => (
+                  <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -105,11 +131,9 @@ export function SearchFilters({ onSearch, variant = "inline", initialFilters }: 
                 <SelectValue placeholder="Bairro" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="centro">Centro</SelectItem>
-                <SelectItem value="jardins">Jardins</SelectItem>
-                <SelectItem value="pinheiros">Pinheiros</SelectItem>
-                <SelectItem value="moema">Moema</SelectItem>
-                <SelectItem value="vila-mariana">Vila Mariana</SelectItem>
+                {neighborhoods.map((n) => (
+                  <SelectItem key={n} value={n}>{n}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -164,10 +188,9 @@ export function SearchFilters({ onSearch, variant = "inline", initialFilters }: 
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="apartamento">Apartamento</SelectItem>
-            <SelectItem value="casa">Casa</SelectItem>
-            <SelectItem value="comercial">Comercial</SelectItem>
-            <SelectItem value="terreno">Terreno</SelectItem>
+            {propertyTypes.map((t) => (
+              <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

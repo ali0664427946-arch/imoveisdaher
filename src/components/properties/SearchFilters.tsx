@@ -13,6 +13,7 @@ import {
 interface SearchFiltersProps {
   onSearch?: (filters: SearchFiltersState) => void;
   variant?: "hero" | "inline";
+  initialFilters?: SearchFiltersState;
 }
 
 export interface SearchFiltersState {
@@ -24,15 +25,17 @@ export interface SearchFiltersState {
   priceMax: string;
 }
 
-export function SearchFilters({ onSearch, variant = "inline" }: SearchFiltersProps) {
-  const [filters, setFilters] = useState<SearchFiltersState>({
-    query: "",
-    purpose: "",
-    type: "",
-    neighborhood: "",
-    priceMin: "",
-    priceMax: "",
-  });
+export function SearchFilters({ onSearch, variant = "inline", initialFilters }: SearchFiltersProps) {
+  const [filters, setFilters] = useState<SearchFiltersState>(
+    initialFilters ?? {
+      query: "",
+      purpose: "",
+      type: "",
+      neighborhood: "",
+      priceMin: "",
+      priceMax: "",
+    }
+  );
 
   const handleChange = (key: keyof SearchFiltersState, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));

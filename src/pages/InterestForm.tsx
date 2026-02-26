@@ -627,8 +627,11 @@ export default function InterestForm() {
               {currentStep === 5 && (
                 <div className="space-y-6">
                   <h2 className="text-xl font-heading font-semibold mb-6">Documentos</h2>
-                  <p className="text-muted-foreground text-sm mb-6">
+                  <p className="text-muted-foreground text-sm mb-2">
                     Envie os documentos necessários para análise. Formatos aceitos: PDF, JPG, PNG (máx. 10MB cada).
+                  </p>
+                  <p className="text-muted-foreground text-sm mb-6">
+                    Para fins de comprovação aceitamos imposto de renda ou contracheque + CTPS (parte da qualificação e contrato).
                   </p>
                   <DocumentUploader
                     documents={documents}

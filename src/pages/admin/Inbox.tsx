@@ -656,12 +656,12 @@ export default function Inbox() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm truncate">
+                      <span className="font-medium text-sm truncate min-w-0 flex-1">
                         {conv.is_group && conv.group_name 
                           ? conv.group_name 
                           : conv.lead?.name || "Lead desconhecido"}
                       </span>
-                      <span className="text-xs text-muted-foreground shrink-0">
+                      <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
                         {formatTime(conv.last_message_at)}
                       </span>
                     </div>

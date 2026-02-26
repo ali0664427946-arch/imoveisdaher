@@ -571,7 +571,7 @@ export default function Inbox() {
 
   const formatTime = (dateString: string | null) => {
     if (!dateString) return "";
-    return formatDistanceToNow(new Date(dateString), { addSuffix: false, locale: ptBR });
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: ptBR });
   };
 
   if (loadingConversations) {

@@ -630,7 +630,7 @@ export default function InterestForm() {
                   <p className="text-muted-foreground text-sm mb-2">
                     Envie os documentos necessários para análise. Formatos aceitos: PDF, JPG, PNG (máx. 10MB cada).
                   </p>
-                  <p className="text-muted-foreground text-sm mb-6">
+                  <p className="text-sm mb-6 font-semibold">
                     Para fins de comprovação aceitamos imposto de renda ou contracheque + CTPS (parte da qualificação e contrato).
                   </p>
                   <DocumentUploader

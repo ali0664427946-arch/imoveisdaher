@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
@@ -392,6 +392,23 @@ export default function Inbox() {
   });
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
+
+  // Fetch pending scheduled messages for the selected lead
+  const { data: leadScheduledMessages = [] } = useQuery({
+    queryKey: ["lead-scheduled-messages", selectedConversation?.lead?.id],
+    queryFn: async () => {
+      if (!selectedConversation?.lead?.id) return [];
+      const { data, error } = await supabase
+        .from("scheduled_messages")
+        .select("id, scheduled_at, message")
+        .eq("lead_id", selectedConversation.lead.id)
+        .eq("status", "pending")
+        .order("scheduled_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedConversation?.lead?.id,
+  });
 
   const filteredConversations = conversations.filter((conv) => {
     const matchesSearch = conv.lead?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1072,6 +1089,21 @@ export default function Inbox() {
                 {selectedConversation.is_group ? "Grupo WhatsApp" : channelLabels[selectedConversation.channel] || selectedConversation.channel}
               </Badge>
             </div>
+            {leadScheduledMessages.length > 0 && (
+              <div className="pt-4 border-t">
+                <p className="text-xs text-muted-foreground mb-2">📅 Mensagens Agendadas</p>
+                <div className="space-y-2">
+                  {leadScheduledMessages.map((sm) => (
+                    <div key={sm.id} className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                        Mensagem agendada para dia {format(new Date(sm.scheduled_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{sm.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {selectedConversation.lead?.property && (
               <div className="pt-4 border-t">
                 <p className="text-xs text-muted-foreground mb-2">Imóvel de Interesse</p>

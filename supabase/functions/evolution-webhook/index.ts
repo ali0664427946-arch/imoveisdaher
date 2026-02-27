@@ -51,6 +51,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Handle GET health-check from Evolution API (v2 sends GET to verify webhook URL)
+  if (req.method === "GET") {
+    return new Response(
+      JSON.stringify({ status: "ok", webhook: "evolution-webhook" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,

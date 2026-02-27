@@ -100,13 +100,49 @@ Deno.serve(async (req) => {
 
         // Always look for a whatsapp conversation for this lead
         let convId = null;
+        let leadId = msg.lead_id;
         
-        if (msg.lead_id) {
-          // First try to find an existing whatsapp conversation for this lead
+        // If no lead_id, try to find or create a lead by phone
+        if (!leadId) {
+          const normalizedPhone = phone.replace(/\D/g, "");
+          const phoneVariants = [
+            normalizedPhone,
+            normalizedPhone.startsWith("55") ? normalizedPhone.slice(2) : `55${normalizedPhone}`,
+          ];
+          
+          // Try to find existing lead by phone
+          const { data: existingLead } = await supabase
+            .from("leads")
+            .select("id")
+            .or(phoneVariants.map(p => `phone.eq.${p},phone_normalized.eq.+${p}`).join(","))
+            .limit(1)
+            .maybeSingle();
+          
+          if (existingLead) {
+            leadId = existingLead.id;
+          } else {
+            // Create a new lead for this phone
+            const { data: newLead } = await supabase
+              .from("leads")
+              .insert({
+                name: `WhatsApp ${normalizedPhone}`,
+                phone: normalizedPhone.startsWith("55") ? normalizedPhone.slice(2) : normalizedPhone,
+                phone_normalized: `+${normalizedPhone.startsWith("55") ? normalizedPhone : "55" + normalizedPhone}`,
+                origin: "agendamento",
+                status: "entrou_em_contato",
+              })
+              .select("id")
+              .single();
+            leadId = newLead?.id;
+          }
+        }
+
+        if (leadId) {
+          // Find existing whatsapp conversation for this lead
           const { data: whatsappConv } = await supabase
             .from("conversations")
             .select("id")
-            .eq("lead_id", msg.lead_id)
+            .eq("lead_id", leadId)
             .eq("channel", "whatsapp")
             .maybeSingle();
           convId = whatsappConv?.id;
@@ -116,7 +152,7 @@ Deno.serve(async (req) => {
             const { data: newConv } = await supabase
               .from("conversations")
               .insert({
-                lead_id: msg.lead_id,
+                lead_id: leadId,
                 channel: "whatsapp",
                 last_message_preview: msg.message.substring(0, 100),
                 last_message_at: new Date().toISOString(),
@@ -126,7 +162,7 @@ Deno.serve(async (req) => {
             convId = newConv?.id;
           }
         } else if (msg.conversation_id) {
-          // Fallback: use the provided conversation_id only if no lead_id
+          // Last resort fallback
           convId = msg.conversation_id;
         }
 

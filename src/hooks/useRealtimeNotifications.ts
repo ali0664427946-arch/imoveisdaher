@@ -10,12 +10,55 @@ interface RealtimeNotification {
   data?: Record<string, unknown>;
 }
 
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+    oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.4);
+  } catch {
+    // Audio not available
+  }
+}
+
 export function useRealtimeNotifications() {
   const queryClient = useQueryClient();
 
   const showNotification = useCallback((notification: RealtimeNotification) => {
+    if (notification.type === "new_ficha") {
+      playNotificationSound();
+      toast(notification.title, {
+        description: notification.description,
+        icon: "🔔",
+        duration: 15000,
+        dismissible: true,
+        style: {
+          background: "hsl(var(--accent))",
+          color: "hsl(var(--accent-foreground))",
+          border: "2px solid hsl(var(--primary))",
+          fontWeight: "600",
+          fontSize: "1rem",
+          boxShadow: "0 8px 32px hsl(var(--primary) / 0.3)",
+        },
+        action: {
+          label: "Ver Fichas",
+          onClick: () => {
+            window.location.href = "/admin/fichas";
+          },
+        },
+      });
+      return;
+    }
+
     const icons: Record<string, string> = {
-      new_ficha: "📋",
       new_message: "💬",
       ficha_updated: "🔄",
       new_lead: "🎯",

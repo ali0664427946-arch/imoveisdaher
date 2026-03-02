@@ -17,31 +17,60 @@ Deno.serve(async (req) => {
     );
 
     let totalCleaned = 0;
+    const startTime = Date.now();
+    const MAX_DURATION_MS = 50000;
 
-    // Process in tiny batches - just get IDs and null out payload
-    for (let i = 0; i < 10; i++) {
-      const { data: ids, error: fetchError } = await supabase
+    // Use RPC-style: fetch small batches of IDs and null them out one by one
+    while (Date.now() - startTime < MAX_DURATION_MS) {
+      // Simple select with limit - avoid complex filters on large jsonb
+      const { data: batch, error: fetchError } = await supabase
         .from("messages")
         .select("id")
         .not("provider_payload", "is", null)
+        .order("created_at", { ascending: true })
         .limit(5);
 
-      if (fetchError || !ids || ids.length === 0) break;
+      if (fetchError) {
+        console.error("Fetch error:", fetchError.message);
+        // Wait a bit and retry
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
 
-      for (const row of ids) {
-        await supabase
+      if (!batch || batch.length === 0) {
+        console.log("All payloads cleaned!");
+        break;
+      }
+
+      // Update one by one to avoid large transactions
+      for (const row of batch) {
+        if (Date.now() - startTime > MAX_DURATION_MS) break;
+        
+        const { error: updateError } = await supabase
           .from("messages")
           .update({ provider_payload: null })
           .eq("id", row.id);
-        totalCleaned++;
+
+        if (updateError) {
+          console.error(`Update error for ${row.id}:`, updateError.message);
+          await new Promise(r => setTimeout(r, 500));
+        } else {
+          totalCleaned++;
+        }
       }
+
+      console.log(`Progress: ${totalCleaned} cleaned`);
     }
 
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`Cleanup done: ${totalCleaned} in ${elapsed}s`);
+
     return new Response(
-      JSON.stringify({ success: true, cleaned: totalCleaned }),
+      JSON.stringify({ success: true, cleaned: totalCleaned, elapsed_seconds: elapsed }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("Cleanup error:", error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

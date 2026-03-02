@@ -28,6 +28,8 @@ export default function Settings() {
   const [syncingGroups, setSyncingGroups] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [savingAutoSync, setSavingAutoSync] = useState(false);
+  const [cleaningPayloads, setCleaningPayloads] = useState(false);
+  const [lastCleanupResult, setLastCleanupResult] = useState<{ cleaned: number; elapsed: string } | null>(null);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -310,6 +312,33 @@ export default function Settings() {
       });
     } finally {
       setSyncingGroups(false);
+    }
+  };
+
+  const handleCleanupPayloads = async () => {
+    setCleaningPayloads(true);
+    setLastCleanupResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("cleanup-payloads");
+      if (error) throw error;
+      if (data?.success) {
+        setLastCleanupResult({ cleaned: data.cleaned, elapsed: data.elapsed_seconds });
+        toast({
+          title: `Limpeza concluída! ✅`,
+          description: `${data.cleaned} registros limpos em ${data.elapsed_seconds}s`,
+        });
+      } else {
+        throw new Error(data?.error || "Erro desconhecido");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao limpar";
+      toast({
+        title: "Erro na limpeza ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setCleaningPayloads(false);
     }
   };
 
@@ -719,6 +748,52 @@ export default function Settings() {
                   Sincronizar Nomes de Grupos
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Database Cleanup */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded bg-destructive/10 flex items-center justify-center text-destructive">
+                  <RefreshCw className="w-4 h-4" />
+                </span>
+                Limpeza do Banco de Dados
+              </CardTitle>
+              <CardDescription>
+                Remove payloads pesados das mensagens para liberar espaço no banco de dados (limite de 500MB)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {lastCleanupResult && (
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                  <p className="flex items-center gap-1 text-muted-foreground">
+                    <Check className="w-4 h-4 text-green-500" />
+                    Última execução: <strong>{lastCleanupResult.cleaned}</strong> registros limpos em {lastCleanupResult.elapsed}s
+                  </p>
+                </div>
+              )}
+              <Button
+                onClick={handleCleanupPayloads}
+                disabled={cleaningPayloads}
+                variant="outline"
+                className="w-full"
+              >
+                {cleaningPayloads ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Limpando... (pode levar até 50s)
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Executar Limpeza de Payloads
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                💡 Execute várias vezes ao longo do dia até que todos os payloads sejam limpos.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

@@ -26,6 +26,7 @@ import {
   Loader2,
   Plus,
   Search,
+  MessageCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -100,6 +101,9 @@ export default function InterestForm() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedProtocol, setSubmittedProtocol] = useState<string | null>(null);
+  const [submittedFichaId, setSubmittedFichaId] = useState<string | null>(null);
+  const [protocolSentViaWhatsApp, setProtocolSentViaWhatsApp] = useState(false);
+  const [sendingProtocol, setSendingProtocol] = useState(false);
 
   // Fetch property from database (if propertyId is provided)
   const { data: property } = useQuery({
@@ -279,7 +283,22 @@ export default function InterestForm() {
       }
 
       setSubmittedProtocol(ficha.protocol);
+      setSubmittedFichaId(ficha.id);
       toast.success("Ficha enviada com sucesso!");
+
+      // Auto-send protocol via WhatsApp
+      try {
+        const { data: sendResult } = await supabase.functions.invoke("send-ficha-protocol", {
+          body: { fichaId: ficha.id },
+        });
+        if (sendResult?.success) {
+          setProtocolSentViaWhatsApp(true);
+          toast.success("Protocolo enviado para seu WhatsApp!");
+        }
+      } catch (whatsErr) {
+        console.error("Auto-send protocol error:", whatsErr);
+        // Not critical — user can resend manually
+      }
     } catch (error) {
       console.error("Submit error:", error);
       toast.error("Erro ao enviar ficha. Tente novamente.");
@@ -317,11 +336,49 @@ export default function InterestForm() {
               {submittedProtocol}
             </p>
           </div>
+          {protocolSentViaWhatsApp && (
+            <p className="text-sm text-success mb-4 flex items-center justify-center gap-1">
+              <CheckCircle className="w-4 h-4" />
+              Protocolo enviado para seu WhatsApp!
+            </p>
+          )}
           <p className="text-sm text-muted-foreground mb-6">
             Guarde este número para acompanhar o status da sua solicitação.
             Entraremos em contato pelo telefone ou e-mail informados.
           </p>
           <div className="flex flex-col gap-3">
+            {!protocolSentViaWhatsApp && (
+              <Button
+                onClick={async () => {
+                  setSendingProtocol(true);
+                  try {
+                    const { data } = await supabase.functions.invoke("send-ficha-protocol", {
+                      body: { fichaId: submittedFichaId },
+                    });
+                    if (data?.success) {
+                      setProtocolSentViaWhatsApp(true);
+                      toast.success("Protocolo enviado para seu WhatsApp!");
+                    } else {
+                      toast.error("Não foi possível enviar. Tente novamente.");
+                    }
+                  } catch {
+                    toast.error("Erro ao enviar. Tente novamente.");
+                  } finally {
+                    setSendingProtocol(false);
+                  }
+                }}
+                variant="outline"
+                disabled={sendingProtocol}
+                className="border-success/30 text-success hover:bg-success/10"
+              >
+                {sendingProtocol ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                )}
+                Receber Protocolo no WhatsApp
+              </Button>
+            )}
             <Button
               onClick={() => navigate(`/ficha/reenviar?protocolo=${submittedProtocol}`)}
               variant="outline"

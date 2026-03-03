@@ -419,6 +419,21 @@ export default function FichaDetail() {
                     <p className="text-sm text-muted-foreground">Animais de Estimação</p>
                     <p className="font-medium">{ficha.has_pets ? "Sim" : "Não"}</p>
                   </div>
+                  {(() => {
+                    const fd = formData as Record<string, unknown> | null;
+                    const addTenants = (fd?.additional_tenants || fd?.tenants) as Array<{ income?: string }> | undefined;
+                    const additionalIncomes = (addTenants || [])
+                      .map(t => parseFloat((t.income || "0").replace(/[^\d.,]/g, "").replace(",", ".")))
+                      .filter(v => !isNaN(v));
+                    const totalIncome = (ficha.income || 0) + additionalIncomes.reduce((s, v) => s + v, 0);
+                    if (additionalIncomes.length === 0) return null;
+                    return (
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Renda Combinada (todos os locatários)</p>
+                        <p className="font-medium text-lg text-success">{formatCurrency(totalIncome)}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>

@@ -26,6 +26,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Rate limiting: max 3 sends per ficha in 10 minutes
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count: recentSends } = await supabase
+      .from("activity_log")
+      .select("id", { count: "exact", head: true })
+      .eq("action", "ficha_protocol_sent")
+      .eq("entity_id", fichaId)
+      .gte("created_at", tenMinutesAgo);
+
+    if ((recentSends ?? 0) >= 3) {
+      console.log(`Rate limit hit for ficha ${fichaId}: ${recentSends} sends in last 10min`);
+      return new Response(
+        JSON.stringify({ success: false, error: "Limite de envios atingido. Tente novamente em alguns minutos." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Fetch ficha data
     const { data: ficha, error: fichaError } = await supabase
       .from("fichas")
@@ -126,6 +143,14 @@ _Daher Imóveis_`;
     }
 
     console.log(`Protocol ${ficha.protocol} sent to ${validPhone}`);
+
+    // Log for rate limiting
+    await supabase.from("activity_log").insert({
+      action: "ficha_protocol_sent",
+      entity_type: "ficha",
+      entity_id: fichaId,
+      metadata: { protocol: ficha.protocol, phone: validPhone },
+    });
 
     return new Response(
       JSON.stringify({ success: true, protocol: ficha.protocol }),

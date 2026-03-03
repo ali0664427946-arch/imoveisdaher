@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import PropertiesList from "./pages/PropertiesList";
 import PropertyDetail from "./pages/PropertyDetail";
 import InterestForm from "./pages/InterestForm";
+import ResendDocuments from "./pages/ResendDocuments";
 import About from "./pages/About";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/admin/Dashboard";
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/imovel/:id" element={<PropertyDetail />} />
               <Route path="/ficha/:propertyId" element={<InterestForm />} />
               <Route path="/ficha" element={<InterestForm />} />
+              <Route path="/ficha/reenviar" element={<ResendDocuments />} />
               <Route path="/sobre" element={<About />} />
               <Route path="/contato" element={<Index />} />
             </Route>

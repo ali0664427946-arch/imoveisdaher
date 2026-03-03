@@ -45,6 +45,8 @@ interface DocumentUploaderProps {
   documents: UploadedDocument[];
   onDocumentsChange: (docs: UploadedDocument[]) => void;
   readOnly?: boolean;
+  tenantLabel?: string;
+  categoryPrefix?: string;
 }
 
 export function DocumentUploader({
@@ -52,6 +54,8 @@ export function DocumentUploader({
   documents,
   onDocumentsChange,
   readOnly = false,
+  tenantLabel,
+  categoryPrefix = "",
 }: DocumentUploaderProps) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -60,8 +64,10 @@ export function DocumentUploader({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  const prefixCategory = (catId: string) => categoryPrefix ? `${categoryPrefix}_${catId}` : catId;
+
   const getDocumentByCategory = (category: string) => {
-    return documents.find((d) => d.category === category);
+    return documents.find((d) => d.category === prefixCategory(category));
   };
 
   const handleFileSelect = async (
@@ -87,6 +93,7 @@ export function DocumentUploader({
       return;
     }
 
+    const prefixedCategory = prefixCategory(category);
     setUploading(category);
 
     // Compress image if it's an image file
@@ -114,7 +121,7 @@ export function DocumentUploader({
     try {
       // Generate unique file path
       const fileExt = processedFile.name.split(".").pop() || "jpg";
-      const fileName = `${fichaId || "temp"}/${category}_${Date.now()}.${fileExt}`;
+      const fileName = `${fichaId || "temp"}/${prefixedCategory}_${Date.now()}.${fileExt}`;
 
       // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -129,7 +136,7 @@ export function DocumentUploader({
         .getPublicUrl(fileName);
 
       const newDoc: UploadedDocument = {
-        category,
+        category: prefixedCategory,
         file_name: file.name, // Keep original name for display
         file_url: urlData.publicUrl,
         file_size: processedFile.size,
@@ -143,7 +150,7 @@ export function DocumentUploader({
           .from("documents")
           .insert({
             ficha_id: fichaId,
-            category,
+            category: prefixedCategory,
             file_name: file.name, // Keep original name
             file_url: urlData.publicUrl,
             file_size: processedFile.size,
@@ -157,7 +164,7 @@ export function DocumentUploader({
       }
 
       // Update documents list
-      const updatedDocs = documents.filter((d) => d.category !== category);
+      const updatedDocs = documents.filter((d) => d.category !== prefixedCategory);
       updatedDocs.push(newDoc);
       onDocumentsChange(updatedDocs);
 
@@ -171,7 +178,8 @@ export function DocumentUploader({
   };
 
   const handleRemove = async (category: string) => {
-    const doc = getDocumentByCategory(category);
+    const prefixedCat = prefixCategory(category);
+    const doc = documents.find((d) => d.category === prefixedCat);
     if (!doc) return;
 
     try {
@@ -185,7 +193,7 @@ export function DocumentUploader({
       }
 
       // Update state
-      onDocumentsChange(documents.filter((d) => d.category !== category));
+      onDocumentsChange(documents.filter((d) => d.category !== prefixedCat));
       toast.success("Documento removido");
     } catch (error) {
       console.error("Remove error:", error);
@@ -261,6 +269,14 @@ export function DocumentUploader({
 
   return (
     <>
+      {tenantLabel && (
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
+            <FileText className="w-3 h-3 text-accent" />
+          </div>
+          <h4 className="font-semibold text-sm">{tenantLabel}</h4>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DOCUMENT_CATEGORIES.map((cat) => {
           const doc = getDocumentByCategory(cat.id);

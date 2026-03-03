@@ -77,12 +77,12 @@ export default function ResendDocuments() {
   // Determine tenants
   const getTenants = () => {
     if (!ficha) return [];
-    const tenants = [{ name: ficha.full_name, index: 0 }];
+    const tenants = [{ name: ficha.full_name, index: 0, role: "locatario" as string }];
     const formData = ficha.form_data as any;
     if (formData?.additional_tenants) {
       formData.additional_tenants.forEach((t: any, i: number) => {
-        if (t.full_name) {
-          tenants.push({ name: t.full_name, index: i + 1 });
+        if (t.full_name || t.fullName) {
+          tenants.push({ name: t.full_name || t.fullName, index: i + 1, role: t.role || "locatario" });
         }
       });
     }
@@ -249,12 +249,15 @@ export default function ResendDocuments() {
                             hasMultipleTenants
                               ? idx === 0
                                 ? `Locatário Principal — ${tenant.name}`
-                                : `Locatário ${idx + 1} — ${tenant.name}`
+                                : tenant.role === "fiador"
+                                  ? `Fiador — ${tenant.name}`
+                                  : `Locatário ${idx + 1} — ${tenant.name}`
                               : undefined
                           }
                           categoryPrefix={
                             hasMultipleTenants ? `loc${idx}` : ""
                           }
+                          hiddenCategories={tenant.role !== "fiador" ? ["rgi"] : []}
                         />
                         {idx < tenants.length - 1 && (
                           <div className="border-b my-4" />

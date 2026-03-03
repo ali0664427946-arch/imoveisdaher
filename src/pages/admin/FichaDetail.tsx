@@ -469,20 +469,76 @@ export default function FichaDetail() {
                 Documentos Enviados
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <DocumentUploader
-                fichaId={ficha.id}
-                documents={docs.map((d) => ({
+            <CardContent className="space-y-6">
+              {(() => {
+                const mappedDocs = docs.map((d) => ({
                   id: d.id,
                   category: d.category,
                   file_name: d.file_name,
                   file_url: d.file_url,
                   status: d.status,
                   mime_type: d.mime_type,
-                }))}
-                onDocumentsChange={() => refetch()}
-                readOnly
-              />
+                }));
+
+                // Check if documents use tenant prefixes (loc0_, loc1_, loc2_)
+                const hasTenantPrefixes = mappedDocs.some((d) => /^loc\d+_/.test(d.category));
+
+                if (!hasTenantPrefixes) {
+                  // Single tenant — render without grouping
+                  return (
+                    <DocumentUploader
+                      fichaId={ficha.id}
+                      documents={mappedDocs}
+                      onDocumentsChange={() => refetch()}
+                      readOnly
+                    />
+                  );
+                }
+
+                // Multi-tenant — group by prefix
+                const tenantPrefixes = [...new Set(
+                  mappedDocs
+                    .map((d) => d.category.match(/^(loc\d+)_/)?.[1])
+                    .filter(Boolean)
+                )] as string[];
+
+                // Sort prefixes: loc0, loc1, loc2
+                tenantPrefixes.sort();
+
+                // Get tenant names from form_data
+                const fd = formData as Record<string, unknown> | null;
+                const additionalTenants = (fd?.additional_tenants || fd?.tenants) as Array<{ fullName?: string }> | undefined;
+
+                return tenantPrefixes.map((prefix, idx) => {
+                  const prefixIndex = parseInt(prefix.replace("loc", ""));
+                  let tenantName = "";
+                  if (prefixIndex === 0) {
+                    tenantName = ficha.full_name;
+                  } else if (additionalTenants && additionalTenants[prefixIndex - 1]) {
+                    tenantName = additionalTenants[prefixIndex - 1].fullName || `Locatário ${prefixIndex + 1}`;
+                  } else {
+                    tenantName = `Locatário ${prefixIndex + 1}`;
+                  }
+
+                  const label = prefixIndex === 0 
+                    ? `Locatário Principal — ${tenantName}` 
+                    : `Locatário ${prefixIndex + 1} — ${tenantName}`;
+
+                  return (
+                    <div key={prefix}>
+                      <DocumentUploader
+                        fichaId={ficha.id}
+                        documents={mappedDocs}
+                        onDocumentsChange={() => refetch()}
+                        readOnly
+                        tenantLabel={label}
+                        categoryPrefix={prefix}
+                      />
+                      {idx < tenantPrefixes.length - 1 && <Separator className="my-6" />}
+                    </div>
+                  );
+                });
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

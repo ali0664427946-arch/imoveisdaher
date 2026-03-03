@@ -230,9 +230,12 @@ export default function ResendDocuments() {
                     Envie os documentos que faltam. Documentos já enviados
                     aparecem abaixo.
                   </p>
-                  <p className="text-sm mb-6 font-semibold">
+                  <p className="text-sm mb-2 font-semibold">
                     Para fins de comprovação aceitamos imposto de renda ou
                     contracheque + CTPS (parte da qualificação e contrato).
+                  </p>
+                  <p className="text-sm mb-6 font-semibold">
+                    Envio de RGI necessário somente para FIADOR.
                   </p>
 
                   <div className="space-y-6">

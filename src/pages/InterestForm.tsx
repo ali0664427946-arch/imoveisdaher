@@ -712,22 +712,31 @@ export default function InterestForm() {
                     Envio de RGI necessário somente para FIADOR.
                   </p>
                   
-                  {tenants.map((tenant, index) => (
+                  {tenants.map((tenant, index) => {
+                    const isFiador = index > 0 && tenant.role === "fiador";
+                    const isNotFiador = index === 0 || tenant.role !== "fiador";
+                    return (
                     <div key={index} className="space-y-3">
                       <DocumentUploader
                         documents={documents}
                         onDocumentsChange={setDocuments}
                         tenantLabel={tenants.length > 1 
-                          ? (index === 0 ? `Locatário Principal — ${tenant.fullName || "Sem nome"}` : `Locatário ${index + 1} — ${tenant.fullName || "Sem nome"}`)
+                          ? (index === 0 
+                            ? `Locatário Principal — ${tenant.fullName || "Sem nome"}` 
+                            : tenant.role === "fiador" 
+                              ? `Fiador — ${tenant.fullName || "Sem nome"}`
+                              : `Locatário ${index + 1} — ${tenant.fullName || "Sem nome"}`)
                           : undefined
                         }
                         categoryPrefix={tenants.length > 1 ? `loc${index}` : ""}
+                        hiddenCategories={isNotFiador ? ["rgi"] : []}
                       />
                       {index < tenants.length - 1 && (
                         <div className="border-b my-4" />
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

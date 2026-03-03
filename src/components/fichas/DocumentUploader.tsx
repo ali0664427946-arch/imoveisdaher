@@ -47,6 +47,7 @@ interface DocumentUploaderProps {
   readOnly?: boolean;
   tenantLabel?: string;
   categoryPrefix?: string;
+  hiddenCategories?: string[];
 }
 
 export function DocumentUploader({
@@ -56,6 +57,7 @@ export function DocumentUploader({
   readOnly = false,
   tenantLabel,
   categoryPrefix = "",
+  hiddenCategories = [],
 }: DocumentUploaderProps) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -278,7 +280,7 @@ export function DocumentUploader({
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {DOCUMENT_CATEGORIES.map((cat) => {
+        {DOCUMENT_CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id)).map((cat) => {
           const doc = getDocumentByCategory(cat.id);
           const isUploading = uploading === cat.id;
 

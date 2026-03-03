@@ -643,18 +643,18 @@ export default function InterestForm() {
                     Para fins de comprovação aceitamos imposto de renda ou contracheque + CTPS (parte da qualificação e contrato).
                   </p>
                   
-                  {tenants.filter(t => t.fullName).map((tenant, index) => (
+                  {tenants.map((tenant, index) => (
                     <div key={index} className="space-y-3">
                       <DocumentUploader
                         documents={documents}
                         onDocumentsChange={setDocuments}
-                        tenantLabel={tenants.filter(t => t.fullName).length > 1 
-                          ? (index === 0 ? `Locatário Principal — ${tenant.fullName}` : `Locatário ${index + 1} — ${tenant.fullName}`)
+                        tenantLabel={tenants.length > 1 
+                          ? (index === 0 ? `Locatário Principal — ${tenant.fullName || "Sem nome"}` : `Locatário ${index + 1} — ${tenant.fullName || "Sem nome"}`)
                           : undefined
                         }
-                        categoryPrefix={tenants.filter(t => t.fullName).length > 1 ? `loc${index}` : ""}
+                        categoryPrefix={tenants.length > 1 ? `loc${index}` : ""}
                       />
-                      {index < tenants.filter(t => t.fullName).length - 1 && (
+                      {index < tenants.length - 1 && (
                         <div className="border-b my-4" />
                       )}
                     </div>

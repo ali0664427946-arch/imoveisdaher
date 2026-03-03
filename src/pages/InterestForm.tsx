@@ -321,9 +321,18 @@ export default function InterestForm() {
             Guarde este número para acompanhar o status da sua solicitação.
             Entraremos em contato pelo telefone ou e-mail informados.
           </p>
-          <Button onClick={() => navigate("/")} variant="hero">
-            Voltar para o Início
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={() => navigate(`/ficha/reenviar?protocolo=${submittedProtocol}`)}
+              variant="outline"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Enviar Mais Documentos
+            </Button>
+            <Button onClick={() => navigate("/")} variant="hero">
+              Voltar para o Início
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -633,10 +642,23 @@ export default function InterestForm() {
                   <p className="text-sm mb-6 font-semibold">
                     Para fins de comprovação aceitamos imposto de renda ou contracheque + CTPS (parte da qualificação e contrato).
                   </p>
-                  <DocumentUploader
-                    documents={documents}
-                    onDocumentsChange={setDocuments}
-                  />
+                  
+                  {tenants.filter(t => t.fullName).map((tenant, index) => (
+                    <div key={index} className="space-y-3">
+                      <DocumentUploader
+                        documents={documents}
+                        onDocumentsChange={setDocuments}
+                        tenantLabel={tenants.filter(t => t.fullName).length > 1 
+                          ? (index === 0 ? `Locatário Principal — ${tenant.fullName}` : `Locatário ${index + 1} — ${tenant.fullName}`)
+                          : undefined
+                        }
+                        categoryPrefix={tenants.filter(t => t.fullName).length > 1 ? `loc${index}` : ""}
+                      />
+                      {index < tenants.filter(t => t.fullName).length - 1 && (
+                        <div className="border-b my-4" />
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
 

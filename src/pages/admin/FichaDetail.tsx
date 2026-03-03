@@ -445,6 +445,93 @@ export default function FichaDetail() {
             )}
           </div>
 
+          {/* Additional Tenants */}
+          {(() => {
+            const fd = formData as Record<string, unknown> | null;
+            const additionalTenants = (fd?.additional_tenants || fd?.tenants) as Array<{
+              fullName?: string;
+              cpf?: string;
+              rg?: string;
+              birthDate?: string;
+              maritalStatus?: string;
+              phone?: string;
+              email?: string;
+              occupation?: string;
+              employmentType?: string;
+              company?: string;
+              income?: string;
+            }> | undefined;
+
+            if (!additionalTenants || additionalTenants.length === 0) return null;
+
+            return additionalTenants.map((tenant, idx) => (
+              <Card key={idx} className="border-accent/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="w-5 h-5 text-accent" />
+                    Locatário {idx + 2} — {tenant.fullName || "Sem nome"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Nome Completo</p>
+                      <p className="font-medium">{tenant.fullName || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">CPF</p>
+                      <p className="font-medium font-mono">{tenant.cpf ? maskCPF(tenant.cpf) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">RG</p>
+                      <p className="font-medium">{tenant.rg || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Data de Nascimento</p>
+                      <p className="font-medium">
+                        {tenant.birthDate
+                          ? format(new Date(tenant.birthDate), "dd/MM/yyyy")
+                          : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Estado Civil</p>
+                      <p className="font-medium capitalize">{tenant.maritalStatus || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Telefone</p>
+                      <p className="font-medium">{tenant.phone || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">E-mail</p>
+                      <p className="font-medium">{tenant.email || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Ocupação</p>
+                      <p className="font-medium">{tenant.occupation || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tipo de Vínculo</p>
+                      <p className="font-medium">
+                        {tenant.employmentType
+                          ? employmentTypeLabels[tenant.employmentType] || tenant.employmentType
+                          : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Empresa</p>
+                      <p className="font-medium">{tenant.company || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Renda Mensal</p>
+                      <p className="font-medium text-success">{tenant.income || "-"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ));
+          })()}
+
           {/* Observations */}
           {ficha.observations && (
             <Card>

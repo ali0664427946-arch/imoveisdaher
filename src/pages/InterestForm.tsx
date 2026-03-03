@@ -352,14 +352,22 @@ export default function InterestForm() {
                 onClick={async () => {
                   setSendingProtocol(true);
                   try {
-                    const { data } = await supabase.functions.invoke("send-ficha-protocol", {
+                    const { data, error } = await supabase.functions.invoke("send-ficha-protocol", {
                       body: { fichaId: submittedFichaId },
                     });
+                    if (error && error.message?.includes("429")) {
+                      toast.error("Limite de envios atingido. Aguarde alguns minutos antes de tentar novamente.");
+                      return;
+                    }
+                    if (data?.error?.includes("Limite")) {
+                      toast.error(data.error);
+                      return;
+                    }
                     if (data?.success) {
                       setProtocolSentViaWhatsApp(true);
                       toast.success("Protocolo enviado para seu WhatsApp!");
                     } else {
-                      toast.error("Não foi possível enviar. Tente novamente.");
+                      toast.error(data?.error || "Não foi possível enviar. Tente novamente.");
                     }
                   } catch {
                     toast.error("Erro ao enviar. Tente novamente.");

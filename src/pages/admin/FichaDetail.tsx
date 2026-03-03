@@ -464,6 +464,7 @@ export default function FichaDetail() {
           {(() => {
             const fd = formData as Record<string, unknown> | null;
             const additionalTenants = (fd?.additional_tenants || fd?.tenants) as Array<{
+              role?: string;
               fullName?: string;
               cpf?: string;
               rg?: string;
@@ -484,7 +485,7 @@ export default function FichaDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <User className="w-5 h-5 text-accent" />
-                    Locatário {idx + 2} — {tenant.fullName || "Sem nome"}
+                    {tenant.role === "fiador" ? "Fiador" : `Locatário ${idx + 2}`} — {tenant.fullName || "Sem nome"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, User } from "lucide-react";
 
 export interface TenantData {
+  role: string;
   fullName: string;
   cpf: string;
   rg: string;
@@ -47,7 +48,11 @@ export function TenantForm({
             <User className="w-4 h-4 text-accent" />
           </div>
           <h3 className="font-semibold">
-            {isPrimary ? "Locatário Principal" : `Locatário ${index + 1}`}
+            {isPrimary
+              ? "Locatário Principal"
+              : data.role === "fiador"
+                ? `Fiador ${index}`
+                : `Locatário ${index + 1}`}
           </h3>
         </div>
         {onRemove && !isPrimary && (
@@ -62,6 +67,24 @@ export function TenantForm({
           </Button>
         )}
       </div>
+
+      {!isPrimary && (
+        <div className="mb-4">
+          <Label htmlFor={`role-${index}`}>Função *</Label>
+          <Select
+            value={data.role || ""}
+            onValueChange={(v) => onChange("role", v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a função" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="locatario">Locatário (complemento de renda)</SelectItem>
+              <SelectItem value="fiador">Fiador</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">

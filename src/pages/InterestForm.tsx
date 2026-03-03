@@ -62,6 +62,7 @@ interface ResidentsData {
 }
 
 const emptyTenant: Partial<TenantData> = {
+  role: "",
   fullName: "",
   cpf: "",
   rg: "",

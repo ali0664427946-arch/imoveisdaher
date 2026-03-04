@@ -439,6 +439,48 @@ Deno.serve(async (req) => {
       }
 
       if (conversationId) {
+        // For outgoing messages (fromMe), check if already saved by send-whatsapp to avoid duplicates
+        if (isFromMe) {
+          const evolutionMsgId = data.key?.id;
+          if (evolutionMsgId) {
+            // Check if a message with this Evolution ID already exists in provider_payload
+            const { data: existingMsg } = await supabase
+              .from("messages")
+              .select("id")
+              .eq("conversation_id", conversationId)
+              .eq("direction", "outbound")
+              .eq("provider", "evolution")
+              .gte("created_at", new Date(Date.now() - 60000).toISOString()) // last 60s
+              .limit(5);
+
+            if (existingMsg && existingMsg.length > 0) {
+              // Check provider_payload for matching Evolution message ID
+              const { data: matchingMsgs } = await supabase
+                .from("messages")
+                .select("id, provider_payload")
+                .eq("conversation_id", conversationId)
+                .eq("direction", "outbound")
+                .eq("provider", "evolution")
+                .gte("created_at", new Date(Date.now() - 60000).toISOString())
+                .limit(10);
+
+              const isDuplicate = matchingMsgs?.some((m) => {
+                const payload = m.provider_payload as Record<string, unknown> | null;
+                const key = payload?.key as Record<string, unknown> | null;
+                return key?.id === evolutionMsgId;
+              });
+
+              if (isDuplicate) {
+                console.log(`Skipping duplicate outbound message (Evolution ID: ${evolutionMsgId})`);
+                return new Response(
+                  JSON.stringify({ success: true, skipped: "duplicate_outbound" }),
+                  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+              }
+            }
+          }
+        }
+
         // Download and re-host media if needed (images, documents, audio, video)
         if (needsMediaDownload && data.key) {
           mediaUrl = await downloadAndHostMedia(data.key as Record<string, unknown>, messageType, conversationId);

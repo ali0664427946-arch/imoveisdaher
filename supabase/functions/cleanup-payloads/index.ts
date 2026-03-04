@@ -20,9 +20,7 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     const MAX_DURATION_MS = 50000;
 
-    // Use RPC-style: fetch small batches of IDs and null them out one by one
     while (Date.now() - startTime < MAX_DURATION_MS) {
-      // Simple select with limit - avoid complex filters on large jsonb
       const { data: batch, error: fetchError } = await supabase
         .from("messages")
         .select("id")
@@ -32,7 +30,6 @@ Deno.serve(async (req) => {
 
       if (fetchError) {
         console.error("Fetch error:", fetchError.message);
-        // Wait a bit and retry
         await new Promise(r => setTimeout(r, 1000));
         continue;
       }
@@ -42,7 +39,6 @@ Deno.serve(async (req) => {
         break;
       }
 
-      // Update one by one to avoid large transactions
       for (const row of batch) {
         if (Date.now() - startTime > MAX_DURATION_MS) break;
         
@@ -64,6 +60,34 @@ Deno.serve(async (req) => {
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`Cleanup done: ${totalCleaned} in ${elapsed}s`);
+
+    // Save last execution info to integrations_settings
+    try {
+      const resultData = {
+        last_run_at: new Date().toISOString(),
+        cleaned: totalCleaned,
+        elapsed_seconds: elapsed,
+      };
+
+      const { data: existing } = await supabase
+        .from("integrations_settings")
+        .select("id")
+        .eq("key", "cleanup_payloads_last_run")
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("integrations_settings")
+          .update({ value: resultData, updated_at: new Date().toISOString() })
+          .eq("key", "cleanup_payloads_last_run");
+      } else {
+        await supabase
+          .from("integrations_settings")
+          .insert({ key: "cleanup_payloads_last_run", value: resultData });
+      }
+    } catch (saveErr) {
+      console.error("Failed to save cleanup result:", saveErr);
+    }
 
     return new Response(
       JSON.stringify({ success: true, cleaned: totalCleaned, elapsed_seconds: elapsed }),

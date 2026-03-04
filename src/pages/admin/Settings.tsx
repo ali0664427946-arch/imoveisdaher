@@ -58,6 +58,24 @@ export default function Settings() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Query to get last auto cleanup result
+  const { data: lastAutoCleanup } = useQuery({
+    queryKey: ["cleanup-payloads-last-run"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "cleanup_payloads_last_run")
+        .maybeSingle();
+      
+      if (data?.value) {
+        return data.value as { last_run_at: string; cleaned: number; elapsed_seconds: string };
+      }
+      return null;
+    },
+    refetchInterval: 60000,
+  });
+
   // Query to get auto-sync settings
   const { data: autoSyncSettings } = useQuery({
     queryKey: ["olx-auto-sync-settings"],
@@ -761,18 +779,43 @@ export default function Settings() {
                 Limpeza do Banco de Dados
               </CardTitle>
               <CardDescription>
-                Remove payloads pesados das mensagens para liberar espaço no banco de dados (limite de 500MB)
+                Remove payloads pesados das mensagens para liberar espaço no banco de dados (limite de 500MB).
+                Executada automaticamente a cada 30 minutos.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {lastCleanupResult && (
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  <p className="flex items-center gap-1 text-muted-foreground">
-                    <Check className="w-4 h-4 text-green-500" />
-                    Última execução: <strong>{lastCleanupResult.cleaned}</strong> registros limpos em {lastCleanupResult.elapsed}s
-                  </p>
+              {/* Last auto/manual cleanup info */}
+              {(lastCleanupResult || lastAutoCleanup) && (
+                <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
+                  {lastCleanupResult && (
+                    <p className="flex items-center gap-1 text-muted-foreground">
+                      <Check className="w-4 h-4 text-green-500" />
+                      Limpeza manual: <strong>{lastCleanupResult.cleaned}</strong> registros limpos em {lastCleanupResult.elapsed}s
+                    </p>
+                  )}
+                  {lastAutoCleanup && (
+                    <p className="flex items-center gap-1 text-muted-foreground">
+                      <Clock className="w-4 h-4 text-blue-500" />
+                      Última automática: {formatDistanceToNow(new Date(lastAutoCleanup.last_run_at), { addSuffix: true, locale: ptBR })}
+                      {" — "}<strong>{lastAutoCleanup.cleaned}</strong> registros em {lastAutoCleanup.elapsed_seconds}s
+                    </p>
+                  )}
                 </div>
               )}
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Limpeza Automática</p>
+                    <p className="text-xs text-muted-foreground">
+                      Executada a cada 30 minutos automaticamente
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">Ativa</span>
+              </div>
+
               <Button
                 onClick={handleCleanupPayloads}
                 disabled={cleaningPayloads}
@@ -787,12 +830,12 @@ export default function Settings() {
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Executar Limpeza de Payloads
+                    Executar Limpeza Manual Agora
                   </>
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
-                💡 Execute várias vezes ao longo do dia até que todos os payloads sejam limpos.
+                💡 Use o botão acima para limpeza imediata quando precisar liberar espaço rapidamente.
               </p>
             </CardContent>
           </Card>

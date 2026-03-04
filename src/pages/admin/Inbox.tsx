@@ -1032,7 +1032,7 @@ export default function Inbox() {
                       handleSendMessage();
                     }
                   }}
-                  className="flex-1 min-h-[40px] max-h-[120px] resize-none py-2"
+                  className="flex-1 min-h-[40px] max-h-[200px] resize-none py-2"
                   rows={1}
                 />
                 <Button variant="ghost" size="icon">

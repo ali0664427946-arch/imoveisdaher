@@ -846,6 +846,20 @@ export default function InterestForm() {
               )}
             </div>
           </div>
+
+          {/* Link para reenviar documentos */}
+          <div className="mt-6 text-center p-4 bg-secondary/50 rounded-xl">
+            <p className="text-sm text-muted-foreground mb-2">
+              Já enviou sua ficha e precisa complementar documentos?
+            </p>
+            <Link
+              to="/ficha/reenviar"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline"
+            >
+              <FileText className="w-4 h-4" />
+              Reenviar Documentos com seu Protocolo
+            </Link>
+          </div>
         </div>
       </div>
     </div>

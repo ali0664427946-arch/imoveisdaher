@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Phone, MoreVertical, Send, Paperclip, Smile, MessageSquare, Loader2, Check, CheckCheck, Clock as ClockIcon, Pencil, Archive, ArchiveRestore, Filter, Image, FileText, X, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -1021,12 +1022,18 @@ export default function Inbox() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
-                <Input
+                <Textarea
                   placeholder={selectedFile ? "Legenda (opcional)..." : "Digite uma mensagem..."}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                  className="flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="flex-1 min-h-[40px] max-h-[120px] resize-none py-2"
+                  rows={1}
                 />
                 <Button variant="ghost" size="icon">
                   <Smile className="w-4 h-4" />

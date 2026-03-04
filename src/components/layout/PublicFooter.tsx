@@ -57,6 +57,16 @@ export function PublicFooter() {
                   Sobre Nós
                 </Link>
               </li>
+              <li>
+                <Link to="/ficha" className="text-primary-foreground/70 hover:text-accent transition-colors">
+                  Ficha de Interesse
+                </Link>
+              </li>
+              <li>
+                <Link to="/ficha/reenviar" className="text-primary-foreground/70 hover:text-accent transition-colors">
+                  Reenviar Documentos
+                </Link>
+              </li>
             </ul>
           </div>
 

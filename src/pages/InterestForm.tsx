@@ -122,33 +122,63 @@ export default function InterestForm() {
     enabled: !!selectedPropertyId,
   });
 
-  // Search property by slug or ID
+  // Search property by slug, ID, title or description
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; title: string; price: number; purpose: string; neighborhood: string }>>([]);
+  
   const handleSearchProperty = async () => {
     if (!propertyCode.trim()) {
-      toast.error("Digite o código do imóvel");
+      toast.error("Digite o código ou palavra-chave do imóvel");
       return;
     }
     
     setSearchingProperty(true);
+    setSearchResults([]);
     try {
-      // Try to find by slug first, then by ID
-      const { data, error } = await supabase
+      const term = propertyCode.trim();
+      
+      // Try exact match by slug or ID first
+      const { data: exactMatch } = await supabase
         .from("properties")
         .select("id, title, price, purpose, neighborhood")
-        .or(`slug.eq.${propertyCode.trim()},id.eq.${propertyCode.trim()}`)
+        .or(`slug.eq.${term},id.eq.${term}`)
         .eq("status", "active")
         .limit(1)
-        .single();
+        .maybeSingle();
       
-      if (error || !data) {
-        toast.error("Imóvel não encontrado", {
-          description: "Verifique o código e tente novamente",
+      if (exactMatch) {
+        setSelectedPropertyId(exactMatch.id);
+        setSearchResults([]);
+        toast.success("Imóvel encontrado!");
+        return;
+      }
+      
+      // Search by title or description (partial match)
+      const { data: textResults, error } = await supabase
+        .from("properties")
+        .select("id, title, price, purpose, neighborhood")
+        .eq("status", "active")
+        .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      
+      if (!textResults || textResults.length === 0) {
+        toast.error("Nenhum imóvel encontrado", {
+          description: "Tente outro código ou palavra-chave",
         });
         return;
       }
       
-      setSelectedPropertyId(data.id);
-      toast.success("Imóvel encontrado!");
+      if (textResults.length === 1) {
+        setSelectedPropertyId(textResults[0].id);
+        toast.success("Imóvel encontrado!");
+        return;
+      }
+      
+      // Multiple results — show list
+      setSearchResults(textResults);
+      toast.info(`${textResults.length} imóveis encontrados. Selecione um abaixo.`);
     } catch (error) {
       toast.error("Erro ao buscar imóvel");
     } finally {
@@ -511,13 +541,13 @@ export default function InterestForm() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-muted-foreground">
-                        Digite o código do imóvel que você deseja alugar ou comprar.
+                        Digite o código ou palavra-chave do imóvel (ex: bairro, tipo).
                       </p>
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Código do imóvel (ex: apartamento-centro-001)"
+                          placeholder="Código ou palavra-chave (ex: Copacabana, apartamento...)"
                           value={propertyCode}
-                          onChange={(e) => setPropertyCode(e.target.value)}
+                          onChange={(e) => { setPropertyCode(e.target.value); setSearchResults([]); }}
                           onKeyDown={(e) => e.key === "Enter" && handleSearchProperty()}
                         />
                         <Button
@@ -532,6 +562,29 @@ export default function InterestForm() {
                           )}
                         </Button>
                       </div>
+                      
+                      {/* Search Results */}
+                      {searchResults.length > 0 && (
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {searchResults.map((result) => (
+                            <button
+                              key={result.id}
+                              type="button"
+                              className="w-full text-left p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors"
+                              onClick={() => {
+                                setSelectedPropertyId(result.id);
+                                setSearchResults([]);
+                              }}
+                            >
+                              <p className="font-medium">{result.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {result.neighborhood} • {formatPrice(result.price, result.purpose)}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
                       <p className="text-xs text-muted-foreground">
                         Você pode encontrar o código na página do imóvel ou com seu corretor.
                         Caso não tenha o código, pode prosseguir sem selecionar um imóvel específico.

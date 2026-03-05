@@ -541,13 +541,13 @@ export default function InterestForm() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-muted-foreground">
-                        Digite o código do imóvel que você deseja alugar ou comprar.
+                        Digite o código ou palavra-chave do imóvel (ex: bairro, tipo).
                       </p>
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Código do imóvel (ex: apartamento-centro-001)"
+                          placeholder="Código ou palavra-chave (ex: Copacabana, apartamento...)"
                           value={propertyCode}
-                          onChange={(e) => setPropertyCode(e.target.value)}
+                          onChange={(e) => { setPropertyCode(e.target.value); setSearchResults([]); }}
                           onKeyDown={(e) => e.key === "Enter" && handleSearchProperty()}
                         />
                         <Button
@@ -562,6 +562,29 @@ export default function InterestForm() {
                           )}
                         </Button>
                       </div>
+                      
+                      {/* Search Results */}
+                      {searchResults.length > 0 && (
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {searchResults.map((result) => (
+                            <button
+                              key={result.id}
+                              type="button"
+                              className="w-full text-left p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors"
+                              onClick={() => {
+                                setSelectedPropertyId(result.id);
+                                setSearchResults([]);
+                              }}
+                            >
+                              <p className="font-medium">{result.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {result.neighborhood} • {formatPrice(result.price, result.purpose)}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
                       <p className="text-xs text-muted-foreground">
                         Você pode encontrar o código na página do imóvel ou com seu corretor.
                         Caso não tenha o código, pode prosseguir sem selecionar um imóvel específico.

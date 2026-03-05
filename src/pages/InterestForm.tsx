@@ -122,33 +122,63 @@ export default function InterestForm() {
     enabled: !!selectedPropertyId,
   });
 
-  // Search property by slug or ID
+  // Search property by slug, ID, title or description
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; title: string; price: number; purpose: string; neighborhood: string }>>([]);
+  
   const handleSearchProperty = async () => {
     if (!propertyCode.trim()) {
-      toast.error("Digite o código do imóvel");
+      toast.error("Digite o código ou palavra-chave do imóvel");
       return;
     }
     
     setSearchingProperty(true);
+    setSearchResults([]);
     try {
-      // Try to find by slug first, then by ID
-      const { data, error } = await supabase
+      const term = propertyCode.trim();
+      
+      // Try exact match by slug or ID first
+      const { data: exactMatch } = await supabase
         .from("properties")
         .select("id, title, price, purpose, neighborhood")
-        .or(`slug.eq.${propertyCode.trim()},id.eq.${propertyCode.trim()}`)
+        .or(`slug.eq.${term},id.eq.${term}`)
         .eq("status", "active")
         .limit(1)
-        .single();
+        .maybeSingle();
       
-      if (error || !data) {
-        toast.error("Imóvel não encontrado", {
-          description: "Verifique o código e tente novamente",
+      if (exactMatch) {
+        setSelectedPropertyId(exactMatch.id);
+        setSearchResults([]);
+        toast.success("Imóvel encontrado!");
+        return;
+      }
+      
+      // Search by title or description (partial match)
+      const { data: textResults, error } = await supabase
+        .from("properties")
+        .select("id, title, price, purpose, neighborhood")
+        .eq("status", "active")
+        .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      
+      if (!textResults || textResults.length === 0) {
+        toast.error("Nenhum imóvel encontrado", {
+          description: "Tente outro código ou palavra-chave",
         });
         return;
       }
       
-      setSelectedPropertyId(data.id);
-      toast.success("Imóvel encontrado!");
+      if (textResults.length === 1) {
+        setSelectedPropertyId(textResults[0].id);
+        toast.success("Imóvel encontrado!");
+        return;
+      }
+      
+      // Multiple results — show list
+      setSearchResults(textResults);
+      toast.info(`${textResults.length} imóveis encontrados. Selecione um abaixo.`);
     } catch (error) {
       toast.error("Erro ao buscar imóvel");
     } finally {

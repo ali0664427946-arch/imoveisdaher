@@ -507,11 +507,9 @@ export default function Inbox() {
     setIsSendingMedia(true);
 
     try {
-      // 0. Convert to sticker or compress image
+      // 0. Compress image if applicable
       let fileToUpload = selectedFile;
-      if (sendAsSticker && selectedFile.type.startsWith("image/")) {
-        fileToUpload = await convertToWebPSticker(selectedFile);
-      } else if (selectedFile.type.startsWith("image/")) {
+      if (selectedFile.type.startsWith("image/")) {
         const originalSize = selectedFile.size;
         fileToUpload = await compressImage(selectedFile, {
           maxWidth: 1920,

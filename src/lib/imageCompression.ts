@@ -108,6 +108,66 @@ export async function compressImage(
 }
 
 /**
+ * Convert an image to WebP sticker format (max 512x512)
+ */
+export async function convertToWebPSticker(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    img.onload = () => {
+      try {
+        let { width, height } = img;
+        const maxSize = 512;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Falha ao converter para WebP"));
+              return;
+            }
+            const stickerFile = new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+              type: "image/webp",
+              lastModified: Date.now(),
+            });
+            console.log(`Sticker converted: ${formatFileSize(file.size)} → ${formatFileSize(stickerFile.size)} (${width}x${height})`);
+            resolve(stickerFile);
+          },
+          "image/webp",
+          0.9
+        );
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    img.onerror = () => reject(new Error("Falha ao carregar imagem"));
+
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target?.result as string; };
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Format file size for display
  */
 export function formatFileSize(bytes: number): string {

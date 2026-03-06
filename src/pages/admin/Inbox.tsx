@@ -961,7 +961,7 @@ export default function Inbox() {
                         ) : null}
 
                         {/* Text content - hide if it's just a media label */}
-                        {msg.content && !(msg.media_url && /^(📷 Imagem|📄 Documento|🎵 Áudio|🎬 Vídeo|📎 )/.test(msg.content)) && (
+                        {msg.content && !(msg.media_url && /^(📷 Imagem|📄 Documento|🎵 Áudio|🎬 Vídeo|🏷️ Sticker|📎 )/.test(msg.content)) && (
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         )}
 

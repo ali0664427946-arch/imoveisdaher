@@ -1031,16 +1031,6 @@ export default function Inbox() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
-                {selectedFile && selectedFile.type.startsWith("image/") && (
-                  <Button
-                    variant={sendAsSticker ? "default" : "ghost"}
-                    size="icon"
-                    onClick={() => setSendAsSticker(!sendAsSticker)}
-                    title={sendAsSticker ? "Enviar como sticker (ativo)" : "Enviar como sticker"}
-                  >
-                    <Sticker className="w-4 h-4" />
-                  </Button>
-                )}
                 <Textarea
                   placeholder={selectedFile ? "Legenda (opcional)..." : "Digite uma mensagem..."}
                   value={messageText}

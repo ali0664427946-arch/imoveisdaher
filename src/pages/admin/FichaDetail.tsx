@@ -423,7 +423,11 @@ export default function FichaDetail() {
                     const fd = formData as Record<string, unknown> | null;
                     const addTenants = (fd?.additional_tenants || fd?.tenants) as Array<{ income?: string }> | undefined;
                     const additionalIncomes = (addTenants || [])
-                      .map(t => parseFloat((t.income || "0").replace(/[^\d.,]/g, "").replace(",", ".")))
+                      .map(t => {
+                        const raw = t.income;
+                        if (typeof raw === "number") return raw;
+                        return parseFloat(String(raw || "0").replace(/[^\d.,]/g, "").replace(",", "."));
+                      })
                       .filter(v => !isNaN(v));
                     const totalIncome = (ficha.income || 0) + additionalIncomes.reduce((s, v) => s + v, 0);
                     if (additionalIncomes.length === 0) return null;

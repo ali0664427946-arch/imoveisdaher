@@ -884,7 +884,16 @@ export default function Inbox() {
                         }`}
                       >
                         {/* Media rendering */}
-                        {msg.media_url && (msg.message_type === "image" || msg.media_url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) ? (
+                        {msg.media_url && (msg.message_type === "sticker" || msg.media_url.match(/sticker/i)) ? (
+                          <div className="mb-1">
+                            <img
+                              src={msg.media_url}
+                              alt="Sticker"
+                              className="max-w-[180px] max-h-[180px] object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : msg.media_url && (msg.message_type === "image" || msg.media_url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) ? (
                           <div
                             className="mb-1 cursor-pointer group relative"
                             onClick={() => setPreviewMedia({ url: msg.media_url!, type: "image", name: msg.content || "Imagem" })}

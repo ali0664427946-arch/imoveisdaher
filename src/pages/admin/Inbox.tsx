@@ -541,7 +541,7 @@ export default function Inbox() {
 
       // 3. Determine media type
       const isImage = selectedFile.type.startsWith("image/");
-      const mediaType = sendAsSticker ? "sticker" : isImage ? "image" : "document";
+      const mediaType = isImage ? "image" : "document";
 
       // 4. Send via edge function
       const { data, error } = await supabase.functions.invoke("send-whatsapp-media", {

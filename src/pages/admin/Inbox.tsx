@@ -483,7 +483,6 @@ export default function Inbox() {
   const clearSelectedFile = () => {
     setSelectedFile(null);
     setFilePreview(null);
-    setSendAsSticker(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

@@ -176,20 +176,31 @@ Deno.serve(async (req) => {
     await antiBanDelay();
 
     // Send media via Evolution API
-    const apiUrl = `${baseUrl}/message/sendMedia/${instanceName}`;
+    const isSticker = mediaType === "sticker";
+    const apiUrl = isSticker
+      ? `${baseUrl}/message/sendSticker/${instanceName}`
+      : `${baseUrl}/message/sendMedia/${instanceName}`;
     console.log(`Sending ${mediaType} to ${validPhone} via ${apiUrl}`);
 
-    const mediaBody: Record<string, unknown> = {
-      number: validPhone,
-      mediatype: mediaType,
-      mimetype: mimeType,
-      media: mediaUrl,
-    };
+    let evolutionBody: Record<string, unknown>;
 
-    if (caption) mediaBody.caption = caption;
-    if (fileName && mediaType === "document") mediaBody.fileName = fileName;
+    if (isSticker) {
+      evolutionBody = {
+        number: validPhone,
+        sticker: mediaUrl,
+      };
+    } else {
+      evolutionBody = {
+        number: validPhone,
+        mediatype: mediaType,
+        mimetype: mimeType,
+        media: mediaUrl,
+      };
+      if (caption) evolutionBody.caption = caption;
+      if (fileName && mediaType === "document") evolutionBody.fileName = fileName;
+    }
 
-    console.log("Evolution API media body:", JSON.stringify(mediaBody));
+    console.log("Evolution API body:", JSON.stringify(evolutionBody));
 
     const evolutionResponse = await fetch(apiUrl, {
       method: "POST",
@@ -197,7 +208,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         apikey: evolutionKey,
       },
-      body: JSON.stringify(mediaBody),
+      body: JSON.stringify(evolutionBody),
     });
 
     const evolutionData = await evolutionResponse.json();

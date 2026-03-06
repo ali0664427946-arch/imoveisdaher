@@ -9,7 +9,7 @@ const corsHeaders = {
 interface SendMediaRequest {
   phone: string;
   mediaUrl: string;
-  mediaType: "image" | "document";
+  mediaType: "image" | "document" | "sticker";
   mimeType: string;
   fileName?: string;
   caption?: string;

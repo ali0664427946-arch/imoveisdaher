@@ -108,6 +108,7 @@ export default function Inbox() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
+  const [sendAsSticker, setSendAsSticker] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "pdf" | "video" | "audio" | "other"; name?: string } | null>(null);
   const [showArchivedMessages, setShowArchivedMessages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

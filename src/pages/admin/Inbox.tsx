@@ -561,7 +561,7 @@ export default function Inbox() {
 
       toast({
         title: "Arquivo enviado! ✅",
-        description: sendAsSticker ? "Sticker enviado com sucesso." : isImage ? "Imagem enviada com sucesso." : "Documento enviado com sucesso.",
+        description: isImage ? "Imagem enviada com sucesso." : "Documento enviado com sucesso.",
       });
 
       clearSelectedFile();

@@ -19,8 +19,7 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 import { EditLeadDialog } from "@/components/leads/EditLeadDialog";
-import { compressImage, convertToWebPSticker, formatFileSize } from "@/lib/imageCompression";
-import { Sticker } from "lucide-react";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
 import { TemplateSelector } from "@/components/templates/TemplateSelector";
 import { MediaPreviewDialog } from "@/components/inbox/MediaPreviewDialog";
 import { useArchivedMessages } from "@/hooks/useArchivedMessages";
@@ -108,7 +107,6 @@ export default function Inbox() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
-  const [sendAsSticker, setSendAsSticker] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "pdf" | "video" | "audio" | "other"; name?: string } | null>(null);
   const [showArchivedMessages, setShowArchivedMessages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -485,7 +483,6 @@ export default function Inbox() {
   const clearSelectedFile = () => {
     setSelectedFile(null);
     setFilePreview(null);
-    setSendAsSticker(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -510,11 +507,9 @@ export default function Inbox() {
     setIsSendingMedia(true);
 
     try {
-      // 0. Convert to sticker or compress image
+      // 0. Compress image if applicable
       let fileToUpload = selectedFile;
-      if (sendAsSticker && selectedFile.type.startsWith("image/")) {
-        fileToUpload = await convertToWebPSticker(selectedFile);
-      } else if (selectedFile.type.startsWith("image/")) {
+      if (selectedFile.type.startsWith("image/")) {
         const originalSize = selectedFile.size;
         fileToUpload = await compressImage(selectedFile, {
           maxWidth: 1920,
@@ -546,7 +541,7 @@ export default function Inbox() {
 
       // 3. Determine media type
       const isImage = selectedFile.type.startsWith("image/");
-      const mediaType = sendAsSticker ? "sticker" : isImage ? "image" : "document";
+      const mediaType = isImage ? "image" : "document";
 
       // 4. Send via edge function
       const { data, error } = await supabase.functions.invoke("send-whatsapp-media", {
@@ -566,7 +561,7 @@ export default function Inbox() {
 
       toast({
         title: "Arquivo enviado! ✅",
-        description: sendAsSticker ? "Sticker enviado com sucesso." : isImage ? "Imagem enviada com sucesso." : "Documento enviado com sucesso.",
+        description: isImage ? "Imagem enviada com sucesso." : "Documento enviado com sucesso.",
       });
 
       clearSelectedFile();
@@ -1036,16 +1031,6 @@ export default function Inbox() {
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
-                {selectedFile && selectedFile.type.startsWith("image/") && (
-                  <Button
-                    variant={sendAsSticker ? "default" : "ghost"}
-                    size="icon"
-                    onClick={() => setSendAsSticker(!sendAsSticker)}
-                    title={sendAsSticker ? "Enviar como sticker (ativo)" : "Enviar como sticker"}
-                  >
-                    <Sticker className="w-4 h-4" />
-                  </Button>
-                )}
                 <Textarea
                   placeholder={selectedFile ? "Legenda (opcional)..." : "Digite uma mensagem..."}
                   value={messageText}

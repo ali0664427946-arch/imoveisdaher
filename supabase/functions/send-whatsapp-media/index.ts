@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
     }
 
     // Save message
-    const messageContent = caption || (mediaType === "image" ? "📷 Imagem" : "📄 Documento");
+    const messageContent = caption || (mediaType === "sticker" ? "🏷️ Sticker" : mediaType === "image" ? "📷 Imagem" : "📄 Documento");
     
     if (targetConversationId) {
       const { error: msgError } = await adminClient.from("messages").insert({

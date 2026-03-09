@@ -148,21 +148,18 @@ export function DocumentUploader({
 
       // If fichaId exists, save to database
       if (fichaId) {
-        const { data: savedDoc, error: dbError } = await supabase
+        const { error: dbError } = await supabase
           .from("documents")
           .insert({
             ficha_id: fichaId,
             category: prefixedCategory,
-            file_name: file.name, // Keep original name
+            file_name: file.name,
             file_url: urlData.publicUrl,
             file_size: processedFile.size,
             mime_type: processedFile.type,
-          })
-          .select()
-          .single();
+          });
 
         if (dbError) throw dbError;
-        newDoc.id = savedDoc.id;
       }
 
       // Update documents list

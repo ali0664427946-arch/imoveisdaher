@@ -220,6 +220,19 @@ Deno.serve(async (req) => {
 
     console.log(`Valid WhatsApp number found: ${validPhone}`);
 
+    // Mark ficha as whatsapp_valid = true if fichaId provided
+    if (fichaId) {
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      await adminClient
+        .from("fichas")
+        .update({ whatsapp_valid: true })
+        .eq("id", fichaId);
+      console.log(`Marked ficha ${fichaId} as whatsapp_valid=true`);
+    }
+
     // Apply anti-ban delay (unless skipped for scheduled messages)
     if (!skipDelay) {
       await antiBanDelay();

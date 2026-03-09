@@ -8,6 +8,7 @@ import { LastMessagesCards } from "@/components/integration-status/LastMessagesC
 import { WebhookInfoCard } from "@/components/integration-status/WebhookInfoCard";
 import { GroupsSyncCard } from "@/components/integration-status/GroupsSyncCard";
 import { OLXIntegrationSection } from "@/components/integration-status/OLXIntegrationSection";
+import { SendRateMonitorCard } from "@/components/integration-status/SendRateMonitorCard";
 
 export default function IntegrationStatus() {
   const { toast } = useToast();

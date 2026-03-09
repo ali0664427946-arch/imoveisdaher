@@ -193,11 +193,26 @@ Deno.serve(async (req) => {
 
     if (!validPhone) {
       console.error(`No valid WhatsApp found for phone: ${phone}`);
+
+      // Mark ficha as whatsapp_valid = false if fichaId provided
+      if (fichaId) {
+        const adminClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await adminClient
+          .from("fichas")
+          .update({ whatsapp_valid: false })
+          .eq("id", fichaId);
+        console.log(`Marked ficha ${fichaId} as whatsapp_valid=false`);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: "Número não encontrado no WhatsApp. Verifique se o número está correto e inclui o DDD.",
-          details: "O sistema tentou DDDs comuns mas não encontrou uma conta WhatsApp válida."
+          details: "O sistema tentou DDDs comuns mas não encontrou uma conta WhatsApp válida.",
+          whatsapp_valid: false,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

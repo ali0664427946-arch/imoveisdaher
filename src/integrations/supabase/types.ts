@@ -740,6 +740,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_send_log: {
+        Row: {
+          created_at: string
+          delay_ms: number | null
+          error_message: string | null
+          function_name: string
+          id: string
+          message_preview: string | null
+          metadata: Json | null
+          phone: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          delay_ms?: number | null
+          error_message?: string | null
+          function_name: string
+          id?: string
+          message_preview?: string | null
+          metadata?: Json | null
+          phone: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          delay_ms?: number | null
+          error_message?: string | null
+          function_name?: string
+          id?: string
+          message_preview?: string | null
+          metadata?: Json | null
+          phone?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -173,7 +173,9 @@ Deno.serve(async (req) => {
     console.log(`Valid phone: ${validPhone}`);
 
     // Anti-ban delay
-    await antiBanDelay();
+    const delayMs = Math.floor(Math.random() * 7000) + 2000;
+    console.log(`Anti-ban delay: ${delayMs}ms`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
 
     // Send media via Evolution API
     const isSticker = mediaType === "sticker";

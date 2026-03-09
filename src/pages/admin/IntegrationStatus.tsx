@@ -45,6 +45,7 @@ export default function IntegrationStatus() {
       {/* WhatsApp Section */}
       <WhatsAppConnectionCard />
       <MessageStatsGrid />
+      <SendRateMonitorCard />
       <LastMessagesCards />
 
       {/* Webhook */}

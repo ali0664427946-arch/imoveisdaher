@@ -234,8 +234,11 @@ Deno.serve(async (req) => {
     }
 
     // Apply anti-ban delay (unless skipped for scheduled messages)
+    let delayApplied = 0;
     if (!skipDelay) {
-      await antiBanDelay();
+      delayApplied = Math.floor(Math.random() * 7000) + 2000;
+      console.log(`Anti-ban delay: ${delayApplied}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delayApplied));
     }
 
     console.log(`Sending WhatsApp message to ${validPhone}`);

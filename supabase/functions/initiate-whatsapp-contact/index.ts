@@ -195,6 +195,16 @@ Em breve um de nossos corretores entrará em contato para te ajudar!
 
     const evolutionData = await evolutionResponse.json();
 
+    // Log to centralized send log
+    await supabase.from("whatsapp_send_log").insert({
+      function_name: "initiate-whatsapp-contact",
+      phone: sendPhone,
+      status: evolutionResponse.ok ? "success" : "failed",
+      delay_ms: null, // delay tracked separately via antiBanDelay
+      error_message: evolutionResponse.ok ? null : (evolutionData?.response?.message || "API error"),
+      message_preview: `Contato inicial: ${propertyTitle}`.substring(0, 80),
+    }).then(({ error: logErr }) => { if (logErr) console.error("Send log error:", logErr); });
+
     if (!evolutionResponse.ok) {
       console.error("Evolution API error:", evolutionData);
       // Still save the message even if sending failed

@@ -173,7 +173,9 @@ Deno.serve(async (req) => {
     console.log(`Valid phone: ${validPhone}`);
 
     // Anti-ban delay
-    await antiBanDelay();
+    const delayMs = Math.floor(Math.random() * 7000) + 2000;
+    console.log(`Anti-ban delay: ${delayMs}ms`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
 
     // Send media via Evolution API
     const isSticker = mediaType === "sticker";
@@ -212,6 +214,17 @@ Deno.serve(async (req) => {
     });
 
     const evolutionData = await evolutionResponse.json();
+
+    // Log to centralized send log
+    const logClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    await logClient.from("whatsapp_send_log").insert({
+      function_name: "send-whatsapp-media",
+      phone: validPhone,
+      status: evolutionResponse.ok ? "success" : "failed",
+      delay_ms: delayMs,
+      error_message: evolutionResponse.ok ? null : (evolutionData.message || "API error"),
+      message_preview: `[${mediaType}] ${caption || fileName || "media"}`.substring(0, 80),
+    }).then(({ error }) => { if (error) console.error("Send log error:", error); });
 
     if (!evolutionResponse.ok) {
       console.error("Evolution API media error:", JSON.stringify(evolutionData));

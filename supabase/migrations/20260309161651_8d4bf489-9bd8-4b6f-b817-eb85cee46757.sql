@@ -1,0 +1,1 @@
+ALTER TABLE public.fichas ADD COLUMN whatsapp_valid boolean DEFAULT NULL;

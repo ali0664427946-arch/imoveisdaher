@@ -238,6 +238,7 @@ export type Database = {
           rg: string | null
           status: Database["public"]["Enums"]["ficha_status"]
           updated_at: string
+          whatsapp_valid: boolean | null
         }
         Insert: {
           address_cep?: string | null
@@ -274,6 +275,7 @@ export type Database = {
           rg?: string | null
           status?: Database["public"]["Enums"]["ficha_status"]
           updated_at?: string
+          whatsapp_valid?: boolean | null
         }
         Update: {
           address_cep?: string | null
@@ -310,6 +312,7 @@ export type Database = {
           rg?: string | null
           status?: Database["public"]["Enums"]["ficha_status"]
           updated_at?: string
+          whatsapp_valid?: boolean | null
         }
         Relationships: [
           {

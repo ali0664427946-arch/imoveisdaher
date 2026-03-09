@@ -125,6 +125,11 @@ _Daher Imóveis_`;
       }
     }
 
+    // Anti-ban delay: random 2-9 seconds
+    const delayMs = Math.floor(Math.random() * 7000) + 2000;
+    console.log(`Anti-ban delay: ${delayMs}ms`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
     // Send message
     const sendResponse = await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
       method: "POST",

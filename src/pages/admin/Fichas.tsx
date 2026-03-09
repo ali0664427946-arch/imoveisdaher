@@ -220,7 +220,14 @@ export default function Fichas() {
                     <TableCell className="text-muted-foreground">
                       {maskCPF(ficha.cpf)}
                     </TableCell>
-                    <TableCell>{ficha.phone}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {ficha.phone}
+                        {(ficha as any).whatsapp_valid === false && (
+                          <span className="inline-block w-2 h-2 rounded-full bg-destructive" title="Sem WhatsApp" />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {property?.title || property?.neighborhood || "-"}
                     </TableCell>

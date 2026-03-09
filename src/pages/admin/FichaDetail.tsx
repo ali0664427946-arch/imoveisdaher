@@ -307,9 +307,21 @@ export default function FichaDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div>
+              <div>
                     <p className="text-sm text-muted-foreground">Telefone/WhatsApp</p>
-                    <p className="font-medium">{ficha.phone}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{ficha.phone}</p>
+                      {(ficha as any).whatsapp_valid === false && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                          Sem WhatsApp
+                        </Badge>
+                      )}
+                      {(ficha as any).whatsapp_valid === true && (
+                        <Badge variant="approved" className="text-[10px] px-1.5 py-0">
+                          WhatsApp ✓
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"

@@ -149,8 +149,6 @@ _Daher Imóveis_`;
       message_preview: `Protocolo ${ficha.protocol}`,
     }).then(({ error }) => { if (error) console.error("Send log error:", error); });
 
-    const sendData = await sendResponse.json();
-
     if (!sendResponse.ok) {
       console.error("Evolution API error:", sendData);
       return new Response(

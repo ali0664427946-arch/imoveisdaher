@@ -92,6 +92,16 @@ Deno.serve(async (req) => {
 
       const data = await res.json();
 
+      // Log to centralized send log
+      await supabase.from("whatsapp_send_log").insert({
+        function_name: "process-scheduled-messages",
+        phone,
+        status: res.ok ? "success" : "failed",
+        delay_ms: null,
+        error_message: res.ok ? null : (data.message || "API error"),
+        message_preview: msg.message.substring(0, 80),
+      }).then(({ error: logErr }) => { if (logErr) console.error("Send log error:", logErr); });
+
       if (res.ok) {
         await supabase.from("scheduled_messages").update({
           status: "sent",

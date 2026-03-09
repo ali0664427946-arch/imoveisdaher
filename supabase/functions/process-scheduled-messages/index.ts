@@ -190,7 +190,10 @@ Deno.serve(async (req) => {
         }).eq("id", msg.id);
       }
 
-      await new Promise((r) => setTimeout(r, 500));
+      // Anti-ban delay: random 2-9 seconds between each message
+      const delayMs = Math.floor(Math.random() * 7000) + 2000;
+      console.log(`Anti-ban delay: ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
     }
 
     return new Response(

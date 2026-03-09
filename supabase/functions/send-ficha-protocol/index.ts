@@ -139,6 +139,18 @@ _Daher Imóveis_`;
 
     const sendData = await sendResponse.json();
 
+    // Log to centralized send log
+    await supabase.from("whatsapp_send_log").insert({
+      function_name: "send-ficha-protocol",
+      phone: validPhone,
+      status: sendResponse.ok ? "success" : "failed",
+      delay_ms: delayMs,
+      error_message: sendResponse.ok ? null : (sendData.message || "API error"),
+      message_preview: `Protocolo ${ficha.protocol}`,
+    }).then(({ error }) => { if (error) console.error("Send log error:", error); });
+
+    const sendData = await sendResponse.json();
+
     if (!sendResponse.ok) {
       console.error("Evolution API error:", sendData);
       return new Response(

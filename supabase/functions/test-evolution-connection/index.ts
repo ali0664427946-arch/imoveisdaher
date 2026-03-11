@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     }
 
     // Get Evolution API credentials
-    const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+    const evolutionUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/+$/, "");
     const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
     const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
 

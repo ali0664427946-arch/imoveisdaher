@@ -11,6 +11,7 @@ export function AdminLayout() {
   
   // Enable realtime notifications for admin users
   useRealtimeNotifications();
+  useSendRateAlert();
 
   if (loading) {
     return (

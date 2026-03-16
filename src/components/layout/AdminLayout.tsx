@@ -4,12 +4,14 @@ import { AdminSidebar } from "./AdminSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Loader2 } from "lucide-react";
 import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
+import { useSendRateAlert } from "@/hooks/useSendRateAlert";
 
 export function AdminLayout() {
   const { user, loading } = useAuth();
   
   // Enable realtime notifications for admin users
   useRealtimeNotifications();
+  useSendRateAlert();
 
   if (loading) {
     return (

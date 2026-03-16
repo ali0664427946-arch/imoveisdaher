@@ -186,6 +186,35 @@ export default function Inbox() {
     retry: 2,
   });
 
+  // Fetch all pending scheduled messages to show indicators in conversation list
+  const { data: allPendingScheduled = [] } = useQuery({
+    queryKey: ["all-pending-scheduled"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scheduled_messages")
+        .select("id, lead_id, conversation_id, phone")
+        .eq("status", "pending");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Build a Set of conversation IDs that have pending scheduled messages
+  const conversationsWithScheduled = new Set<string>();
+  for (const conv of conversations) {
+    const hasMatch = allPendingScheduled.some((sm) => {
+      if (sm.conversation_id === conv.id) return true;
+      if (sm.lead_id && sm.lead_id === conv.lead?.id) return true;
+      if (sm.phone && conv.lead?.phone) {
+        const smPhone = sm.phone.replace(/\D/g, "");
+        const convPhone = conv.lead.phone.replace(/\D/g, "");
+        if (smPhone === convPhone || smPhone === `55${convPhone}` || `55${smPhone}` === convPhone) return true;
+      }
+      return false;
+    });
+    if (hasMatch) conversationsWithScheduled.add(conv.id);
+  }
+
   // Fetch messages with infinite pagination (load older messages on scroll up)
   const {
     data: messagesData,
@@ -394,21 +423,46 @@ export default function Inbox() {
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
-  // Fetch pending scheduled messages for the selected lead
+  // Fetch pending scheduled messages for the selected lead (by lead_id, phone, or conversation_id)
   const { data: leadScheduledMessages = [] } = useQuery({
-    queryKey: ["lead-scheduled-messages", selectedConversation?.lead?.id],
+    queryKey: ["lead-scheduled-messages", selectedConversation?.lead?.id, selectedConversation?.lead?.phone, selectedConversation?.id],
     queryFn: async () => {
-      if (!selectedConversation?.lead?.id) return [];
+      if (!selectedConversation) return [];
+      
+      const filters: string[] = [];
+      if (selectedConversation.lead?.id) {
+        filters.push(`lead_id.eq.${selectedConversation.lead.id}`);
+      }
+      if (selectedConversation.id) {
+        filters.push(`conversation_id.eq.${selectedConversation.id}`);
+      }
+      if (selectedConversation.lead?.phone) {
+        const rawPhone = selectedConversation.lead.phone.replace(/\D/g, "");
+        filters.push(`phone.eq.${rawPhone}`);
+        if (!rawPhone.startsWith("55")) {
+          filters.push(`phone.eq.55${rawPhone}`);
+        }
+      }
+      
+      if (filters.length === 0) return [];
+      
       const { data, error } = await supabase
         .from("scheduled_messages")
         .select("id, scheduled_at, message")
-        .eq("lead_id", selectedConversation.lead.id)
+        .or(filters.join(","))
         .eq("status", "pending")
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
-      return data || [];
+      
+      // Deduplicate by id
+      const seen = new Set<string>();
+      return (data || []).filter(m => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
     },
-    enabled: !!selectedConversation?.lead?.id,
+    enabled: !!selectedConversation,
   });
 
   const filteredConversations = conversations.filter((conv) => {
@@ -674,10 +728,13 @@ export default function Inbox() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm truncate min-w-0 flex-1">
+                      <span className="font-medium text-sm truncate min-w-0 flex-1 flex items-center gap-1">
                         {conv.is_group && conv.group_name 
                           ? conv.group_name 
                           : conv.lead?.name || "Lead desconhecido"}
+                        {conversationsWithScheduled.has(conv.id) && (
+                          <ClockIcon className="w-3 h-3 text-amber-500 shrink-0" />
+                        )}
                       </span>
                       <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
                         {formatTime(conv.last_message_at)}

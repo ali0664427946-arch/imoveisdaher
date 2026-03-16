@@ -186,6 +186,35 @@ export default function Inbox() {
     retry: 2,
   });
 
+  // Fetch all pending scheduled messages to show indicators in conversation list
+  const { data: allPendingScheduled = [] } = useQuery({
+    queryKey: ["all-pending-scheduled"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scheduled_messages")
+        .select("id, lead_id, conversation_id, phone")
+        .eq("status", "pending");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Build a Set of conversation IDs that have pending scheduled messages
+  const conversationsWithScheduled = new Set<string>();
+  for (const conv of conversations) {
+    const hasMatch = allPendingScheduled.some((sm) => {
+      if (sm.conversation_id === conv.id) return true;
+      if (sm.lead_id && sm.lead_id === conv.lead?.id) return true;
+      if (sm.phone && conv.lead?.phone) {
+        const smPhone = sm.phone.replace(/\D/g, "");
+        const convPhone = conv.lead.phone.replace(/\D/g, "");
+        if (smPhone === convPhone || smPhone === `55${convPhone}` || `55${smPhone}` === convPhone) return true;
+      }
+      return false;
+    });
+    if (hasMatch) conversationsWithScheduled.add(conv.id);
+  }
+
   // Fetch messages with infinite pagination (load older messages on scroll up)
   const {
     data: messagesData,

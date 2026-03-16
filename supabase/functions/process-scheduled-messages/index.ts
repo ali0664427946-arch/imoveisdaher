@@ -18,9 +18,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
-    const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
-    const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+    const evolutionUrl = (Deno.env.get("EVOLUTION_API_URL") || "").replace(/\/+$/, "").trim();
+    const evolutionKey = (Deno.env.get("EVOLUTION_API_KEY") || "").trim();
+    const instanceName = (Deno.env.get("EVOLUTION_INSTANCE_NAME") || "").trim();
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       return new Response(

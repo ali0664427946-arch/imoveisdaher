@@ -728,10 +728,13 @@ export default function Inbox() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm truncate min-w-0 flex-1">
+                      <span className="font-medium text-sm truncate min-w-0 flex-1 flex items-center gap-1">
                         {conv.is_group && conv.group_name 
                           ? conv.group_name 
                           : conv.lead?.name || "Lead desconhecido"}
+                        {conversationsWithScheduled.has(conv.id) && (
+                          <ClockIcon className="w-3 h-3 text-amber-500 shrink-0" />
+                        )}
                       </span>
                       <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
                         {formatTime(conv.last_message_at)}

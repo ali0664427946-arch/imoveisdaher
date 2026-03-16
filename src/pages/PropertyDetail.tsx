@@ -429,7 +429,7 @@ export default function PropertyDetail() {
                   <div className="text-3xl font-heading font-bold text-accent">
                     {formatPrice(property.price, property.purpose)}
                   </div>
-                  {property.purpose === "rent" && property.condominio != null && property.condominio > 0 && (
+                  {property.condominio != null && property.condominio > 0 && (
                     <div className="flex justify-between text-sm text-muted-foreground mt-2">
                       <span>Condomínio</span>
                       <span className="font-medium text-foreground">

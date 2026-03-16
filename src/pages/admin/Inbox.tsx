@@ -394,21 +394,46 @@ export default function Inbox() {
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
-  // Fetch pending scheduled messages for the selected lead
+  // Fetch pending scheduled messages for the selected lead (by lead_id, phone, or conversation_id)
   const { data: leadScheduledMessages = [] } = useQuery({
-    queryKey: ["lead-scheduled-messages", selectedConversation?.lead?.id],
+    queryKey: ["lead-scheduled-messages", selectedConversation?.lead?.id, selectedConversation?.lead?.phone, selectedConversation?.id],
     queryFn: async () => {
-      if (!selectedConversation?.lead?.id) return [];
+      if (!selectedConversation) return [];
+      
+      const filters: string[] = [];
+      if (selectedConversation.lead?.id) {
+        filters.push(`lead_id.eq.${selectedConversation.lead.id}`);
+      }
+      if (selectedConversation.id) {
+        filters.push(`conversation_id.eq.${selectedConversation.id}`);
+      }
+      if (selectedConversation.lead?.phone) {
+        const rawPhone = selectedConversation.lead.phone.replace(/\D/g, "");
+        filters.push(`phone.eq.${rawPhone}`);
+        if (!rawPhone.startsWith("55")) {
+          filters.push(`phone.eq.55${rawPhone}`);
+        }
+      }
+      
+      if (filters.length === 0) return [];
+      
       const { data, error } = await supabase
         .from("scheduled_messages")
         .select("id, scheduled_at, message")
-        .eq("lead_id", selectedConversation.lead.id)
+        .or(filters.join(","))
         .eq("status", "pending")
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
-      return data || [];
+      
+      // Deduplicate by id
+      const seen = new Set<string>();
+      return (data || []).filter(m => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
     },
-    enabled: !!selectedConversation?.lead?.id,
+    enabled: !!selectedConversation,
   });
 
   const filteredConversations = conversations.filter((conv) => {

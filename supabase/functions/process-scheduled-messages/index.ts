@@ -84,13 +84,18 @@ Deno.serve(async (req) => {
         if (!phone.startsWith("55")) phone = "55" + phone;
       }
 
-      const res = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+      const apiUrl = `${evolutionUrl}/message/sendText/${instanceName}`;
+      console.log(`Sending to ${apiUrl} phone=${phone}`);
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: evolutionKey },
         body: JSON.stringify({ number: phone, text: msg.message }),
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      console.log(`Response status=${res.status} body=${responseText.substring(0, 200)}`);
+      let data: any;
+      try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
 
       // Log to centralized send log
       await supabase.from("whatsapp_send_log").insert({

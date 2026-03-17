@@ -794,21 +794,48 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="evolution_url">Base URL</Label>
-                  <Input id="evolution_url" placeholder="https://api.evolution.com" />
+                  <Input
+                    id="evolution_url"
+                    placeholder="https://api.evolution.com"
+                    value={evolutionUrl}
+                    onChange={(e) => setEvolutionUrl(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="evolution_key">API Key</Label>
-                  <Input id="evolution_key" type="password" placeholder="Sua API Key" />
+                  <Input
+                    id="evolution_key"
+                    type="password"
+                    placeholder="Sua API Key"
+                    value={evolutionKey}
+                    onChange={(e) => setEvolutionKey(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="evolution_instance">Instance</Label>
-                  <Input id="evolution_instance" placeholder="daher-imoveis" />
+                  <Input
+                    id="evolution_instance"
+                    placeholder="daher-imoveis"
+                    value={evolutionInstance}
+                    onChange={(e) => setEvolutionInstance(e.target.value)}
+                  />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={handleSaveEvolution}
+                  disabled={savingEvolution}
+                >
+                  {savingEvolution ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Configurações
+                </Button>
                 <Button 
                   variant="outline"
                   onClick={testEvolutionConnection}
@@ -832,6 +859,11 @@ export default function Settings() {
                     <Users className="w-4 h-4 mr-2" />
                   )}
                   Sincronizar Nomes de Grupos
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                💡 As configurações salvas aqui serão usadas por todas as funções do sistema (envio, webhook, agendamentos, etc.)
+              </p>
                 </Button>
               </div>
             </CardContent>

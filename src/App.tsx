@@ -67,6 +67,7 @@ const App = () => (
               <Route path="templates" element={<Templates />} />
               <Route path="configuracoes" element={<Settings />} />
               <Route path="status-integracao" element={<IntegrationStatus />} />
+              <Route path="fila-envio" element={<SendQueue />} />
               <Route path="usuarios" element={<Users />} />
               <Route path="instalar" element={<InstallPWA />} />
             </Route>

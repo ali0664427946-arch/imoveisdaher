@@ -38,6 +38,7 @@ const menuItems = [
   { title: "Imóveis", url: "/admin/imoveis", icon: Building2 },
   { title: "Fichas", url: "/admin/fichas", icon: FileText },
   { title: "Templates", url: "/admin/templates", icon: FileCode },
+  { title: "Fila de Envio", url: "/admin/fila-envio", icon: Clock },
 ];
 
 const adminItems = [

@@ -5,6 +5,40 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── Anti-Ban Configuration ───
+const ANTI_BAN = {
+  sendWindowStart: 9,   // 09:00
+  sendWindowEnd: 20,    // 20:00
+  activeDays: [1, 2, 3, 4, 5], // Mon-Fri (0=Sun)
+  minIntervalMs: 60_000,  // 60s between messages
+  maxIntervalMs: 120_000, // 120s between messages
+  typingMinMs: 2_000,     // 2s simulated typing
+  typingMaxMs: 8_000,     // 8s simulated typing
+  messagesBeforeRest: 10,
+  restMinMs: 7 * 60_000,  // 7 min rest
+  restMaxMs: 10 * 60_000, // 10 min rest
+};
+
+function randomBetween(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function isSendWindowOpen(): boolean {
+  // Get Brasília time (UTC-3)
+  const now = new Date();
+  const brasiliaOffset = -3 * 60;
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
+  const brasiliaTime = new Date(utcMs + brasiliaOffset * 60_000);
+
+  const hour = brasiliaTime.getHours();
+  const day = brasiliaTime.getDay();
+
+  const inWindow = hour >= ANTI_BAN.sendWindowStart && hour < ANTI_BAN.sendWindowEnd;
+  const activeDay = ANTI_BAN.activeDays.includes(day);
+
+  return inWindow && activeDay;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -18,6 +52,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ─── Check send window ───
+    if (!isSendWindowOpen()) {
+      console.log("Outside send window (09:00-20:00 Mon-Fri Brasília). Skipping.");
+      return new Response(
+        JSON.stringify({ success: true, sent: 0, reason: "outside_send_window" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const evolutionUrl = (Deno.env.get("EVOLUTION_API_URL") || "").replace(/\/+$/, "").trim();
     const evolutionKey = (Deno.env.get("EVOLUTION_API_KEY") || "").trim();
     const instanceName = (Deno.env.get("EVOLUTION_INSTANCE_NAME") || "").trim();
@@ -30,12 +73,10 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date();
-    // Only send messages scheduled within the last 7 days
-    // Messages older than that are expired and should NOT be sent
-    const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
     const cutoffTime = new Date(now.getTime() - maxAgeMs).toISOString();
 
-    // First, expire old pending messages that are too old to send
+    // Expire old pending messages
     const { data: expiredMessages } = await supabase
       .from("scheduled_messages")
       .update({
@@ -50,7 +91,7 @@ Deno.serve(async (req) => {
       console.log(`Expired ${expiredMessages.length} old scheduled messages`);
     }
 
-    // Now fetch only recent pending messages within the valid time window
+    // Fetch pending messages ready to send
     const { data: pendingMessages, error: fetchError } = await supabase
       .from("scheduled_messages")
       .select("*")
@@ -58,7 +99,7 @@ Deno.serve(async (req) => {
       .gte("scheduled_at", cutoffTime)
       .lte("scheduled_at", now.toISOString())
       .order("scheduled_at", { ascending: true })
-      .limit(50);
+      .limit(ANTI_BAN.messagesBeforeRest); // Only fetch up to one burst batch
 
     if (fetchError) {
       return new Response(
@@ -76,8 +117,21 @@ Deno.serve(async (req) => {
 
     let sentCount = 0;
 
-    for (const msg of pendingMessages) {
-      // Group IDs (e.g. "21982095993-1566916426@g.us") must be sent as-is
+    for (let i = 0; i < pendingMessages.length; i++) {
+      const msg = pendingMessages[i];
+
+      // ─── Re-check send window before each message ───
+      if (!isSendWindowOpen()) {
+        console.log("Send window closed during processing. Stopping.");
+        break;
+      }
+
+      // ─── Simulated typing delay (2-8s) ───
+      const typingDelayMs = randomBetween(ANTI_BAN.typingMinMs, ANTI_BAN.typingMaxMs);
+      console.log(`Simulated typing: ${typingDelayMs}ms`);
+      await new Promise((r) => setTimeout(r, typingDelayMs));
+
+      // Format phone
       let phone = msg.phone;
       if (!phone.includes("@")) {
         phone = phone.replace(/\D/g, "");
@@ -97,12 +151,15 @@ Deno.serve(async (req) => {
       let data: any;
       try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
 
+      // Calculate actual delay for logging
+      const totalDelayMs = typingDelayMs;
+
       // Log to centralized send log
       await supabase.from("whatsapp_send_log").insert({
         function_name: "process-scheduled-messages",
         phone,
         status: res.ok ? "success" : "failed",
-        delay_ms: null,
+        delay_ms: totalDelayMs,
         error_message: res.ok ? null : (data.message || "API error"),
         message_preview: msg.message.substring(0, 80),
       }).then(({ error: logErr }) => { if (logErr) console.error("Send log error:", logErr); });
@@ -113,30 +170,27 @@ Deno.serve(async (req) => {
           sent_at: new Date().toISOString(),
         }).eq("id", msg.id);
 
-        // Always look for a whatsapp conversation for this lead
+        // Find or create conversation for this message
         let convId = null;
         let leadId = msg.lead_id;
-        
-        // If no lead_id, try to find or create a lead by phone
+
         if (!leadId) {
           const normalizedPhone = phone.replace(/\D/g, "");
           const phoneVariants = [
             normalizedPhone,
             normalizedPhone.startsWith("55") ? normalizedPhone.slice(2) : `55${normalizedPhone}`,
           ];
-          
-          // Try to find existing lead by phone
+
           const { data: existingLead } = await supabase
             .from("leads")
             .select("id")
             .or(phoneVariants.map(p => `phone.eq.${p},phone_normalized.eq.+${p}`).join(","))
             .limit(1)
             .maybeSingle();
-          
+
           if (existingLead) {
             leadId = existingLead.id;
           } else {
-            // Create a new lead for this phone
             const { data: newLead } = await supabase
               .from("leads")
               .insert({
@@ -153,7 +207,6 @@ Deno.serve(async (req) => {
         }
 
         if (leadId) {
-          // Find existing whatsapp conversation for this lead
           const { data: whatsappConv } = await supabase
             .from("conversations")
             .select("id")
@@ -161,8 +214,7 @@ Deno.serve(async (req) => {
             .eq("channel", "whatsapp")
             .maybeSingle();
           convId = whatsappConv?.id;
-          
-          // If no whatsapp conversation exists, create one
+
           if (!convId) {
             const { data: newConv } = await supabase
               .from("conversations")
@@ -177,7 +229,6 @@ Deno.serve(async (req) => {
             convId = newConv?.id;
           }
         } else if (msg.conversation_id) {
-          // Last resort fallback
           convId = msg.conversation_id;
         }
 
@@ -205,14 +256,22 @@ Deno.serve(async (req) => {
         }).eq("id", msg.id);
       }
 
-      // Anti-ban delay: random 2-9 seconds between each message
-      const delayMs = Math.floor(Math.random() * 7000) + 2000;
-      console.log(`Anti-ban delay: ${delayMs}ms`);
-      await new Promise((r) => setTimeout(r, delayMs));
+      // ─── Anti-ban interval between messages (60-120s) ───
+      // Only wait if there are more messages to send
+      if (i < pendingMessages.length - 1) {
+        const intervalMs = randomBetween(ANTI_BAN.minIntervalMs, ANTI_BAN.maxIntervalMs);
+        console.log(`Anti-ban interval: ${Math.round(intervalMs / 1000)}s`);
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+    }
+
+    // If we sent a full batch, log that a rest period should follow
+    if (sentCount >= ANTI_BAN.messagesBeforeRest) {
+      console.log(`Sent ${sentCount} messages (full batch). Next invocation will be the rest period.`);
     }
 
     return new Response(
-      JSON.stringify({ success: true, sent: sentCount }),
+      JSON.stringify({ success: true, sent: sentCount, expired: expiredMessages?.length || 0 }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

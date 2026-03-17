@@ -61,7 +61,8 @@ interface FormDataWithAnalysis {
 }
 
 const PENDING_STATUSES = ["pendente", "em_analise", "faltando_docs"];
-const ARCHIVED_STATUSES = ["apto", "nao_apto"];
+const APPROVED_STATUSES = ["apto"];
+const REJECTED_STATUSES = ["nao_apto"];
 
 function FichasTable({
   fichas,

@@ -61,9 +61,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const evolutionUrl = (Deno.env.get("EVOLUTION_API_URL") || "").replace(/\/+$/, "").trim();
-    const evolutionKey = (Deno.env.get("EVOLUTION_API_KEY") || "").trim();
-    const instanceName = (Deno.env.get("EVOLUTION_INSTANCE_NAME") || "").trim();
+    // Get Evolution API credentials from DB (with env var fallback)
+    let evolutionUrl = (Deno.env.get("EVOLUTION_API_URL") || "").replace(/\/+$/, "").trim();
+    let evolutionKey = (Deno.env.get("EVOLUTION_API_KEY") || "").trim();
+    let instanceName = (Deno.env.get("EVOLUTION_INSTANCE_NAME") || "").trim();
+
+    try {
+      const { data: dbConfig } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+      if (dbConfig?.value) {
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        if (cfg.base_url) evolutionUrl = cfg.base_url.replace(/\/+$/, "").trim();
+        if (cfg.api_key) evolutionKey = cfg.api_key.trim();
+        if (cfg.instance_name) instanceName = cfg.instance_name.trim();
+      }
+    } catch (e) { console.error("Failed to load DB config:", e); }
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       return new Response(

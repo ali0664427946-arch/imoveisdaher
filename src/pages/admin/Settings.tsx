@@ -30,6 +30,10 @@ export default function Settings() {
   const [savingAutoSync, setSavingAutoSync] = useState(false);
   const [cleaningPayloads, setCleaningPayloads] = useState(false);
   const [lastCleanupResult, setLastCleanupResult] = useState<{ cleaned: number; elapsed: string } | null>(null);
+  const [evolutionUrl, setEvolutionUrl] = useState("");
+  const [evolutionKey, setEvolutionKey] = useState("");
+  const [evolutionInstance, setEvolutionInstance] = useState("");
+  const [savingEvolution, setSavingEvolution] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -92,6 +96,27 @@ export default function Settings() {
         if (settings.profile_url) {
           setOlxProfileUrl(settings.profile_url);
         }
+        return settings;
+      }
+      return null;
+    },
+  });
+
+  // Query to get Evolution API settings from database
+  const { data: evolutionSettings } = useQuery({
+    queryKey: ["evolution-api-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+
+      if (data?.value) {
+        const settings = data.value as { base_url: string; api_key: string; instance_name: string };
+        setEvolutionUrl(settings.base_url || "");
+        setEvolutionKey(settings.api_key || "");
+        setEvolutionInstance(settings.instance_name || "");
         return settings;
       }
       return null;
@@ -265,6 +290,49 @@ export default function Settings() {
       });
     } finally {
       setTestingWebhook(null);
+    }
+  };
+
+  const handleSaveEvolution = async () => {
+    if (!evolutionUrl.trim() || !evolutionKey.trim() || !evolutionInstance.trim()) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+    setSavingEvolution(true);
+    try {
+      const value = {
+        base_url: evolutionUrl.trim().replace(/\/+$/, ""),
+        api_key: evolutionKey.trim(),
+        instance_name: evolutionInstance.trim(),
+      };
+
+      // Upsert: try update first, then insert
+      const { data: existing } = await supabase
+        .from("integrations_settings")
+        .select("id")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq("key", "evolution_api");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .insert({ key: "evolution_api", value });
+        if (error) throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["evolution-api-settings"] });
+      toast({ title: "Configurações salvas! ✅", description: "Todas as funções usarão as novas credenciais" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar";
+      toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
+    } finally {
+      setSavingEvolution(false);
     }
   };
 
@@ -726,21 +794,48 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="evolution_url">Base URL</Label>
-                  <Input id="evolution_url" placeholder="https://api.evolution.com" />
+                  <Input
+                    id="evolution_url"
+                    placeholder="https://api.evolution.com"
+                    value={evolutionUrl}
+                    onChange={(e) => setEvolutionUrl(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="evolution_key">API Key</Label>
-                  <Input id="evolution_key" type="password" placeholder="Sua API Key" />
+                  <Input
+                    id="evolution_key"
+                    type="password"
+                    placeholder="Sua API Key"
+                    value={evolutionKey}
+                    onChange={(e) => setEvolutionKey(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="evolution_instance">Instance</Label>
-                  <Input id="evolution_instance" placeholder="daher-imoveis" />
+                  <Input
+                    id="evolution_instance"
+                    placeholder="daher-imoveis"
+                    value={evolutionInstance}
+                    onChange={(e) => setEvolutionInstance(e.target.value)}
+                  />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={handleSaveEvolution}
+                  disabled={savingEvolution}
+                >
+                  {savingEvolution ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Configurações
+                </Button>
                 <Button 
                   variant="outline"
                   onClick={testEvolutionConnection}
@@ -766,8 +861,12 @@ export default function Settings() {
                   Sincronizar Nomes de Grupos
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                💡 As configurações salvas aqui serão usadas por todas as funções do sistema (envio, webhook, agendamentos, etc.)
+              </p>
             </CardContent>
           </Card>
+
 
           {/* Database Cleanup */}
           <Card>

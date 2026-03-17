@@ -18,9 +18,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
-    const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
-    const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+    let evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+    let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+    let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+
+    try {
+      const { data: dbConfig } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+      if (dbConfig?.value) {
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        if (cfg.base_url) evolutionUrl = cfg.base_url;
+        if (cfg.api_key) evolutionKey = cfg.api_key;
+        if (cfg.instance_name) instanceName = cfg.instance_name;
+      }
+    } catch (e) { console.error("Failed to load DB config:", e); }
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       return new Response(

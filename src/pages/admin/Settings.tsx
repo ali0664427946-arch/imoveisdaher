@@ -30,6 +30,10 @@ export default function Settings() {
   const [savingAutoSync, setSavingAutoSync] = useState(false);
   const [cleaningPayloads, setCleaningPayloads] = useState(false);
   const [lastCleanupResult, setLastCleanupResult] = useState<{ cleaned: number; elapsed: string } | null>(null);
+  const [evolutionUrl, setEvolutionUrl] = useState("");
+  const [evolutionKey, setEvolutionKey] = useState("");
+  const [evolutionInstance, setEvolutionInstance] = useState("");
+  const [savingEvolution, setSavingEvolution] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();

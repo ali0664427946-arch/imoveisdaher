@@ -866,7 +866,7 @@ export default function Settings() {
               </p>
             </CardContent>
           </Card>
-          </Card>
+
 
           {/* Database Cleanup */}
           <Card>

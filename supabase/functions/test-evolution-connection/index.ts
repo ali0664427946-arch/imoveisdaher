@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     }
 
     // Get Evolution API credentials from DB (with env var fallback)
-    const supabase = createClient(
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
 
     try {
-      const { data: dbConfig } = await supabase
+      const { data: dbConfig } = await supabaseAdmin
         .from("integrations_settings")
         .select("value")
         .eq("key", "evolution_api")

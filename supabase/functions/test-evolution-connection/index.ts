@@ -37,10 +37,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get Evolution API credentials
-    const evolutionUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/+$/, "");
-    const evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
-    const instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+    // Get Evolution API credentials from DB (with env var fallback)
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    let evolutionUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/+$/, "");
+    let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+    let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+
+    try {
+      const { data: dbConfig } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+      if (dbConfig?.value) {
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        if (cfg.base_url) evolutionUrl = cfg.base_url.replace(/\/+$/, "");
+        if (cfg.api_key) evolutionKey = cfg.api_key;
+        if (cfg.instance_name) instanceName = cfg.instance_name;
+      }
+    } catch (e) { console.error("Failed to load DB config:", e); }
 
     console.log("Testing Evolution API connection...");
     console.log("URL configured:", !!evolutionUrl);
@@ -51,8 +70,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "EVOLUTION_API_URL não configurada",
-          details: "Configure a URL da Evolution API nos secrets do projeto"
+          error: "URL da Evolution API não configurada",
+          details: "Configure a URL nas Configurações > Integrações"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -62,8 +81,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "EVOLUTION_API_KEY não configurada",
-          details: "Configure a API Key da Evolution API nos secrets do projeto"
+          error: "API Key da Evolution não configurada",
+          details: "Configure a API Key nas Configurações > Integrações"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -73,8 +92,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "EVOLUTION_INSTANCE_NAME não configurada",
-          details: "Configure o nome da instância nos secrets do projeto"
+          error: "Nome da instância não configurado",
+          details: "Configure o nome da instância nas Configurações > Integrações"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

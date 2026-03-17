@@ -23,6 +23,7 @@ import FichaDetail from "./pages/admin/FichaDetail";
 import Templates from "./pages/admin/Templates";
 import Settings from "./pages/admin/Settings";
 import IntegrationStatus from "./pages/admin/IntegrationStatus";
+import SendQueue from "./pages/admin/SendQueue";
 import Users from "./pages/admin/Users";
 import InstallApp from "./pages/InstallApp";
 import InstallPWA from "./pages/admin/InstallPWA";

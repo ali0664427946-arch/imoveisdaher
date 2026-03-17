@@ -12,6 +12,7 @@ import {
   Contact,
   Download,
   Activity,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logoImage from "@/assets/logo-daher.png";

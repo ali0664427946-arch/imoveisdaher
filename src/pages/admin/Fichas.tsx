@@ -236,7 +236,8 @@ export default function Fichas() {
   const updateStatusMutation = useUpdateFichaStatus();
 
   const pendingFichas = (fichas || []).filter((f) => PENDING_STATUSES.includes(f.status));
-  const archivedFichas = (fichas || []).filter((f) => ARCHIVED_STATUSES.includes(f.status));
+  const approvedFichas = (fichas || []).filter((f) => APPROVED_STATUSES.includes(f.status));
+  const rejectedFichas = (fichas || []).filter((f) => REJECTED_STATUSES.includes(f.status));
 
   const handleAnalyze = async (fichaId: string) => {
     const result = await analyzeMutation.mutateAsync(fichaId);

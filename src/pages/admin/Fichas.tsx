@@ -29,19 +29,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,9 +60,172 @@ interface FormDataWithAnalysis {
   [key: string]: unknown;
 }
 
+const PENDING_STATUSES = ["pendente", "em_analise", "faltando_docs"];
+const ARCHIVED_STATUSES = ["apto", "nao_apto"];
+
+function FichasTable({
+  fichas,
+  isLoading,
+  searchQuery,
+  navigate,
+  analyzeMutation,
+  updateStatusMutation,
+  handleAnalyze,
+  handleShowAnalysis,
+  handleUpdateStatus,
+}: any) {
+  const maskCPF = (cpf: string) => {
+    if (!cpf || cpf.length < 11) return cpf;
+    return `***.***.***-${cpf.slice(-2)}`;
+  };
+
+  const filtered = (fichas || []).filter(
+    (f: any) =>
+      !searchQuery ||
+      f.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      f.protocol?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="bg-card rounded-xl border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Protocolo</TableHead>
+            <TableHead>Nome</TableHead>
+            <TableHead>CPF</TableHead>
+            <TableHead>Telefone</TableHead>
+            <TableHead>Imóvel</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-center">Score IA</TableHead>
+            <TableHead>Data</TableHead>
+            <TableHead className="w-12"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                {Array.from({ length: 9 }).map((_, j) => (
+                  <TableCell key={j}>
+                    <Skeleton className="h-5 w-full" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : filtered.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                Nenhuma ficha encontrada
+              </TableCell>
+            </TableRow>
+          ) : (
+            filtered.map((ficha: any) => {
+              const formData = ficha.form_data as FormDataWithAnalysis;
+              const aiAnalysis = formData?.ai_analysis;
+              const property = ficha.property as { title?: string; neighborhood?: string } | null;
+              const documents = (ficha.documents || []) as Array<{ id: string }>;
+
+              return (
+                <TableRow key={ficha.id}>
+                  <TableCell className="font-mono text-sm">
+                    {ficha.protocol || "-"}
+                  </TableCell>
+                  <TableCell className="font-medium">{ficha.full_name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {maskCPF(ficha.cpf)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {ficha.phone}
+                      {ficha.whatsapp_valid === false && (
+                        <span className="inline-block w-2 h-2 rounded-full bg-destructive" title="Sem WhatsApp" />
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    {property?.title || property?.neighborhood || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusConfig[ficha.status]?.variant || "secondary"}>
+                      {statusConfig[ficha.status]?.label || ficha.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {aiAnalysis ? (
+                      <button
+                        onClick={() => handleShowAnalysis(ficha.form_data)}
+                        className="flex items-center justify-center gap-1 mx-auto hover:opacity-80"
+                      >
+                        <Sparkles className="w-3 h-3 text-accent" />
+                        <span className="font-semibold">{aiAnalysis.score}</span>
+                      </button>
+                    ) : (
+                      <Badge variant="secondary">{documents.length} docs</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(ficha.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-popover">
+                        <DropdownMenuItem onClick={() => navigate(`/admin/fichas/${ficha.id}`)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Ficha Completa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleAnalyze(ficha.id)}
+                          disabled={analyzeMutation.isPending}
+                        >
+                          {analyzeMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Bot className="w-4 h-4 mr-2" />
+                          )}
+                          Rodar Análise IA
+                        </DropdownMenuItem>
+                        {aiAnalysis && (
+                          <DropdownMenuItem onClick={() => handleShowAnalysis(ficha.form_data)}>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Ver Última Análise
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-success"
+                          onClick={() => handleUpdateStatus(ficha.id, "apto")}
+                        >
+                          <FileCheck className="w-4 h-4 mr-2" />
+                          Aprovar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleUpdateStatus(ficha.id, "nao_apto")}
+                        >
+                          <FileX className="w-4 h-4 mr-2" />
+                          Reprovar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function Fichas() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAnalysis, setSelectedAnalysis] = useState<AIAnalysis | null>(null);
   const [analysisDialogOpen, setAnalysisDialogOpen] = useState(false);
@@ -77,22 +234,8 @@ export default function Fichas() {
   const analyzeMutation = useAnalyzeFicha();
   const updateStatusMutation = useUpdateFichaStatus();
 
-  const filteredFichas = (fichas || []).filter((f) => {
-    const matchesStatus = statusFilter === "all" || f.status === statusFilter;
-    const matchesSearch =
-      !searchQuery ||
-      f.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      f.protocol?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
-
-  const statusCounts = Object.keys(statusConfig).reduce(
-    (acc, status) => {
-      acc[status] = (fichas || []).filter((f) => f.status === status).length;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
+  const pendingFichas = (fichas || []).filter((f) => PENDING_STATUSES.includes(f.status));
+  const archivedFichas = (fichas || []).filter((f) => ARCHIVED_STATUSES.includes(f.status));
 
   const handleAnalyze = async (fichaId: string) => {
     const result = await analyzeMutation.mutateAsync(fichaId);
@@ -114,9 +257,15 @@ export default function Fichas() {
     updateStatusMutation.mutate({ fichaId, status });
   };
 
-  const maskCPF = (cpf: string) => {
-    if (!cpf || cpf.length < 11) return cpf;
-    return `***.***.***-${cpf.slice(-2)}`;
+  const tableProps = {
+    isLoading,
+    searchQuery,
+    navigate,
+    analyzeMutation,
+    updateStatusMutation,
+    handleAnalyze,
+    handleShowAnalysis,
+    handleUpdateStatus,
   };
 
   return (
@@ -129,183 +278,38 @@ export default function Fichas() {
             Gerencie e analise as fichas recebidas
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou protocolo..."
-              className="pl-9 w-64"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="em_analise">Em Análise</SelectItem>
-              <SelectItem value="apto">Apto</SelectItem>
-              <SelectItem value="nao_apto">Não Apto</SelectItem>
-              <SelectItem value="faltando_docs">Faltando Docs</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome ou protocolo..."
+            className="pl-9 w-64"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-5 gap-4">
-        {Object.entries(statusConfig).map(([key, config]) => (
-          <div
-            key={key}
-            className={`bg-card rounded-xl p-4 border cursor-pointer hover:border-accent transition-colors ${
-              statusFilter === key ? "border-accent" : ""
-            }`}
-            onClick={() => setStatusFilter(statusFilter === key ? "all" : key)}
-          >
-            <p className="text-2xl font-bold">{statusCounts[key] || 0}</p>
-            <p className="text-sm text-muted-foreground">{config.label}</p>
-          </div>
-        ))}
-      </div>
+      {/* Tabs */}
+      <Tabs defaultValue="pendentes">
+        <TabsList>
+          <TabsTrigger value="pendentes">
+            Pendentes
+            <Badge variant="secondary" className="ml-2 text-xs">{pendingFichas.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="arquivadas">
+            Arquivadas
+            <Badge variant="secondary" className="ml-2 text-xs">{archivedFichas.length}</Badge>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      <div className="bg-card rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Protocolo</TableHead>
-              <TableHead>Nome</TableHead>
-              <TableHead>CPF</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Imóvel</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-center">Score IA</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead className="w-12"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 9 }).map((_, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-5 w-full" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : filteredFichas.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  Nenhuma ficha encontrada
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredFichas.map((ficha) => {
-                const formData = ficha.form_data as FormDataWithAnalysis;
-                const aiAnalysis = formData?.ai_analysis;
-                const property = ficha.property as { title?: string; neighborhood?: string } | null;
-                const documents = (ficha.documents || []) as Array<{ id: string }>;
+        <TabsContent value="pendentes">
+          <FichasTable fichas={pendingFichas} {...tableProps} />
+        </TabsContent>
 
-                return (
-                  <TableRow key={ficha.id}>
-                    <TableCell className="font-mono text-sm">
-                      {ficha.protocol || "-"}
-                    </TableCell>
-                    <TableCell className="font-medium">{ficha.full_name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {maskCPF(ficha.cpf)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {ficha.phone}
-                        {(ficha as any).whatsapp_valid === false && (
-                          <span className="inline-block w-2 h-2 rounded-full bg-destructive" title="Sem WhatsApp" />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {property?.title || property?.neighborhood || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusConfig[ficha.status]?.variant || "secondary"}>
-                        {statusConfig[ficha.status]?.label || ficha.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {aiAnalysis ? (
-                        <button
-                          onClick={() => handleShowAnalysis(ficha.form_data)}
-                          className="flex items-center justify-center gap-1 mx-auto hover:opacity-80"
-                        >
-                          <Sparkles className="w-3 h-3 text-accent" />
-                          <span className="font-semibold">{aiAnalysis.score}</span>
-                        </button>
-                      ) : (
-                        <Badge variant="secondary">{documents.length} docs</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {format(new Date(ficha.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-popover">
-                          <DropdownMenuItem onClick={() => navigate(`/admin/fichas/${ficha.id}`)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Ver Ficha Completa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleAnalyze(ficha.id)}
-                            disabled={analyzeMutation.isPending}
-                          >
-                            {analyzeMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                              <Bot className="w-4 h-4 mr-2" />
-                            )}
-                            Rodar Análise IA
-                          </DropdownMenuItem>
-                          {aiAnalysis && (
-                            <DropdownMenuItem onClick={() => handleShowAnalysis(ficha.form_data)}>
-                              <Sparkles className="w-4 h-4 mr-2" />
-                              Ver Última Análise
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-success"
-                            onClick={() => handleUpdateStatus(ficha.id, "apto")}
-                          >
-                            <FileCheck className="w-4 h-4 mr-2" />
-                            Aprovar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => handleUpdateStatus(ficha.id, "nao_apto")}
-                          >
-                            <FileX className="w-4 h-4 mr-2" />
-                            Reprovar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="arquivadas">
+          <FichasTable fichas={archivedFichas} {...tableProps} />
+        </TabsContent>
+      </Tabs>
 
       {/* Analysis Dialog */}
       <Dialog open={analysisDialogOpen} onOpenChange={setAnalysisDialogOpen}>
@@ -409,7 +413,7 @@ export default function Fichas() {
                       <div>
                         <span className="text-success font-medium">Pontos Positivos: </span>
                         <ul className="list-disc list-inside pl-2">
-                          {selectedAnalysis.perfil_locatario.pontos_positivos.map((p, i) => (
+                          {selectedAnalysis.perfil_locatario.pontos_positivos.map((p: string, i: number) => (
                             <li key={i}>{p}</li>
                           ))}
                         </ul>
@@ -419,7 +423,7 @@ export default function Fichas() {
                       <div>
                         <span className="text-warning font-medium">Pontos de Atenção: </span>
                         <ul className="list-disc list-inside pl-2">
-                          {selectedAnalysis.perfil_locatario.pontos_atencao.map((p, i) => (
+                          {selectedAnalysis.perfil_locatario.pontos_atencao.map((p: string, i: number) => (
                             <li key={i}>{p}</li>
                           ))}
                         </ul>
@@ -433,7 +437,7 @@ export default function Fichas() {
                   <div>
                     <h4 className="font-semibold mb-2">⚠️ Riscos Identificados</h4>
                     <ul className="bg-destructive/10 rounded-lg p-3 text-sm list-disc list-inside">
-                      {selectedAnalysis.riscos.map((r, i) => (
+                      {selectedAnalysis.riscos.map((r: string, i: number) => (
                         <li key={i}>{r}</li>
                       ))}
                     </ul>

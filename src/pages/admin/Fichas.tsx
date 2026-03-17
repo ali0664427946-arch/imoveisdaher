@@ -61,7 +61,8 @@ interface FormDataWithAnalysis {
 }
 
 const PENDING_STATUSES = ["pendente", "em_analise", "faltando_docs"];
-const ARCHIVED_STATUSES = ["apto", "nao_apto"];
+const APPROVED_STATUSES = ["apto"];
+const REJECTED_STATUSES = ["nao_apto"];
 
 function FichasTable({
   fichas,
@@ -235,7 +236,8 @@ export default function Fichas() {
   const updateStatusMutation = useUpdateFichaStatus();
 
   const pendingFichas = (fichas || []).filter((f) => PENDING_STATUSES.includes(f.status));
-  const archivedFichas = (fichas || []).filter((f) => ARCHIVED_STATUSES.includes(f.status));
+  const approvedFichas = (fichas || []).filter((f) => APPROVED_STATUSES.includes(f.status));
+  const rejectedFichas = (fichas || []).filter((f) => REJECTED_STATUSES.includes(f.status));
 
   const handleAnalyze = async (fichaId: string) => {
     const result = await analyzeMutation.mutateAsync(fichaId);
@@ -296,9 +298,13 @@ export default function Fichas() {
             Pendentes
             <Badge variant="secondary" className="ml-2 text-xs">{pendingFichas.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="arquivadas">
-            Arquivadas
-            <Badge variant="secondary" className="ml-2 text-xs">{archivedFichas.length}</Badge>
+          <TabsTrigger value="aprovadas">
+            Aprovadas
+            <Badge variant="secondary" className="ml-2 text-xs">{approvedFichas.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="reprovadas">
+            Não Aprovadas
+            <Badge variant="secondary" className="ml-2 text-xs">{rejectedFichas.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -306,8 +312,12 @@ export default function Fichas() {
           <FichasTable fichas={pendingFichas} {...tableProps} />
         </TabsContent>
 
-        <TabsContent value="arquivadas">
-          <FichasTable fichas={archivedFichas} {...tableProps} />
+        <TabsContent value="aprovadas">
+          <FichasTable fichas={approvedFichas} {...tableProps} />
+        </TabsContent>
+
+        <TabsContent value="reprovadas">
+          <FichasTable fichas={rejectedFichas} {...tableProps} />
         </TabsContent>
       </Tabs>
 

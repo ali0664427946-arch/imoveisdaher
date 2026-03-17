@@ -864,9 +864,8 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">
                 💡 As configurações salvas aqui serão usadas por todas as funções do sistema (envio, webhook, agendamentos, etc.)
               </p>
-                </Button>
-              </div>
             </CardContent>
+          </Card>
           </Card>
 
           {/* Database Cleanup */}

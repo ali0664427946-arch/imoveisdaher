@@ -293,6 +293,49 @@ export default function Settings() {
     }
   };
 
+  const handleSaveEvolution = async () => {
+    if (!evolutionUrl.trim() || !evolutionKey.trim() || !evolutionInstance.trim()) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+    setSavingEvolution(true);
+    try {
+      const value = {
+        base_url: evolutionUrl.trim().replace(/\/+$/, ""),
+        api_key: evolutionKey.trim(),
+        instance_name: evolutionInstance.trim(),
+      };
+
+      // Upsert: try update first, then insert
+      const { data: existing } = await supabase
+        .from("integrations_settings")
+        .select("id")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq("key", "evolution_api");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .insert({ key: "evolution_api", value });
+        if (error) throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["evolution-api-settings"] });
+      toast({ title: "Configurações salvas! ✅", description: "Todas as funções usarão as novas credenciais" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar";
+      toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
+    } finally {
+      setSavingEvolution(false);
+    }
+  };
+
   const testEvolutionConnection = async () => {
     setTestingEvolution(true);
     

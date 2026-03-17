@@ -298,9 +298,13 @@ export default function Fichas() {
             Pendentes
             <Badge variant="secondary" className="ml-2 text-xs">{pendingFichas.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="arquivadas">
-            Arquivadas
-            <Badge variant="secondary" className="ml-2 text-xs">{archivedFichas.length}</Badge>
+          <TabsTrigger value="aprovadas">
+            Aprovadas
+            <Badge variant="secondary" className="ml-2 text-xs">{approvedFichas.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="reprovadas">
+            Não Aprovadas
+            <Badge variant="secondary" className="ml-2 text-xs">{rejectedFichas.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -308,8 +312,12 @@ export default function Fichas() {
           <FichasTable fichas={pendingFichas} {...tableProps} />
         </TabsContent>
 
-        <TabsContent value="arquivadas">
-          <FichasTable fichas={archivedFichas} {...tableProps} />
+        <TabsContent value="aprovadas">
+          <FichasTable fichas={approvedFichas} {...tableProps} />
+        </TabsContent>
+
+        <TabsContent value="reprovadas">
+          <FichasTable fichas={rejectedFichas} {...tableProps} />
         </TabsContent>
       </Tabs>
 

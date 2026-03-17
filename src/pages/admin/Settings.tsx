@@ -102,6 +102,27 @@ export default function Settings() {
     },
   });
 
+  // Query to get Evolution API settings from database
+  const { data: evolutionSettings } = useQuery({
+    queryKey: ["evolution-api-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+
+      if (data?.value) {
+        const settings = data.value as { base_url: string; api_key: string; instance_name: string };
+        setEvolutionUrl(settings.base_url || "");
+        setEvolutionKey(settings.api_key || "");
+        setEvolutionInstance(settings.instance_name || "");
+        return settings;
+      }
+      return null;
+    },
+  });
+
   const handleSaveAutoSync = async (enabled: boolean) => {
     setSavingAutoSync(true);
     try {

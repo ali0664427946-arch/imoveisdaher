@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
     // Set webhook configuration - wrap in "webhook" for Evolution API v2
     const webhookConfig = {
       webhook: {
+        enabled: true,
         url: webhookUrl,
         webhookByEvents: false,
         webhookBase64: false,

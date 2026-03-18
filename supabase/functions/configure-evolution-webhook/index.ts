@@ -61,18 +61,24 @@ Deno.serve(async (req) => {
       currentConfig = await getRes.json();
     }
 
-    // Set webhook configuration
+    // Set webhook configuration - wrap in "webhook" for Evolution API v2
     const webhookConfig = {
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: [
-        "MESSAGES_UPSERT",
-        "MESSAGES_UPDATE",
-        "CONNECTION_UPDATE",
-        "QRCODE_UPDATED",
-      ],
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        webhookByEvents: false,
+        webhookBase64: false,
+        events: [
+          "MESSAGES_UPSERT",
+          "MESSAGES_UPDATE",
+          "SEND_MESSAGE",
+          "CONNECTION_UPDATE",
+          "QRCODE_UPDATED",
+        ],
+      },
     };
+
+    console.log("Setting webhook config:", JSON.stringify(webhookConfig));
 
     const setRes = await fetch(
       `${evolutionUrl}/webhook/set/${instanceName}`,

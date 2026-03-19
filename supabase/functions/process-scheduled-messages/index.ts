@@ -7,7 +7,7 @@ const corsHeaders = {
 
 // ─── Anti-Ban Configuration ───
 const ANTI_BAN = {
-  sendWindowStart: 9,   // 09:00
+  sendWindowStart: 7,   // 07:00
   sendWindowEnd: 20,    // 20:00
   activeDays: [1, 2, 3, 4, 5], // Mon-Fri (0=Sun)
   minIntervalMs: 60_000,  // 60s between messages

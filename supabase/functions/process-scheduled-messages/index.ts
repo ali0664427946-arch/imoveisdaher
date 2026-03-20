@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
 
     // ─── Check send window ───
     if (!isSendWindowOpen()) {
-      console.log("Outside send window (09:00-20:00 Mon-Fri Brasília). Skipping.");
+      console.log("Outside send window (07:00-20:00 Mon-Fri Brasília). Skipping.");
       return new Response(
         JSON.stringify({ success: true, sent: 0, reason: "outside_send_window" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

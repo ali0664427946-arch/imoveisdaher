@@ -643,7 +643,7 @@ export default function Inbox() {
 
   const formatTime = (dateString: string | null) => {
     if (!dateString) return "";
-    return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: ptBR });
+    return format(new Date(dateString), "HH:mm");
   };
 
   if (loadingConversations) {

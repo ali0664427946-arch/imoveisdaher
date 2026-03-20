@@ -33,7 +33,6 @@ import { Button } from "@/components/ui/button";
 const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Inbox", url: "/admin/inbox", icon: MessageSquare },
-  { title: "Leads", url: "/admin/leads", icon: Kanban },
   { title: "Contatos", url: "/admin/contatos", icon: Contact },
   { title: "Imóveis", url: "/admin/imoveis", icon: Building2 },
   { title: "Fichas", url: "/admin/fichas", icon: FileText },

@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, X, FileText, Image, Loader2, Eye } from "lucide-react";
+import { Upload, X, FileText, Image, Loader2, Eye, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,12 +26,14 @@ interface DocumentCategory {
   id: string;
   label: string;
   required: boolean;
+  maxFiles?: number;
 }
 
 const DOCUMENT_CATEGORIES: DocumentCategory[] = [
   { id: "rg_cnh", label: "RG ou CNH", required: true },
   { id: "cpf", label: "CPF", required: true },
   { id: "comprovante_renda", label: "Comprovante de Renda", required: true },
+  { id: "contracheque", label: "Contracheques (últimos 3)", required: false, maxFiles: 3 },
   { id: "comprovante_residencia", label: "Comprovante de Residência", required: true },
   { id: "ctps", label: "Carteira de Trabalho", required: false },
   { id: "imposto_renda", label: "Declaração IR", required: false },
@@ -72,13 +74,19 @@ export function DocumentUploader({
     return documents.find((d) => d.category === prefixCategory(category));
   };
 
+  // For multi-file categories, get all documents matching the base category
+  const getDocumentsByCategory = (category: string) => {
+    const prefix = prefixCategory(category);
+    return documents.filter((d) => d.category === prefix || d.category.startsWith(`${prefix}_`));
+  };
+
   const handleFileSelect = async (
     category: string,
-    file: File | undefined
+    file: File | undefined,
+    slotIndex?: number
   ) => {
     if (!file) return;
 
-    // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Formato não suportado", {
@@ -87,7 +95,6 @@ export function DocumentUploader({
       return;
     }
 
-    // Validate file size (10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error("Arquivo muito grande", {
         description: "Tamanho máximo: 10MB",
@@ -95,10 +102,19 @@ export function DocumentUploader({
       return;
     }
 
-    const prefixedCategory = prefixCategory(category);
-    setUploading(category);
+    // For multi-file: use suffix _1, _2, _3
+    const catConfig = DOCUMENT_CATEGORIES.find(c => c.id === category);
+    const isMultiFile = (catConfig?.maxFiles ?? 1) > 1;
+    let prefixedCategory: string;
+    
+    if (isMultiFile && slotIndex !== undefined && slotIndex > 0) {
+      prefixedCategory = prefixCategory(`${category}_${slotIndex + 1}`);
+    } else {
+      prefixedCategory = prefixCategory(category);
+    }
 
-    // Compress image if it's an image file
+    setUploading(prefixedCategory);
+
     let processedFile = file;
     if (file.type.startsWith("image/")) {
       try {
@@ -121,32 +137,28 @@ export function DocumentUploader({
     }
 
     try {
-      // Generate unique file path
       const fileExt = processedFile.name.split(".").pop() || "jpg";
       const fileName = `${fichaId || "temp"}/${prefixedCategory}_${Date.now()}.${fileExt}`;
 
-      // Upload to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("ficha-documents")
         .upload(fileName, processedFile);
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("ficha-documents")
         .getPublicUrl(fileName);
 
       const newDoc: UploadedDocument = {
         category: prefixedCategory,
-        file_name: file.name, // Keep original name for display
+        file_name: file.name,
         file_url: urlData.publicUrl,
         file_size: processedFile.size,
         mime_type: processedFile.type,
         status: "pendente",
       };
 
-      // If fichaId exists, save to database
       if (fichaId) {
         const { error: dbError } = await supabase
           .from("documents")
@@ -162,7 +174,6 @@ export function DocumentUploader({
         if (dbError) throw dbError;
       }
 
-      // Update documents list
       const updatedDocs = documents.filter((d) => d.category !== prefixedCategory);
       updatedDocs.push(newDoc);
       onDocumentsChange(updatedDocs);
@@ -176,23 +187,19 @@ export function DocumentUploader({
     }
   };
 
-  const handleRemove = async (category: string) => {
-    const prefixedCat = prefixCategory(category);
-    const doc = documents.find((d) => d.category === prefixedCat);
+  const handleRemove = async (fullCategory: string) => {
+    const doc = documents.find((d) => d.category === fullCategory);
     if (!doc) return;
 
     try {
-      // Remove from storage
       const path = doc.file_url.split("/").slice(-2).join("/");
       await supabase.storage.from("ficha-documents").remove([path]);
 
-      // Remove from database if exists
       if (doc.id) {
         await supabase.from("documents").delete().eq("id", doc.id);
       }
 
-      // Update state
-      onDocumentsChange(documents.filter((d) => d.category !== prefixedCat));
+      onDocumentsChange(documents.filter((d) => d.category !== fullCategory));
       toast.success("Documento removido");
     } catch (error) {
       console.error("Remove error:", error);
@@ -205,40 +212,29 @@ export function DocumentUploader({
     setPreviewError(null);
     setPreviewUrl(null);
     
-    // Determine file type from mime_type or file extension
     const isPdf = doc.mime_type?.includes("pdf") || doc.file_name?.toLowerCase().endsWith(".pdf");
     setPreviewType(isPdf ? "pdf" : "image");
     
     try {
-      // Extract the path from the URL
-      // The URL format is: https://xxx.supabase.co/storage/v1/object/public/ficha-documents/path/to/file
       let filePath = "";
       
       if (doc.file_url.includes("/ficha-documents/")) {
-        // Split by bucket name and get the path after it
         const urlParts = doc.file_url.split("/ficha-documents/");
         filePath = decodeURIComponent(urlParts[urlParts.length - 1]);
       } else {
-        // Fallback: try to get just the filename
         filePath = doc.file_url.split("/").pop() || "";
       }
       
-      console.log("Generating signed URL for path:", filePath);
-      
-      // Generate a signed URL for private bucket access
       const { data, error } = await supabase.storage
         .from("ficha-documents")
-        .createSignedUrl(filePath, 86400); // 24 hours expiry
+        .createSignedUrl(filePath, 86400);
       
       if (error) {
         console.error("Error creating signed URL:", error);
-        console.error("File path attempted:", filePath);
-        console.error("Original URL:", doc.file_url);
         setPreviewError("Erro ao acessar documento. O arquivo pode não existir no storage.");
         return;
       }
       
-      console.log("Signed URL generated successfully");
       setPreviewUrl(data.signedUrl);
     } catch (error) {
       console.error("Preview error:", error);
@@ -266,6 +262,220 @@ export function DocumentUploader({
     );
   };
 
+  const renderSingleFileCategory = (cat: DocumentCategory) => {
+    const doc = getDocumentByCategory(cat.id);
+    const isUploading = uploading === prefixCategory(cat.id);
+
+    return (
+      <div
+        key={cat.id}
+        className={`border-2 rounded-xl p-4 transition-colors ${
+          doc
+            ? "border-solid bg-secondary/30"
+            : "border-dashed hover:border-accent"
+        } ${readOnly ? "" : "cursor-pointer"}`}
+        onClick={() => {
+          if (!readOnly && !doc && !isUploading) {
+            inputRefs.current[cat.id]?.click();
+          }
+        }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                doc ? "bg-accent/20" : "bg-secondary"
+              }`}
+            >
+              {isUploading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-accent" />
+              ) : doc?.mime_type?.includes("pdf") ? (
+                <FileText className="w-5 h-5 text-accent" />
+              ) : doc ? (
+                <Image className="w-5 h-5 text-accent" />
+              ) : (
+                <Upload className="w-5 h-5 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm flex items-center gap-2">
+                {cat.label}
+                {cat.required && !readOnly && (
+                  <span className="text-destructive">*</span>
+                )}
+              </p>
+              {doc ? (
+                <p className="text-xs text-muted-foreground truncate">
+                  {doc.file_name}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {readOnly ? "Não enviado" : "Clique para enviar"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {doc && getStatusBadge(doc.status)}
+            {doc && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePreview(doc);
+                }}
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            )}
+            {doc && !readOnly && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemove(doc.category);
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <input
+          ref={(el) => (inputRefs.current[cat.id] = el)}
+          type="file"
+          className="hidden"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+          onChange={(e) => handleFileSelect(cat.id, e.target.files?.[0])}
+        />
+      </div>
+    );
+  };
+
+  const renderMultiFileCategory = (cat: DocumentCategory) => {
+    const maxFiles = cat.maxFiles ?? 1;
+    const uploadedDocs = getDocumentsByCategory(cat.id);
+    const canAddMore = uploadedDocs.length < maxFiles && !readOnly;
+
+    return (
+      <div
+        key={cat.id}
+        className="border-2 border-dashed rounded-xl p-4 transition-colors md:col-span-2"
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-secondary">
+            <FileText className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-medium text-sm flex items-center gap-2">
+              {cat.label}
+              {cat.required && !readOnly && (
+                <span className="text-destructive">*</span>
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {uploadedDocs.length}/{maxFiles} arquivo(s) enviado(s)
+            </p>
+          </div>
+        </div>
+
+        {/* Uploaded files list */}
+        {uploadedDocs.length > 0 && (
+          <div className="space-y-2 mb-3">
+            {uploadedDocs.map((doc, idx) => {
+              const isUploadingThis = uploading === doc.category;
+              return (
+                <div
+                  key={doc.category}
+                  className="flex items-center justify-between gap-3 bg-secondary/30 rounded-lg p-3"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 bg-accent/20">
+                      {isUploadingThis ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                      ) : doc.mime_type?.includes("pdf") ? (
+                        <FileText className="w-4 h-4 text-accent" />
+                      ) : (
+                        <Image className="w-4 h-4 text-accent" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm truncate">{doc.file_name}</p>
+                      <p className="text-xs text-muted-foreground">Arquivo {idx + 1}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {getStatusBadge(doc.status)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handlePreview(doc)}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </Button>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => handleRemove(doc.category)}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Add more button */}
+        {canAddMore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-dashed"
+            onClick={() => {
+              const slotIndex = uploadedDocs.length;
+              const inputKey = `${cat.id}_slot_${slotIndex}`;
+              inputRefs.current[inputKey]?.click();
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar contracheque ({uploadedDocs.length}/{maxFiles})
+          </Button>
+        )}
+
+        {/* Hidden inputs for each possible slot */}
+        {Array.from({ length: maxFiles }).map((_, idx) => {
+          const inputKey = `${cat.id}_slot_${idx}`;
+          return (
+            <input
+              key={inputKey}
+              ref={(el) => (inputRefs.current[inputKey] = el)}
+              type="file"
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+              onChange={(e) => {
+                handleFileSelect(cat.id, e.target.files?.[0], idx);
+                // Reset input so the same file can be re-selected
+                if (e.target) e.target.value = "";
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <>
       {tenantLabel && (
@@ -278,101 +488,10 @@ export function DocumentUploader({
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DOCUMENT_CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id)).map((cat) => {
-          const doc = getDocumentByCategory(cat.id);
-          const isUploading = uploading === cat.id;
-
-          return (
-            <div
-              key={cat.id}
-              className={`border-2 rounded-xl p-4 transition-colors ${
-                doc
-                  ? "border-solid bg-secondary/30"
-                  : "border-dashed hover:border-accent"
-              } ${readOnly ? "" : "cursor-pointer"}`}
-              onClick={() => {
-                if (!readOnly && !doc && !isUploading) {
-                  inputRefs.current[cat.id]?.click();
-                }
-              }}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      doc ? "bg-accent/20" : "bg-secondary"
-                    }`}
-                  >
-                    {isUploading ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-accent" />
-                    ) : doc?.mime_type?.includes("pdf") ? (
-                      <FileText className="w-5 h-5 text-accent" />
-                    ) : doc ? (
-                      <Image className="w-5 h-5 text-accent" />
-                    ) : (
-                      <Upload className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm flex items-center gap-2">
-                      {cat.label}
-                      {cat.required && !readOnly && (
-                        <span className="text-destructive">*</span>
-                      )}
-                    </p>
-                    {doc ? (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {doc.file_name}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        {readOnly ? "Não enviado" : "Clique para enviar"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {doc && getStatusBadge(doc.status)}
-                  {doc && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePreview(doc);
-                      }}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {doc && !readOnly && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemove(cat.id);
-                      }}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <input
-                ref={(el) => (inputRefs.current[cat.id] = el)}
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
-                onChange={(e) =>
-                  handleFileSelect(cat.id, e.target.files?.[0])
-                }
-              />
-            </div>
-          );
+          if ((cat.maxFiles ?? 1) > 1) {
+            return renderMultiFileCategory(cat);
+          }
+          return renderSingleFileCategory(cat);
         })}
       </div>
 
@@ -415,7 +534,6 @@ export function DocumentUploader({
                 className="max-w-full max-h-[70vh] object-contain rounded-lg"
                 onLoad={() => setPreviewLoading(false)}
                 onError={(e) => {
-                  // Only show error if the src is not empty (avoids initial render error)
                   if (e.currentTarget.src && e.currentTarget.src !== window.location.href) {
                     setPreviewError("Não foi possível carregar a imagem");
                   }

@@ -288,12 +288,12 @@ export default function BulkSend() {
           </Card>
 
           {result && (
-            <Card className="border-green-500/50 bg-green-500/5">
+            <Card className="border-success/50 bg-success/5">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-500" />
+                  <CheckCircle className="w-6 h-6 text-success" />
                   <div>
-                    <p className="font-medium text-green-700">{result.scheduled} mensagens agendadas!</p>
+                    <p className="font-medium text-success">{result.scheduled} mensagens agendadas!</p>
                     <p className="text-sm text-muted-foreground">
                       Tempo estimado: ~{result.estimatedDurationMin} minutos. Acompanhe na Fila de Envio.
                     </p>

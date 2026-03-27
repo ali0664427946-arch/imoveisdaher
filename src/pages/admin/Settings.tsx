@@ -34,6 +34,13 @@ export default function Settings() {
   const [evolutionKey, setEvolutionKey] = useState("");
   const [evolutionInstance, setEvolutionInstance] = useState("");
   const [savingEvolution, setSavingEvolution] = useState(false);
+  const [integrationTypeWaba, setIntegrationTypeWaba] = useState(false);
+  const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [businessAccountId, setBusinessAccountId] = useState("");
+  const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
+  const [aiSystemPrompt, setAiSystemPrompt] = useState("");
+  const [savingAiSettings, setSavingAiSettings] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();

@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   MessageSquare,
-  Kanban,
   Building2,
   FileText,
   FileCode,
@@ -13,6 +12,7 @@ import {
   Download,
   Activity,
   Clock,
+  Send,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logoImage from "@/assets/logo-daher.png";
@@ -38,6 +38,7 @@ const menuItems = [
   { title: "Fichas", url: "/admin/fichas", icon: FileText },
   { title: "Templates", url: "/admin/templates", icon: FileCode },
   { title: "Fila de Envio", url: "/admin/fila-envio", icon: Clock },
+  { title: "Envio em Massa", url: "/admin/envio-massa", icon: Send },
 ];
 
 const adminItems = [

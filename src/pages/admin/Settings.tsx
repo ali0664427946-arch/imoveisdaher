@@ -120,11 +120,38 @@ export default function Settings() {
         .maybeSingle();
 
       if (data?.value) {
-        const settings = data.value as { base_url: string; api_key: string; instance_name: string };
+        const settings = data.value as {
+          base_url: string; api_key: string; instance_name: string;
+          integration_type?: string;
+          meta_access_token?: string; phone_number_id?: string; business_account_id?: string;
+        };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
         setEvolutionInstance(settings.instance_name || "");
+        setIntegrationTypeWaba(settings.integration_type === "waba");
+        setMetaAccessToken(settings.meta_access_token || "");
+        setPhoneNumberId(settings.phone_number_id || "");
+        setBusinessAccountId(settings.business_account_id || "");
         return settings;
+      }
+      return null;
+    },
+  });
+
+  // Query AI auto-reply settings
+  const { data: aiAutoReplySettings } = useQuery({
+    queryKey: ["ai-auto-reply-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "ai_auto_reply")
+        .maybeSingle();
+      if (data?.value) {
+        const s = data.value as { enabled: boolean; system_prompt?: string };
+        setAiAutoReplyEnabled(s.enabled || false);
+        setAiSystemPrompt(s.system_prompt || "");
+        return s;
       }
       return null;
     },
@@ -302,16 +329,27 @@ export default function Settings() {
 
   const handleSaveEvolution = async () => {
     if (!evolutionUrl.trim() || !evolutionKey.trim() || !evolutionInstance.trim()) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    if (integrationTypeWaba && (!metaAccessToken.trim() || !phoneNumberId.trim())) {
+      toast({ title: "Preencha os campos WABA obrigatórios", variant: "destructive" });
       return;
     }
     setSavingEvolution(true);
     try {
-      const value = {
+      const value: Record<string, string> = {
         base_url: evolutionUrl.trim().replace(/\/+$/, ""),
         api_key: evolutionKey.trim(),
         instance_name: evolutionInstance.trim(),
+        integration_type: integrationTypeWaba ? "waba" : "qrcode",
       };
+
+      if (integrationTypeWaba) {
+        value.meta_access_token = metaAccessToken.trim();
+        value.phone_number_id = phoneNumberId.trim();
+        value.business_account_id = businessAccountId.trim();
+      }
 
       // Upsert: try update first, then insert
       const { data: existing } = await supabase
@@ -340,6 +378,44 @@ export default function Settings() {
       toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
     } finally {
       setSavingEvolution(false);
+    }
+  };
+
+  const handleSaveAiSettings = async () => {
+    setSavingAiSettings(true);
+    try {
+      const value = {
+        enabled: aiAutoReplyEnabled,
+        system_prompt: aiSystemPrompt.trim() || undefined,
+        max_history: 10,
+      };
+
+      const { data: existing } = await supabase
+        .from("integrations_settings")
+        .select("id")
+        .eq("key", "ai_auto_reply")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq("key", "ai_auto_reply");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .insert({ key: "ai_auto_reply", value });
+        if (error) throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["ai-auto-reply-settings"] });
+      toast({ title: "Configurações de IA salvas! ✅" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar";
+      toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
+    } finally {
+      setSavingAiSettings(false);
     }
   };
 

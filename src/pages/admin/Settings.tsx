@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users, Megaphone, ExternalLink } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users, Megaphone, ExternalLink, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { usePropertySync } from "@/hooks/usePropertySync";
 import { useToast } from "@/hooks/use-toast";

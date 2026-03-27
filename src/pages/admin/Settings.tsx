@@ -877,70 +877,84 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Integration Type Toggle */}
+              <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                <Label className="text-sm font-medium">Tipo de Integração</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="intType" checked={!integrationTypeWaba} onChange={() => setIntegrationTypeWaba(false)} className="accent-primary" />
+                    <span className="text-sm">QR Code (não oficial)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="intType" checked={integrationTypeWaba} onChange={() => setIntegrationTypeWaba(true)} className="accent-primary" />
+                    <span className="text-sm">WABA Oficial (Cloud API Meta)</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="evolution_url">Base URL</Label>
-                  <Input
-                    id="evolution_url"
-                    placeholder="https://api.evolution.com"
-                    value={evolutionUrl}
-                    onChange={(e) => setEvolutionUrl(e.target.value)}
-                  />
+                  <Input id="evolution_url" placeholder="https://api.evolution.com" value={evolutionUrl} onChange={(e) => setEvolutionUrl(e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="evolution_key">API Key</Label>
-                  <Input
-                    id="evolution_key"
-                    type="password"
-                    placeholder="Sua API Key"
-                    value={evolutionKey}
-                    onChange={(e) => setEvolutionKey(e.target.value)}
-                  />
+                  <Input id="evolution_key" type="password" placeholder="Sua API Key" value={evolutionKey} onChange={(e) => setEvolutionKey(e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="evolution_instance">Instance</Label>
-                  <Input
-                    id="evolution_instance"
-                    placeholder="daher-imoveis"
-                    value={evolutionInstance}
-                    onChange={(e) => setEvolutionInstance(e.target.value)}
-                  />
+                  <Input id="evolution_instance" placeholder="daher-imoveis" value={evolutionInstance} onChange={(e) => setEvolutionInstance(e.target.value)} />
                 </div>
               </div>
+
+              {/* WABA Fields */}
+              {integrationTypeWaba && (
+                <div className="border border-primary/30 rounded-lg p-4 space-y-4 bg-primary/5">
+                  <p className="text-sm font-medium text-primary flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Configuração WABA Oficial (Meta Cloud API)
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="meta_token">Meta Access Token *</Label>
+                      <Input id="meta_token" type="password" placeholder="EAAx..." value={metaAccessToken} onChange={(e) => setMetaAccessToken(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone_id">Phone Number ID *</Label>
+                      <Input id="phone_id" placeholder="1234567890" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="business_id">Business Account ID</Label>
+                      <Input id="business_id" placeholder="9876543210" value={businessAccountId} onChange={(e) => setBusinessAccountId(e.target.value)} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Obtenha essas credenciais no <a href="https://developers.facebook.com" target="_blank" className="text-primary underline">Meta for Developers</a> → WhatsApp → Configuração da API
+                  </p>
+                </div>
+              )}
+
+              {/* Status badge */}
+              <div className="flex items-center gap-2">
+                <Badge variant={integrationTypeWaba ? "default" : "secondary"}>
+                  {integrationTypeWaba ? "WABA Oficial" : "QR Code"}
+                </Badge>
+                {evolutionUrl && evolutionInstance && (
+                  <Badge variant="outline">{evolutionInstance}</Badge>
+                )}
+              </div>
+
               <div className="flex gap-2 flex-wrap">
-                <Button
-                  onClick={handleSaveEvolution}
-                  disabled={savingEvolution}
-                >
-                  {savingEvolution ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
+                <Button onClick={handleSaveEvolution} disabled={savingEvolution}>
+                  {savingEvolution ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Salvar Configurações
                 </Button>
-                <Button 
-                  variant="outline"
-                  onClick={testEvolutionConnection}
-                  disabled={testingEvolution}
-                >
-                  {testingEvolution ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Zap className="w-4 h-4 mr-2" />
-                  )}
+                <Button variant="outline" onClick={testEvolutionConnection} disabled={testingEvolution}>
+                  {testingEvolution ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
                   Testar Conexão
                 </Button>
-                <Button 
-                  variant="secondary"
-                  onClick={syncGroupNames}
-                  disabled={syncingGroups}
-                >
-                  {syncingGroups ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Users className="w-4 h-4 mr-2" />
-                  )}
+                <Button variant="secondary" onClick={syncGroupNames} disabled={syncingGroups}>
+                  {syncingGroups ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
                   Sincronizar Nomes de Grupos
                 </Button>
               </div>

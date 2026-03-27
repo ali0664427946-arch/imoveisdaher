@@ -1141,11 +1141,65 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="agent" className="space-y-6">
+          {/* AI Auto-Reply Card */}
+          <Card className="border-primary/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-primary" />
+                Resposta Automática com IA
+              </CardTitle>
+              <CardDescription>
+                O atendente virtual responde automaticamente mensagens recebidas via WhatsApp usando inteligência artificial
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="font-medium">Ativar Resposta Automática IA</p>
+                  <p className="text-sm text-muted-foreground">
+                    Quando ativo, mensagens recebidas serão respondidas automaticamente
+                  </p>
+                </div>
+                <Switch checked={aiAutoReplyEnabled} onCheckedChange={setAiAutoReplyEnabled} />
+              </div>
+
+              {aiAutoReplyEnabled && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm space-y-1">
+                  <p className="font-medium text-primary">🤖 IA ativa</p>
+                  <p className="text-muted-foreground text-xs">
+                    Mensagens recebidas de clientes serão respondidas automaticamente pelo atendente virtual.
+                    O sistema usa contexto da conversa para respostas coerentes.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label>Prompt do Sistema (personalização do atendente)</Label>
+                <Textarea
+                  className="mt-2"
+                  rows={8}
+                  placeholder="Você é um atendente da Daher Imóveis, especialista em venda e locação de imóveis em Jacarepaguá e Rio de Janeiro..."
+                  value={aiSystemPrompt}
+                  onChange={(e) => setAiSystemPrompt(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Deixe em branco para usar o prompt padrão da Daher Imóveis
+                </p>
+              </div>
+
+              <Button onClick={handleSaveAiSettings} disabled={savingAiSettings}>
+                {savingAiSettings ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Configurações de IA
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Existing document analysis templates */}
           <Card>
             <CardHeader>
-              <CardTitle>Configurações do Agente IA</CardTitle>
+              <CardTitle>Templates de Análise Documental</CardTitle>
               <CardDescription>
-                Configure o comportamento do agente de análise documental
+                Configure mensagens automáticas para resultados de análise de fichas
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1156,42 +1210,25 @@ export default function Settings() {
                     Enviar resultado da análise automaticamente via WhatsApp
                   </p>
                 </div>
-                <Switch
-                  checked={autoSendEnabled}
-                  onCheckedChange={setAutoSendEnabled}
-                />
+                <Switch checked={autoSendEnabled} onCheckedChange={setAutoSendEnabled} />
               </div>
-
               <div className="space-y-4 pt-4 border-t">
                 <div>
                   <Label>Template: Cliente Apto</Label>
-                  <Textarea
-                    className="mt-2"
-                    rows={4}
-                    placeholder="Olá {{nome}}, sua documentação foi aprovada para o imóvel {{imovel_titulo}}..."
-                  />
+                  <Textarea className="mt-2" rows={4} placeholder="Olá {{nome}}, sua documentação foi aprovada para o imóvel {{imovel_titulo}}..." />
                 </div>
                 <div>
                   <Label>Template: Não Apto</Label>
-                  <Textarea
-                    className="mt-2"
-                    rows={4}
-                    placeholder="Olá {{nome}}, infelizmente sua documentação não foi aprovada..."
-                  />
+                  <Textarea className="mt-2" rows={4} placeholder="Olá {{nome}}, infelizmente sua documentação não foi aprovada..." />
                 </div>
                 <div>
                   <Label>Template: Documentos Pendentes</Label>
-                  <Textarea
-                    className="mt-2"
-                    rows={4}
-                    placeholder="Olá {{nome}}, identificamos que alguns documentos estão faltando..."
-                  />
+                  <Textarea className="mt-2" rows={4} placeholder="Olá {{nome}}, identificamos que alguns documentos estão faltando..." />
                 </div>
               </div>
-
               <Button variant="hero">
                 <Save className="w-4 h-4" />
-                Salvar Configurações
+                Salvar Templates
               </Button>
             </CardContent>
           </Card>

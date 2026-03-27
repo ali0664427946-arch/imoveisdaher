@@ -24,6 +24,7 @@ import Templates from "./pages/admin/Templates";
 import Settings from "./pages/admin/Settings";
 import IntegrationStatus from "./pages/admin/IntegrationStatus";
 import SendQueue from "./pages/admin/SendQueue";
+import BulkSend from "./pages/admin/BulkSend";
 import Users from "./pages/admin/Users";
 import InstallApp from "./pages/InstallApp";
 import InstallPWA from "./pages/admin/InstallPWA";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="configuracoes" element={<Settings />} />
               <Route path="status-integracao" element={<IntegrationStatus />} />
               <Route path="fila-envio" element={<SendQueue />} />
+              <Route path="envio-massa" element={<BulkSend />} />
               <Route path="usuarios" element={<Users />} />
               <Route path="instalar" element={<InstallPWA />} />
             </Route>

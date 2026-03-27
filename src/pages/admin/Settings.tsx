@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users, Megaphone, ExternalLink } from "lucide-react";
+import { Save, RefreshCw, Link2, Shield, Bell, MessageSquare, Copy, Check, Webhook, Clock, Zap, Loader2, Download, Globe, CalendarClock, Users, Megaphone, ExternalLink, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { usePropertySync } from "@/hooks/usePropertySync";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +35,13 @@ export default function Settings() {
   const [evolutionKey, setEvolutionKey] = useState("");
   const [evolutionInstance, setEvolutionInstance] = useState("");
   const [savingEvolution, setSavingEvolution] = useState(false);
+  const [integrationTypeWaba, setIntegrationTypeWaba] = useState(false);
+  const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [businessAccountId, setBusinessAccountId] = useState("");
+  const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
+  const [aiSystemPrompt, setAiSystemPrompt] = useState("");
+  const [savingAiSettings, setSavingAiSettings] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -113,11 +121,38 @@ export default function Settings() {
         .maybeSingle();
 
       if (data?.value) {
-        const settings = data.value as { base_url: string; api_key: string; instance_name: string };
+        const settings = data.value as {
+          base_url: string; api_key: string; instance_name: string;
+          integration_type?: string;
+          meta_access_token?: string; phone_number_id?: string; business_account_id?: string;
+        };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
         setEvolutionInstance(settings.instance_name || "");
+        setIntegrationTypeWaba(settings.integration_type === "waba");
+        setMetaAccessToken(settings.meta_access_token || "");
+        setPhoneNumberId(settings.phone_number_id || "");
+        setBusinessAccountId(settings.business_account_id || "");
         return settings;
+      }
+      return null;
+    },
+  });
+
+  // Query AI auto-reply settings
+  const { data: aiAutoReplySettings } = useQuery({
+    queryKey: ["ai-auto-reply-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "ai_auto_reply")
+        .maybeSingle();
+      if (data?.value) {
+        const s = data.value as { enabled: boolean; system_prompt?: string };
+        setAiAutoReplyEnabled(s.enabled || false);
+        setAiSystemPrompt(s.system_prompt || "");
+        return s;
       }
       return null;
     },
@@ -295,16 +330,27 @@ export default function Settings() {
 
   const handleSaveEvolution = async () => {
     if (!evolutionUrl.trim() || !evolutionKey.trim() || !evolutionInstance.trim()) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    if (integrationTypeWaba && (!metaAccessToken.trim() || !phoneNumberId.trim())) {
+      toast({ title: "Preencha os campos WABA obrigatórios", variant: "destructive" });
       return;
     }
     setSavingEvolution(true);
     try {
-      const value = {
+      const value: Record<string, string> = {
         base_url: evolutionUrl.trim().replace(/\/+$/, ""),
         api_key: evolutionKey.trim(),
         instance_name: evolutionInstance.trim(),
+        integration_type: integrationTypeWaba ? "waba" : "qrcode",
       };
+
+      if (integrationTypeWaba) {
+        value.meta_access_token = metaAccessToken.trim();
+        value.phone_number_id = phoneNumberId.trim();
+        value.business_account_id = businessAccountId.trim();
+      }
 
       // Upsert: try update first, then insert
       const { data: existing } = await supabase
@@ -333,6 +379,44 @@ export default function Settings() {
       toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
     } finally {
       setSavingEvolution(false);
+    }
+  };
+
+  const handleSaveAiSettings = async () => {
+    setSavingAiSettings(true);
+    try {
+      const value = {
+        enabled: aiAutoReplyEnabled,
+        system_prompt: aiSystemPrompt.trim() || undefined,
+        max_history: 10,
+      };
+
+      const { data: existing } = await supabase
+        .from("integrations_settings")
+        .select("id")
+        .eq("key", "ai_auto_reply")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq("key", "ai_auto_reply");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .insert({ key: "ai_auto_reply", value });
+        if (error) throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["ai-auto-reply-settings"] });
+      toast({ title: "Configurações de IA salvas! ✅" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar";
+      toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
+    } finally {
+      setSavingAiSettings(false);
     }
   };
 
@@ -794,70 +878,84 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Integration Type Toggle */}
+              <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                <Label className="text-sm font-medium">Tipo de Integração</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="intType" checked={!integrationTypeWaba} onChange={() => setIntegrationTypeWaba(false)} className="accent-primary" />
+                    <span className="text-sm">QR Code (não oficial)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="intType" checked={integrationTypeWaba} onChange={() => setIntegrationTypeWaba(true)} className="accent-primary" />
+                    <span className="text-sm">WABA Oficial (Cloud API Meta)</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="evolution_url">Base URL</Label>
-                  <Input
-                    id="evolution_url"
-                    placeholder="https://api.evolution.com"
-                    value={evolutionUrl}
-                    onChange={(e) => setEvolutionUrl(e.target.value)}
-                  />
+                  <Input id="evolution_url" placeholder="https://api.evolution.com" value={evolutionUrl} onChange={(e) => setEvolutionUrl(e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="evolution_key">API Key</Label>
-                  <Input
-                    id="evolution_key"
-                    type="password"
-                    placeholder="Sua API Key"
-                    value={evolutionKey}
-                    onChange={(e) => setEvolutionKey(e.target.value)}
-                  />
+                  <Input id="evolution_key" type="password" placeholder="Sua API Key" value={evolutionKey} onChange={(e) => setEvolutionKey(e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="evolution_instance">Instance</Label>
-                  <Input
-                    id="evolution_instance"
-                    placeholder="daher-imoveis"
-                    value={evolutionInstance}
-                    onChange={(e) => setEvolutionInstance(e.target.value)}
-                  />
+                  <Input id="evolution_instance" placeholder="daher-imoveis" value={evolutionInstance} onChange={(e) => setEvolutionInstance(e.target.value)} />
                 </div>
               </div>
+
+              {/* WABA Fields */}
+              {integrationTypeWaba && (
+                <div className="border border-primary/30 rounded-lg p-4 space-y-4 bg-primary/5">
+                  <p className="text-sm font-medium text-primary flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Configuração WABA Oficial (Meta Cloud API)
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="meta_token">Meta Access Token *</Label>
+                      <Input id="meta_token" type="password" placeholder="EAAx..." value={metaAccessToken} onChange={(e) => setMetaAccessToken(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone_id">Phone Number ID *</Label>
+                      <Input id="phone_id" placeholder="1234567890" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="business_id">Business Account ID</Label>
+                      <Input id="business_id" placeholder="9876543210" value={businessAccountId} onChange={(e) => setBusinessAccountId(e.target.value)} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Obtenha essas credenciais no <a href="https://developers.facebook.com" target="_blank" className="text-primary underline">Meta for Developers</a> → WhatsApp → Configuração da API
+                  </p>
+                </div>
+              )}
+
+              {/* Status badge */}
+              <div className="flex items-center gap-2">
+                <Badge variant={integrationTypeWaba ? "default" : "secondary"}>
+                  {integrationTypeWaba ? "WABA Oficial" : "QR Code"}
+                </Badge>
+                {evolutionUrl && evolutionInstance && (
+                  <Badge variant="outline">{evolutionInstance}</Badge>
+                )}
+              </div>
+
               <div className="flex gap-2 flex-wrap">
-                <Button
-                  onClick={handleSaveEvolution}
-                  disabled={savingEvolution}
-                >
-                  {savingEvolution ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
+                <Button onClick={handleSaveEvolution} disabled={savingEvolution}>
+                  {savingEvolution ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Salvar Configurações
                 </Button>
-                <Button 
-                  variant="outline"
-                  onClick={testEvolutionConnection}
-                  disabled={testingEvolution}
-                >
-                  {testingEvolution ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Zap className="w-4 h-4 mr-2" />
-                  )}
+                <Button variant="outline" onClick={testEvolutionConnection} disabled={testingEvolution}>
+                  {testingEvolution ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
                   Testar Conexão
                 </Button>
-                <Button 
-                  variant="secondary"
-                  onClick={syncGroupNames}
-                  disabled={syncingGroups}
-                >
-                  {syncingGroups ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Users className="w-4 h-4 mr-2" />
-                  )}
+                <Button variant="secondary" onClick={syncGroupNames} disabled={syncingGroups}>
+                  {syncingGroups ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
                   Sincronizar Nomes de Grupos
                 </Button>
               </div>
@@ -1043,11 +1141,65 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="agent" className="space-y-6">
+          {/* AI Auto-Reply Card */}
+          <Card className="border-primary/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-primary" />
+                Resposta Automática com IA
+              </CardTitle>
+              <CardDescription>
+                O atendente virtual responde automaticamente mensagens recebidas via WhatsApp usando inteligência artificial
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="font-medium">Ativar Resposta Automática IA</p>
+                  <p className="text-sm text-muted-foreground">
+                    Quando ativo, mensagens recebidas serão respondidas automaticamente
+                  </p>
+                </div>
+                <Switch checked={aiAutoReplyEnabled} onCheckedChange={setAiAutoReplyEnabled} />
+              </div>
+
+              {aiAutoReplyEnabled && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm space-y-1">
+                  <p className="font-medium text-primary">🤖 IA ativa</p>
+                  <p className="text-muted-foreground text-xs">
+                    Mensagens recebidas de clientes serão respondidas automaticamente pelo atendente virtual.
+                    O sistema usa contexto da conversa para respostas coerentes.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label>Prompt do Sistema (personalização do atendente)</Label>
+                <Textarea
+                  className="mt-2"
+                  rows={8}
+                  placeholder="Você é um atendente da Daher Imóveis, especialista em venda e locação de imóveis em Jacarepaguá e Rio de Janeiro..."
+                  value={aiSystemPrompt}
+                  onChange={(e) => setAiSystemPrompt(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Deixe em branco para usar o prompt padrão da Daher Imóveis
+                </p>
+              </div>
+
+              <Button onClick={handleSaveAiSettings} disabled={savingAiSettings}>
+                {savingAiSettings ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Configurações de IA
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Existing document analysis templates */}
           <Card>
             <CardHeader>
-              <CardTitle>Configurações do Agente IA</CardTitle>
+              <CardTitle>Templates de Análise Documental</CardTitle>
               <CardDescription>
-                Configure o comportamento do agente de análise documental
+                Configure mensagens automáticas para resultados de análise de fichas
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1058,42 +1210,25 @@ export default function Settings() {
                     Enviar resultado da análise automaticamente via WhatsApp
                   </p>
                 </div>
-                <Switch
-                  checked={autoSendEnabled}
-                  onCheckedChange={setAutoSendEnabled}
-                />
+                <Switch checked={autoSendEnabled} onCheckedChange={setAutoSendEnabled} />
               </div>
-
               <div className="space-y-4 pt-4 border-t">
                 <div>
                   <Label>Template: Cliente Apto</Label>
-                  <Textarea
-                    className="mt-2"
-                    rows={4}
-                    placeholder="Olá {{nome}}, sua documentação foi aprovada para o imóvel {{imovel_titulo}}..."
-                  />
+                  <Textarea className="mt-2" rows={4} placeholder="Olá {{nome}}, sua documentação foi aprovada para o imóvel {{imovel_titulo}}..." />
                 </div>
                 <div>
                   <Label>Template: Não Apto</Label>
-                  <Textarea
-                    className="mt-2"
-                    rows={4}
-                    placeholder="Olá {{nome}}, infelizmente sua documentação não foi aprovada..."
-                  />
+                  <Textarea className="mt-2" rows={4} placeholder="Olá {{nome}}, infelizmente sua documentação não foi aprovada..." />
                 </div>
                 <div>
                   <Label>Template: Documentos Pendentes</Label>
-                  <Textarea
-                    className="mt-2"
-                    rows={4}
-                    placeholder="Olá {{nome}}, identificamos que alguns documentos estão faltando..."
-                  />
+                  <Textarea className="mt-2" rows={4} placeholder="Olá {{nome}}, identificamos que alguns documentos estão faltando..." />
                 </div>
               </div>
-
               <Button variant="hero">
                 <Save className="w-4 h-4" />
-                Salvar Configurações
+                Salvar Templates
               </Button>
             </CardContent>
           </Card>

@@ -576,6 +576,34 @@ Deno.serve(async (req) => {
           .eq("id", conversationId);
 
         console.log(`Message saved to conversation ${conversationId}`);
+
+        // Trigger AI auto-reply for inbound text messages (not from groups)
+        if (!isFromMe && !isGroup && messageType === "text" && messageContent && conversationId) {
+          try {
+            const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+            console.log(`Triggering AI auto-reply for conversation ${conversationId}...`);
+            
+            // Fire and forget - don't block webhook response
+            fetch(`${supabaseUrl}/functions/v1/ai-auto-reply`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                message: messageContent,
+                phone: phone,
+                conversationId: conversationId,
+                senderName: senderName,
+              }),
+            }).then(res => {
+              if (!res.ok) {
+                res.text().then(t => console.error("AI auto-reply failed:", t));
+              } else {
+                console.log("AI auto-reply triggered successfully");
+              }
+            }).catch(err => console.error("AI auto-reply error:", err));
+          } catch (aiErr) {
+            console.error("AI auto-reply trigger error:", aiErr);
+          }
+        }
       }
     }
 

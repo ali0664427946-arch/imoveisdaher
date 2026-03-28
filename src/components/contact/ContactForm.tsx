@@ -126,12 +126,12 @@ export function ContactForm() {
                   <div>
                     <p className="font-medium">Telefone / WhatsApp</p>
                     <a
-                      href="https://wa.me/5521982095993"
+                      href="https://wa.me/5521995897673"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-muted-foreground hover:text-accent transition-colors"
                     >
-                      (21) 98209-5993
+                      (21) 99589-7673
                     </a>
                   </div>
                 </div>

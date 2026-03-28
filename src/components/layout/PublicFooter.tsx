@@ -115,8 +115,8 @@ export function PublicFooter() {
                   <a href="tel:+552132746226" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
                     (21) 3274-6226
                   </a>
-                  <a href="https://wa.me/5521982095993" target="_blank" rel="noopener noreferrer" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
-                    (21) 98209-5993
+                  <a href="https://wa.me/5521995897673" target="_blank" rel="noopener noreferrer" className="text-primary-foreground/70 hover:text-accent transition-colors text-sm">
+                    (21) 99589-7673
                   </a>
                 </div>
               </li>

@@ -77,7 +77,9 @@ Deno.serve(async (req) => {
     
     console.log("Evolution webhook received:", JSON.stringify(payload, null, 2));
 
-    const { event, data, instance } = payload;
+    const { event: rawEvent, data, instance } = payload;
+    const event = normalizeEvent(rawEvent);
+    console.log(`Normalized event: ${rawEvent} -> ${event}`);
 
     // Handle all messages (incoming AND outgoing from phone)
     if (event === "messages.upsert" && data.key) {

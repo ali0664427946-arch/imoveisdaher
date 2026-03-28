@@ -228,14 +228,35 @@ Deno.serve(async (req) => {
       console.error("Failed to check instance state:", e);
     }
 
-    // Find valid WhatsApp number (auto-detect DDD if needed)
-    console.log(`Looking for valid WhatsApp number for: ${phone}`);
-    const { validPhone, jid } = await findValidWhatsAppNumber(baseUrl, evolutionKey, instanceName, phone);
+    // Find valid WhatsApp number
+    let validPhone: string | null = null;
+    
+    if (isWaba) {
+      // WABA doesn't support /chat/whatsappNumbers/ endpoint
+      // Just clean and format the number directly
+      let cleanPhone = phone.replace(/\D/g, "");
+      if (cleanPhone.includes("@g.us")) {
+        validPhone = phone; // Group JID
+      } else if (cleanPhone.includes("@")) {
+        validPhone = null; // LID format - can't send
+      } else {
+        // Ensure country code
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
+          cleanPhone = `55${cleanPhone}`;
+        }
+        validPhone = cleanPhone;
+      }
+      console.log(`WABA mode - using phone directly: ${validPhone}`);
+    } else {
+      // Baileys/QR mode - validate number on WhatsApp
+      console.log(`Looking for valid WhatsApp number for: ${phone}`);
+      const result = await findValidWhatsAppNumber(baseUrl, evolutionKey, instanceName, phone);
+      validPhone = result.validPhone;
+    }
 
     if (!validPhone) {
       console.error(`No valid WhatsApp found for phone: ${phone}`);
 
-      // Mark ficha as whatsapp_valid = false if fichaId provided
       if (fichaId) {
         const adminClient = createClient(
           Deno.env.get("SUPABASE_URL")!,
@@ -245,21 +266,19 @@ Deno.serve(async (req) => {
           .from("fichas")
           .update({ whatsapp_valid: false })
           .eq("id", fichaId);
-        console.log(`Marked ficha ${fichaId} as whatsapp_valid=false`);
       }
 
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Número não encontrado no WhatsApp. Verifique se o número está correto e inclui o DDD.",
-          details: "O sistema tentou DDDs comuns mas não encontrou uma conta WhatsApp válida.",
+          error: "Número inválido. Verifique se o número está correto e inclui o DDD.",
           whatsapp_valid: false,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Valid WhatsApp number found: ${validPhone}`);
+    console.log(`Valid phone: ${validPhone} (mode: ${isWaba ? 'WABA' : 'Baileys'})`);
 
     // Mark ficha as whatsapp_valid = true if fichaId provided
     if (fichaId) {

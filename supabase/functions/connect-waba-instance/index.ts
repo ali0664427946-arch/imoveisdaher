@@ -149,28 +149,7 @@ Deno.serve(async (req) => {
       await fetchRes.text(); // consume body
     }
 
-    // Step 2: If instance exists but we can't connect (401), delete and recreate
-    if (instanceExists) {
-      console.log("Instance exists, testing access...");
-      const testRes = await fetch(`${evolutionUrl}/instance/connectionState/${instanceName}`, {
-        headers: { "Content-Type": "application/json", apikey: evolutionKey },
-      });
-      if (testRes.status === 401) {
-        console.log("Got 401 on existing instance — deleting to recreate with current API key...");
-        const delRes = await fetch(`${evolutionUrl}/instance/delete/${instanceName}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json", apikey: evolutionKey },
-        });
-        const delBody = await delRes.text();
-        console.log(`Delete response (${delRes.status}):`, delBody);
-        // Even if delete fails (401), we'll try to create anyway
-        instanceExists = false;
-      } else {
-        await testRes.text();
-      }
-    }
-
-    // Step 3: Create instance if it doesn't exist
+    // Step 2: Create instance if it doesn't exist
     if (!instanceExists) {
       console.log("Creating new WABA instance...");
 
@@ -218,8 +197,38 @@ Deno.serve(async (req) => {
 
       if (!createRes.ok) {
         if (isInstanceAlreadyInUse(createData)) {
-          console.log(`Instance \"${instanceName}\" already exists according to create response, continuing with connect flow.`);
-          instanceExists = true;
+          console.log(`Instance "${instanceName}" already in use — attempting to delete and recreate...`);
+
+          // Try to delete the orphaned instance
+          const delRes = await fetch(`${evolutionUrl}/instance/delete/${instanceName}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", apikey: evolutionKey },
+          });
+          const delBody = await delRes.text();
+          console.log(`Delete response (${delRes.status}):`, delBody);
+
+          if (delRes.ok || delRes.status === 404) {
+            // Retry create after delete
+            console.log("Retrying create after delete...");
+            const retryRes = await fetch(`${evolutionUrl}/instance/create`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: evolutionKey },
+              body: JSON.stringify(createBody),
+            });
+            const retryData = await retryRes.json();
+            console.log("Retry create response:", JSON.stringify(retryData));
+
+            if (!retryRes.ok) {
+              // If still fails, just continue with connect flow
+              console.log("Retry create also failed, continuing with connect flow...");
+              instanceExists = true;
+            }
+          } else {
+            // Delete failed (401 — instance owned by another key)
+            // Continue with connect flow anyway, it might work
+            console.log("Cannot delete instance (owned by different API key). Continuing with connect...");
+            instanceExists = true;
+          }
         } else {
           const details = getEvolutionErrorMessage(createData);
           const status = createRes.status === 403 ? 403 : 500;
@@ -238,7 +247,7 @@ Deno.serve(async (req) => {
       console.log("Instance already exists, attempting to connect...");
     }
 
-    // Step 4: Connect instance
+    // Step 3: Connect instance
     const connectRes = await fetch(`${evolutionUrl}/instance/connect/${instanceName}`, {
       method: "GET",
       headers: { "Content-Type": "application/json", apikey: evolutionKey },
@@ -247,7 +256,19 @@ Deno.serve(async (req) => {
     const connectData = await connectRes.json();
     console.log("Connect response:", JSON.stringify(connectData));
 
-    // Step 5: Check final connection state
+    // If connect returns 401, report clearly
+    if (connectRes.status === 401) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Instância "${instanceName}" não pode ser acessada com a API Key atual. A instância foi criada com outra chave.`,
+          details: "Delete a instância manualmente no painel da Evolution API ou use a API Key original.",
+        }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 4: Check final connection state
     const stateRes = await fetch(`${evolutionUrl}/instance/connectionState/${instanceName}`, {
       method: "GET",
       headers: { "Content-Type": "application/json", apikey: evolutionKey },

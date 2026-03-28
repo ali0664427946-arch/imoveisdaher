@@ -51,6 +51,8 @@ const App = () => (
               <Route path="/ficha" element={<InterestForm />} />
               <Route path="/ficha/reenviar" element={<ResendDocuments />} />
               <Route path="/sobre" element={<About />} />
+              <Route path="/privacidade" element={<PrivacyPolicy />} />
+              <Route path="/termos" element={<TermsOfService />} />
               <Route path="/contato" element={<Index />} />
             </Route>
             

@@ -149,7 +149,28 @@ Deno.serve(async (req) => {
       await fetchRes.text(); // consume body
     }
 
-    // Step 2: Create instance if it doesn't exist
+    // Step 2: If instance exists but we can't connect (401), delete and recreate
+    if (instanceExists) {
+      console.log("Instance exists, testing access...");
+      const testRes = await fetch(`${evolutionUrl}/instance/connectionState/${instanceName}`, {
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      });
+      if (testRes.status === 401) {
+        console.log("Got 401 on existing instance — deleting to recreate with current API key...");
+        const delRes = await fetch(`${evolutionUrl}/instance/delete/${instanceName}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", apikey: evolutionKey },
+        });
+        const delBody = await delRes.text();
+        console.log(`Delete response (${delRes.status}):`, delBody);
+        // Even if delete fails (401), we'll try to create anyway
+        instanceExists = false;
+      } else {
+        await testRes.text();
+      }
+    }
+
+    // Step 3: Create instance if it doesn't exist
     if (!instanceExists) {
       console.log("Creating new WABA instance...");
 
@@ -217,7 +238,7 @@ Deno.serve(async (req) => {
       console.log("Instance already exists, attempting to connect...");
     }
 
-    // Step 3: Connect instance
+    // Step 4: Connect instance
     const connectRes = await fetch(`${evolutionUrl}/instance/connect/${instanceName}`, {
       method: "GET",
       headers: { "Content-Type": "application/json", apikey: evolutionKey },
@@ -226,7 +247,7 @@ Deno.serve(async (req) => {
     const connectData = await connectRes.json();
     console.log("Connect response:", JSON.stringify(connectData));
 
-    // Step 4: Check final connection state
+    // Step 5: Check final connection state
     const stateRes = await fetch(`${evolutionUrl}/instance/connectionState/${instanceName}`, {
       method: "GET",
       headers: { "Content-Type": "application/json", apikey: evolutionKey },

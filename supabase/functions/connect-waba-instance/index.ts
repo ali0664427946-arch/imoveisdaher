@@ -22,7 +22,11 @@ const getInstancesList = (payload: any): any[] => {
 const getEvolutionErrorMessage = (payload: any): string => {
   if (!payload) return "Erro desconhecido";
 
-  const rawMessage = payload.message ?? payload.error ?? payload.response?.message ?? payload.response?.error;
+  const rawMessage =
+    payload.response?.message ??
+    payload.response?.error ??
+    payload.message ??
+    payload.error;
 
   if (Array.isArray(rawMessage)) return rawMessage.join(" | ");
   if (typeof rawMessage === "string") return rawMessage;
@@ -208,17 +212,6 @@ Deno.serve(async (req) => {
             { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-      }
-
-      if (!instanceExists && !createRes.ok) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Falha ao criar instância na Evolution API",
-            details: getEvolutionErrorMessage(createData),
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
       }
     } else {
       console.log("Instance already exists, attempting to connect...");

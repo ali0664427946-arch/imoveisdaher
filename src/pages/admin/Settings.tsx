@@ -985,6 +985,12 @@ export default function Settings() {
                   {syncingGroups ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
                   Sincronizar Nomes de Grupos
                 </Button>
+                {integrationTypeWaba && (
+                  <Button variant="default" onClick={handleConnectWaba} disabled={connectingWaba} className="bg-green-600 hover:bg-green-700 text-white">
+                    {connectingWaba ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Link2 className="w-4 h-4 mr-2" />}
+                    Conectar WABA
+                  </Button>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 💡 As configurações salvas aqui serão usadas por todas as funções do sistema (envio, webhook, agendamentos, etc.)

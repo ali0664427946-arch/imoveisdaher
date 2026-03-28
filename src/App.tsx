@@ -12,6 +12,8 @@ import PropertyDetail from "./pages/PropertyDetail";
 import InterestForm from "./pages/InterestForm";
 import ResendDocuments from "./pages/ResendDocuments";
 import About from "./pages/About";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/admin/Dashboard";
 import Inbox from "./pages/admin/Inbox";
@@ -49,6 +51,8 @@ const App = () => (
               <Route path="/ficha" element={<InterestForm />} />
               <Route path="/ficha/reenviar" element={<ResendDocuments />} />
               <Route path="/sobre" element={<About />} />
+              <Route path="/privacidade" element={<PrivacyPolicy />} />
+              <Route path="/termos" element={<TermsOfService />} />
               <Route path="/contato" element={<Index />} />
             </Route>
             

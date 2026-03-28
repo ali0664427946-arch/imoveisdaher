@@ -42,6 +42,7 @@ export default function Settings() {
   const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
   const [aiSystemPrompt, setAiSystemPrompt] = useState("");
   const [savingAiSettings, setSavingAiSettings] = useState(false);
+  const [connectingWaba, setConnectingWaba] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -451,6 +452,32 @@ export default function Settings() {
       });
     } finally {
       setTestingEvolution(false);
+    }
+  };
+
+  const handleConnectWaba = async () => {
+    setConnectingWaba(true);
+    try {
+      await handleSaveEvolution();
+      const { data, error } = await supabase.functions.invoke("connect-waba-instance");
+      if (error) throw new Error(error.message || "Erro ao conectar WABA");
+      if (data?.success) {
+        toast({
+          title: data.state === "open" ? "WABA Conectado! ✅" : "Instância criada! ✅",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Falha na conexão WABA ❌",
+          description: data?.details || data?.error || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao conectar WABA";
+      toast({ title: "Erro ❌", description: message, variant: "destructive" });
+    } finally {
+      setConnectingWaba(false);
     }
   };
 
@@ -958,6 +985,12 @@ export default function Settings() {
                   {syncingGroups ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
                   Sincronizar Nomes de Grupos
                 </Button>
+                {integrationTypeWaba && (
+                  <Button variant="default" onClick={handleConnectWaba} disabled={connectingWaba} className="bg-green-600 hover:bg-green-700 text-white">
+                    {connectingWaba ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Link2 className="w-4 h-4 mr-2" />}
+                    Conectar WABA
+                  </Button>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 💡 As configurações salvas aqui serão usadas por todas as funções do sistema (envio, webhook, agendamentos, etc.)

@@ -7,12 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Evolution API webhook event types
-type EventType = 
-  | "messages.upsert" // Incoming message
-  | "messages.update" // Message status update (delivered, read)
-  | "connection.update" // Connection status
-  | "qrcode.updated"; // QR code update
+// Evolution API webhook event types - normalize across Baileys and WABA formats
+// Baileys: "messages.upsert", "messages.update", "connection.update"
+// WABA: "messages.upsert", "send.message", "MESSAGES_UPSERT", etc.
+type EventType = string;
+
+function normalizeEvent(event: string): string {
+  const e = event.toLowerCase().replace(/_/g, ".");
+  // Map WABA "send.message" to "messages.upsert" (it's a message event)
+  if (e === "send.message") return "messages.upsert";
+  if (e === "messages.upsert") return "messages.upsert";
+  if (e === "messages.update") return "messages.update";
+  if (e === "connection.update") return "connection.update";
+  return e;
+}
 
 interface EvolutionWebhookPayload {
   event: EventType;

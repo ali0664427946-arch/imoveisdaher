@@ -42,6 +42,7 @@ export default function Settings() {
   const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
   const [aiSystemPrompt, setAiSystemPrompt] = useState("");
   const [savingAiSettings, setSavingAiSettings] = useState(false);
+  const [connectingWaba, setConnectingWaba] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();

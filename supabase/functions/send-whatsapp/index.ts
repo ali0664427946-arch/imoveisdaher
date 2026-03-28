@@ -200,6 +200,29 @@ Deno.serve(async (req) => {
 
     const baseUrl = evolutionUrl.replace(/\/+$/, ""); // Remove trailing slashes
 
+    // Check instance connection state before attempting to send
+    try {
+      const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      });
+      if (stateRes.ok) {
+        const stateData = await stateRes.json();
+        const state = stateData.instance?.state || stateData.state || "unknown";
+        if (state !== "open") {
+          console.error(`Instance ${instanceName} is not connected. State: ${state}`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Instância "${instanceName}" não está conectada (estado: ${state}). Conecte o WhatsApp antes de enviar mensagens.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Failed to check instance state:", e);
+    }
+
     // Find valid WhatsApp number (auto-detect DDD if needed)
     console.log(`Looking for valid WhatsApp number for: ${phone}`);
     const { validPhone, jid } = await findValidWhatsAppNumber(baseUrl, evolutionKey, instanceName, phone);

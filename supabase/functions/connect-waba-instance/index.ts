@@ -6,6 +6,44 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const getInstancesList = (payload: any): any[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+
+  const candidates = [payload.instances, payload.response, payload.data, payload.result];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+    if (candidate && Array.isArray(candidate.instances)) return candidate.instances;
+  }
+
+  return [];
+};
+
+const getEvolutionErrorMessage = (payload: any): string => {
+  if (!payload) return "Erro desconhecido";
+
+  const rawMessage = payload.message ?? payload.error ?? payload.response?.message ?? payload.response?.error;
+
+  if (Array.isArray(rawMessage)) return rawMessage.join(" | ");
+  if (typeof rawMessage === "string") return rawMessage;
+
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return "Erro desconhecido";
+  }
+};
+
+const isInstanceAlreadyInUse = (payload: any): boolean => {
+  const message = getEvolutionErrorMessage(payload).toLowerCase();
+  return (
+    message.includes("already in use") ||
+    message.includes("já está em uso") ||
+    message.includes("name is already in use") ||
+    message.includes("name \"")
+  );
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -99,7 +137,7 @@ Deno.serve(async (req) => {
     let instanceExists = false;
     if (fetchRes.ok) {
       const instances = await fetchRes.json();
-      const list = Array.isArray(instances) ? instances : instances.instances || [];
+      const list = getInstancesList(instances);
       instanceExists = list.some((inst: any) =>
         (inst.instance?.instanceName || inst.instanceName || inst.name) === instanceName
       );
@@ -139,7 +177,10 @@ Deno.serve(async (req) => {
         };
       }
 
-      console.log("Create payload:", JSON.stringify(createBody));
+      console.log("Create payload:", JSON.stringify({
+        ...createBody,
+        token: cfg.meta_access_token ? "[REDACTED]" : undefined,
+      }));
 
       const createRes = await fetch(`${evolutionUrl}/instance/create`, {
         method: "POST",
@@ -151,11 +192,30 @@ Deno.serve(async (req) => {
       console.log("Create response:", JSON.stringify(createData));
 
       if (!createRes.ok) {
+        if (isInstanceAlreadyInUse(createData)) {
+          console.log(`Instance \"${instanceName}\" already exists according to create response, continuing with connect flow.`);
+          instanceExists = true;
+        } else {
+          const details = getEvolutionErrorMessage(createData);
+          const status = createRes.status === 403 ? 403 : 500;
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Falha ao criar instância na Evolution API",
+              details,
+            }),
+            { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      if (!instanceExists && !createRes.ok) {
         return new Response(
           JSON.stringify({
             success: false,
             error: "Falha ao criar instância na Evolution API",
-            details: createData.message || createData.error || JSON.stringify(createData),
+            details: getEvolutionErrorMessage(createData),
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

@@ -131,7 +131,8 @@ Deno.serve(async (req) => {
     const evolutionKey = cfg.api_key;
     const instanceName = cfg.instance_name;
 
-    console.log(`Connecting WABA instance: ${instanceName}`);
+    console.log(`Connecting WABA instance: ${instanceName} at ${evolutionUrl}`);
+    console.log(`API Key (first 8 chars): ${evolutionKey.substring(0, 8)}...`);
 
     // Step 1: Check if instance already exists
     const fetchRes = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
@@ -145,8 +146,21 @@ Deno.serve(async (req) => {
       instanceExists = list.some((inst: any) =>
         (inst.instance?.instanceName || inst.instanceName || inst.name) === instanceName
       );
+      console.log(`fetchInstances OK. Found ${list.length} instances. Our instance exists: ${instanceExists}`);
     } else {
-      await fetchRes.text(); // consume body
+      const fetchBody = await fetchRes.text();
+      console.log(`fetchInstances failed (${fetchRes.status}): ${fetchBody}`);
+
+      if (fetchRes.status === 401 || fetchRes.status === 403) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "API Key da Evolution não autorizada. Verifique se a chave está correta nas Configurações.",
+            details: `fetchInstances retornou ${fetchRes.status}. Verifique a API Key no painel da Evolution API.`,
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Step 2: Create instance if it doesn't exist

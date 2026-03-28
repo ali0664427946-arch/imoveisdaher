@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
     let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
 
+    let integrationType = "qrcode"; // default to QR/Baileys
     try {
       const { data: dbConfig } = await supabase
         .from("integrations_settings")
@@ -183,12 +184,16 @@ Deno.serve(async (req) => {
         .eq("key", "evolution_api")
         .maybeSingle();
       if (dbConfig?.value) {
-        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
         if (cfg.base_url) evolutionUrl = cfg.base_url;
         if (cfg.api_key) evolutionKey = cfg.api_key;
         if (cfg.instance_name) instanceName = cfg.instance_name;
+        if (cfg.integration_type) integrationType = cfg.integration_type;
       }
     } catch (e) { console.error("Failed to load DB config, using env vars:", e); }
+    
+    const isWaba = integrationType === "waba";
+    console.log(`Integration type: ${integrationType}, isWaba: ${isWaba}`);
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       console.error("Missing Evolution API configuration");
@@ -223,14 +228,35 @@ Deno.serve(async (req) => {
       console.error("Failed to check instance state:", e);
     }
 
-    // Find valid WhatsApp number (auto-detect DDD if needed)
-    console.log(`Looking for valid WhatsApp number for: ${phone}`);
-    const { validPhone, jid } = await findValidWhatsAppNumber(baseUrl, evolutionKey, instanceName, phone);
+    // Find valid WhatsApp number
+    let validPhone: string | null = null;
+    
+    if (isWaba) {
+      // WABA doesn't support /chat/whatsappNumbers/ endpoint
+      // Just clean and format the number directly
+      let cleanPhone = phone.replace(/\D/g, "");
+      if (cleanPhone.includes("@g.us")) {
+        validPhone = phone; // Group JID
+      } else if (cleanPhone.includes("@")) {
+        validPhone = null; // LID format - can't send
+      } else {
+        // Ensure country code
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
+          cleanPhone = `55${cleanPhone}`;
+        }
+        validPhone = cleanPhone;
+      }
+      console.log(`WABA mode - using phone directly: ${validPhone}`);
+    } else {
+      // Baileys/QR mode - validate number on WhatsApp
+      console.log(`Looking for valid WhatsApp number for: ${phone}`);
+      const result = await findValidWhatsAppNumber(baseUrl, evolutionKey, instanceName, phone);
+      validPhone = result.validPhone;
+    }
 
     if (!validPhone) {
       console.error(`No valid WhatsApp found for phone: ${phone}`);
 
-      // Mark ficha as whatsapp_valid = false if fichaId provided
       if (fichaId) {
         const adminClient = createClient(
           Deno.env.get("SUPABASE_URL")!,
@@ -240,21 +266,19 @@ Deno.serve(async (req) => {
           .from("fichas")
           .update({ whatsapp_valid: false })
           .eq("id", fichaId);
-        console.log(`Marked ficha ${fichaId} as whatsapp_valid=false`);
       }
 
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Número não encontrado no WhatsApp. Verifique se o número está correto e inclui o DDD.",
-          details: "O sistema tentou DDDs comuns mas não encontrou uma conta WhatsApp válida.",
+          error: "Número inválido. Verifique se o número está correto e inclui o DDD.",
           whatsapp_valid: false,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Valid WhatsApp number found: ${validPhone}`);
+    console.log(`Valid phone: ${validPhone} (mode: ${isWaba ? 'WABA' : 'Baileys'})`);
 
     // Mark ficha as whatsapp_valid = true if fichaId provided
     if (fichaId) {

@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
     let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
 
+    let integrationType = "qrcode"; // default to QR/Baileys
     try {
       const { data: dbConfig } = await supabase
         .from("integrations_settings")
@@ -183,12 +184,16 @@ Deno.serve(async (req) => {
         .eq("key", "evolution_api")
         .maybeSingle();
       if (dbConfig?.value) {
-        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
         if (cfg.base_url) evolutionUrl = cfg.base_url;
         if (cfg.api_key) evolutionKey = cfg.api_key;
         if (cfg.instance_name) instanceName = cfg.instance_name;
+        if (cfg.integration_type) integrationType = cfg.integration_type;
       }
     } catch (e) { console.error("Failed to load DB config, using env vars:", e); }
+    
+    const isWaba = integrationType === "waba";
+    console.log(`Integration type: ${integrationType}, isWaba: ${isWaba}`);
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       console.error("Missing Evolution API configuration");

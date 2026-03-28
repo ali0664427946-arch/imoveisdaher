@@ -455,6 +455,32 @@ export default function Settings() {
     }
   };
 
+  const handleConnectWaba = async () => {
+    setConnectingWaba(true);
+    try {
+      await handleSaveEvolution();
+      const { data, error } = await supabase.functions.invoke("connect-waba-instance");
+      if (error) throw new Error(error.message || "Erro ao conectar WABA");
+      if (data?.success) {
+        toast({
+          title: data.state === "open" ? "WABA Conectado! ✅" : "Instância criada! ✅",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Falha na conexão WABA ❌",
+          description: data?.details || data?.error || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao conectar WABA";
+      toast({ title: "Erro ❌", description: message, variant: "destructive" });
+    } finally {
+      setConnectingWaba(false);
+    }
+  };
+
   const syncGroupNames = async () => {
     setSyncingGroups(true);
     

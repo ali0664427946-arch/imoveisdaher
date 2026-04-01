@@ -60,7 +60,7 @@ export function useFichaById(id: string | undefined) {
         .select(`
           *,
           property:properties(*),
-          documents:documents(*)
+          documents:documents(*,created_at.desc)
         `)
         .eq("id", id)
         .single();

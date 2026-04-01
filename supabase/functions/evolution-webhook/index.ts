@@ -662,15 +662,24 @@ Deno.serve(async (req) => {
                       }
                     }
                     
-                    // Build redirect message with wa.me link for direct chat
+                    // Build redirect message with wa.me link pre-filled with property info
                     const contactName = redirectSettings.contact_name || "Daher Imóveis";
                     const redirectPhone = redirectSettings.redirect_phone.replace(/\D/g, "");
-                    const waLink = `https://wa.me/55${redirectPhone.startsWith("55") ? redirectPhone.substring(2) : redirectPhone}`;
+                    const waNumber = redirectPhone.startsWith("55") ? redirectPhone : `55${redirectPhone}`;
                     
+                    let prefilledText = "Olá! Gostaria de mais informações!";
                     let textMsg: string;
+                    
                     if (propertyInfo) {
+                      // Extract property details for pre-filled message
+                      const propMatch = propertyInfo.match(/🏠 \*(.+?)\*\n📍 (.+?)\n💰 (.+)/);
+                      if (propMatch) {
+                        prefilledText = `Olá! Vi o imóvel no site e tenho interesse:\n\n🏠 ${propMatch[1]}\n📍 ${propMatch[2]}\n💰 ${propMatch[3]}\n\nGostaria de mais informações!`;
+                      }
+                      const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(prefilledText)}`;
                       textMsg = `Olá! Obrigado pelo interesse no imóvel:${propertyInfo}\n\nPara um atendimento mais rápido, fale diretamente com nosso corretor *${contactName}* clicando no link abaixo 👇\n\n${waLink}`;
                     } else {
+                      const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(prefilledText)}`;
                       textMsg = `Olá! Obrigado por entrar em contato com a *Daher Imóveis*! 🏡\n\nPara um atendimento mais rápido, fale diretamente com nosso corretor *${contactName}* clicando no link abaixo 👇\n\n${waLink}`;
                     }
                     
@@ -680,7 +689,7 @@ Deno.serve(async (req) => {
                       body: JSON.stringify({ number: senderJid, text: textMsg }),
                     });
 
-                    console.log(`Auto-redirect: sent wa.me link to ${senderJid}, redirect to ${waLink}, hasProperty: ${!!propertyInfo}`);
+                    console.log(`Auto-redirect: sent wa.me link with pre-filled property info to ${senderJid}`);
                   }
                 } else {
                   console.log(`Skipping auto-redirect: not first inbound message (count: ${inboundCount})`);

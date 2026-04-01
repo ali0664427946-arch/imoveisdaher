@@ -601,55 +601,100 @@ Deno.serve(async (req) => {
               const redirectSettings = redirectConfig.value as { enabled: boolean; redirect_phone: string; contact_name: string; message_text: string };
               
               if (redirectSettings.enabled && redirectSettings.redirect_phone) {
-                let evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
-                let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
-                let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+                // Check if this is the first message in the conversation (avoid spamming on every message)
+                const { data: msgCount } = await supabase
+                  .from("messages")
+                  .select("id", { count: "exact", head: true })
+                  .eq("conversation_id", conversationId)
+                  .eq("direction", "inbound");
+                
+                const inboundCount = msgCount ? (msgCount as unknown[]).length : 0;
+                
+                // Only send redirect on first inbound message (count will be 1 since we just inserted)
+                if (inboundCount <= 1) {
+                  let evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+                  let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+                  let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
 
-                try {
-                  const { data: dbConfig } = await supabase
-                    .from("integrations_settings")
-                    .select("value")
-                    .eq("key", "evolution_api")
-                    .maybeSingle();
-                  if (dbConfig?.value) {
-                    const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
-                    if (cfg.base_url) evolutionUrl = cfg.base_url;
-                    if (cfg.api_key) evolutionKey = cfg.api_key;
-                    if (cfg.instance_name) instanceName = cfg.instance_name;
+                  try {
+                    const { data: dbConfig } = await supabase
+                      .from("integrations_settings")
+                      .select("value")
+                      .eq("key", "evolution_api")
+                      .maybeSingle();
+                    if (dbConfig?.value) {
+                      const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+                      if (cfg.base_url) evolutionUrl = cfg.base_url;
+                      if (cfg.api_key) evolutionKey = cfg.api_key;
+                      if (cfg.instance_name) instanceName = cfg.instance_name;
+                    }
+                  } catch (_e) { /* use env vars */ }
+
+                  if (evolutionUrl && evolutionKey && instanceName) {
+                    const baseUrl = evolutionUrl.replace(/\/+$/, "");
+                    const senderJid = remoteJid;
+                    
+                    // Try to get property info from the lead
+                    let propertyInfo = "";
+                    if (leadId) {
+                      const { data: leadData } = await supabase
+                        .from("leads")
+                        .select("property_id, notes")
+                        .eq("id", leadId)
+                        .single();
+                      
+                      if (leadData?.property_id) {
+                        const { data: prop } = await supabase
+                          .from("properties")
+                          .select("title, neighborhood, price, purpose")
+                          .eq("id", leadData.property_id)
+                          .single();
+                        
+                        if (prop) {
+                          const priceFormatted = new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                            minimumFractionDigits: 0,
+                          }).format(prop.price);
+                          const purposeText = prop.purpose === "rent" ? "aluguel" : "venda";
+                          propertyInfo = `\n\n🏠 *${prop.title}*\n📍 ${prop.neighborhood}\n💰 ${priceFormatted}${prop.purpose === "rent" ? "/mês" : ""} (${purposeText})`;
+                        }
+                      }
+                    }
+                    
+                    // Build redirect message
+                    let textMsg: string;
+                    if (propertyInfo) {
+                      textMsg = `Olá! Obrigado pelo interesse no imóvel:${propertyInfo}\n\nPara um atendimento mais rápido, envie sua mensagem diretamente para nosso corretor pelo contato abaixo 👇`;
+                    } else {
+                      textMsg = redirectSettings.message_text || 
+                        `Olá! Obrigado por entrar em contato com a *Daher Imóveis*! 🏡\n\nPara um atendimento mais rápido, envie sua mensagem diretamente para nosso corretor pelo contato abaixo 👇`;
+                    }
+                    
+                    await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", apikey: evolutionKey },
+                      body: JSON.stringify({ number: senderJid, text: textMsg }),
+                    });
+
+                    // Send vCard contact
+                    const contactName = redirectSettings.contact_name || "Daher Imóveis";
+                    const redirectPhone = redirectSettings.redirect_phone.replace(/\D/g, "");
+                    const formattedPhone = redirectPhone.startsWith("55") ? `+${redirectPhone}` : `+55${redirectPhone}`;
+
+                    await fetch(`${baseUrl}/message/sendContact/${instanceName}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", apikey: evolutionKey },
+                      body: JSON.stringify({
+                        number: senderJid,
+                        contact: [{ fullName: contactName, wuid: redirectPhone, phoneNumber: formattedPhone }],
+                      }),
+                    });
+
+                    console.log(`Auto-redirect: sent text + vCard to ${senderJid}, redirect to ${redirectPhone}, hasProperty: ${!!propertyInfo}`);
                   }
-                } catch (_e) { /* use env vars */ }
-
-                if (evolutionUrl && evolutionKey && instanceName) {
-                  const baseUrl = evolutionUrl.replace(/\/+$/, "");
-                  const senderJid = remoteJid;
-                  
-                  // Send text message
-                  const textMsg = redirectSettings.message_text || 
-                    `Olá! Obrigado por entrar em contato. Para um atendimento mais rápido, por favor envie sua mensagem diretamente para nosso corretor pelo número abaixo 👇`;
-                  
-                  await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", apikey: evolutionKey },
-                    body: JSON.stringify({ number: senderJid, text: textMsg }),
-                  });
-
-                  // Send vCard contact
-                  const contactName = redirectSettings.contact_name || "Corretor Daher Imóveis";
-                  const redirectPhone = redirectSettings.redirect_phone.replace(/\D/g, "");
-                  const formattedPhone = redirectPhone.startsWith("55") ? `+${redirectPhone}` : `+55${redirectPhone}`;
-                  
-                  const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${contactName}\nTEL;type=CELL;waid=${redirectPhone}:${formattedPhone}\nEND:VCARD`;
-
-                  await fetch(`${baseUrl}/message/sendContact/${instanceName}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", apikey: evolutionKey },
-                    body: JSON.stringify({
-                      number: senderJid,
-                      contact: [{ fullName: contactName, wuid: redirectPhone, phoneNumber: formattedPhone }],
-                    }),
-                  });
-
-                  console.log(`Auto-redirect: sent text + vCard to ${senderJid}, redirect to ${redirectPhone}`);
+                } else {
+                  console.log(`Skipping auto-redirect: not first inbound message (count: ${inboundCount})`);
                 }
               }
             }

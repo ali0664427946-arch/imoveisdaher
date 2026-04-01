@@ -164,6 +164,26 @@ export default function Settings() {
     },
   });
 
+  // Query WABA auto-redirect settings
+  const { data: redirectSettings } = useQuery({
+    queryKey: ["waba-auto-redirect-settings"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "waba_auto_redirect")
+        .maybeSingle();
+      if (data?.value) {
+        const s = data.value as { enabled: boolean; redirect_phone: string; contact_name?: string; message_text?: string };
+        setRedirectEnabled(s.enabled || false);
+        setRedirectPhone(s.redirect_phone || "");
+        setRedirectContactName(s.contact_name || "");
+        setRedirectMessage(s.message_text || "");
+        return s;
+      }
+      return null;
+    },
+  });
   const handleSaveAutoSync = async (enabled: boolean) => {
     setSavingAutoSync(true);
     try {

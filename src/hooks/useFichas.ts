@@ -60,10 +60,19 @@ export function useFichaById(id: string | undefined) {
         .select(`
           *,
           property:properties(*),
-          documents:documents(*,created_at.desc)
+          documents:documents(*)
         `)
         .eq("id", id)
         .single();
+
+      if (error) throw error;
+
+      // Sort documents by created_at DESC so newest appear first
+      if (data.documents && Array.isArray(data.documents)) {
+        data.documents.sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      }
 
       if (error) throw error;
       return data;

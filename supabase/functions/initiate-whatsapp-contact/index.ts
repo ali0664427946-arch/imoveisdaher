@@ -239,10 +239,13 @@ Em breve um de nossos corretores entrará em contato para te ajudar!
             // Small delay between messages
             await new Promise(r => setTimeout(r, 1500));
 
-            // Send redirect text with wa.me link for direct chat
+            // Send redirect text with wa.me link pre-filled with property info
             const contactName = rs.contact_name || "Daher Imóveis";
             const redirectPhone = rs.redirect_phone.replace(/\D/g, "");
-            const waLink = `https://wa.me/55${redirectPhone.startsWith("55") ? redirectPhone.substring(2) : redirectPhone}`;
+            const waNumber = redirectPhone.startsWith("55") ? redirectPhone : `55${redirectPhone}`;
+            
+            const prefilledMsg = encodeURIComponent(`Olá! Vi o imóvel no site e tenho interesse:\n\n🏠 ${propertyTitle}\n📍 ${propertyNeighborhood}\n💰 ${priceFormatted}${propertyPurpose === "rent" ? "/mês" : ""} (${purposeText})\n\nGostaria de mais informações!`);
+            const waLink = `https://wa.me/${waNumber}?text=${prefilledMsg}`;
             
             const redirectText = `Para um atendimento mais rápido, fale diretamente com nosso corretor *${contactName}* clicando no link abaixo 👇\n\n${waLink}`;
             await fetch(`${baseUrl}/message/sendText/${instanceName}`, {

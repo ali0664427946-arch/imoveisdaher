@@ -446,6 +446,45 @@ export default function Settings() {
     }
   };
 
+  const handleSaveRedirect = async () => {
+    setSavingRedirect(true);
+    try {
+      const value = {
+        enabled: redirectEnabled,
+        redirect_phone: redirectPhone.trim(),
+        contact_name: redirectContactName.trim() || "Corretor Daher Imóveis",
+        message_text: redirectMessage.trim() || undefined,
+      };
+
+      const { data: existing } = await supabase
+        .from("integrations_settings")
+        .select("id")
+        .eq("key", "waba_auto_redirect")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .update({ value, updated_at: new Date().toISOString() })
+          .eq("key", "waba_auto_redirect");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("integrations_settings")
+          .insert({ key: "waba_auto_redirect", value });
+        if (error) throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["waba-auto-redirect-settings"] });
+      toast({ title: "Configurações de redirecionamento salvas! ✅" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar";
+      toast({ title: "Erro ao salvar", description: message, variant: "destructive" });
+    } finally {
+      setSavingRedirect(false);
+    }
+  };
+
   const testEvolutionConnection = async () => {
     setTestingEvolution(true);
     

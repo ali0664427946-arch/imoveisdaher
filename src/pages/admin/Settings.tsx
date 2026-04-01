@@ -43,6 +43,11 @@ export default function Settings() {
   const [aiSystemPrompt, setAiSystemPrompt] = useState("");
   const [savingAiSettings, setSavingAiSettings] = useState(false);
   const [connectingWaba, setConnectingWaba] = useState(false);
+  const [redirectEnabled, setRedirectEnabled] = useState(false);
+  const [redirectPhone, setRedirectPhone] = useState("");
+  const [redirectContactName, setRedirectContactName] = useState("");
+  const [redirectMessage, setRedirectMessage] = useState("");
+  const [savingRedirect, setSavingRedirect] = useState(false);
   const { isSyncing, importFromFeedUrl } = usePropertySync();
   const { toast } = useToast();
   const queryClient = useQueryClient();

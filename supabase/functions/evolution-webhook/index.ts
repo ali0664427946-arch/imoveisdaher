@@ -587,6 +587,77 @@ Deno.serve(async (req) => {
 
         console.log(`Message saved to conversation ${conversationId}`);
 
+        // Auto-redirect: reply with text + vCard for inbound WABA messages (not from groups)
+        if (!isFromMe && !isGroup && conversationId) {
+          try {
+            // Check if auto-redirect is enabled
+            const { data: redirectConfig } = await supabase
+              .from("integrations_settings")
+              .select("value")
+              .eq("key", "waba_auto_redirect")
+              .maybeSingle();
+
+            if (redirectConfig?.value) {
+              const redirectSettings = redirectConfig.value as { enabled: boolean; redirect_phone: string; contact_name: string; message_text: string };
+              
+              if (redirectSettings.enabled && redirectSettings.redirect_phone) {
+                let evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
+                let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+                let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+
+                try {
+                  const { data: dbConfig } = await supabase
+                    .from("integrations_settings")
+                    .select("value")
+                    .eq("key", "evolution_api")
+                    .maybeSingle();
+                  if (dbConfig?.value) {
+                    const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+                    if (cfg.base_url) evolutionUrl = cfg.base_url;
+                    if (cfg.api_key) evolutionKey = cfg.api_key;
+                    if (cfg.instance_name) instanceName = cfg.instance_name;
+                  }
+                } catch (_e) { /* use env vars */ }
+
+                if (evolutionUrl && evolutionKey && instanceName) {
+                  const baseUrl = evolutionUrl.replace(/\/+$/, "");
+                  const senderJid = remoteJid;
+                  
+                  // Send text message
+                  const textMsg = redirectSettings.message_text || 
+                    `Olá! Obrigado por entrar em contato. Para um atendimento mais rápido, por favor envie sua mensagem diretamente para nosso corretor pelo número abaixo 👇`;
+                  
+                  await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", apikey: evolutionKey },
+                    body: JSON.stringify({ number: senderJid, text: textMsg }),
+                  });
+
+                  // Send vCard contact
+                  const contactName = redirectSettings.contact_name || "Corretor Daher Imóveis";
+                  const redirectPhone = redirectSettings.redirect_phone.replace(/\D/g, "");
+                  const formattedPhone = redirectPhone.startsWith("55") ? `+${redirectPhone}` : `+55${redirectPhone}`;
+                  
+                  const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${contactName}\nTEL;type=CELL;waid=${redirectPhone}:${formattedPhone}\nEND:VCARD`;
+
+                  await fetch(`${baseUrl}/message/sendContact/${instanceName}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", apikey: evolutionKey },
+                    body: JSON.stringify({
+                      number: senderJid,
+                      contact: [{ fullName: contactName, wuid: redirectPhone, phoneNumber: formattedPhone }],
+                    }),
+                  });
+
+                  console.log(`Auto-redirect: sent text + vCard to ${senderJid}, redirect to ${redirectPhone}`);
+                }
+              }
+            }
+          } catch (redirectErr) {
+            console.error("Auto-redirect error:", redirectErr);
+          }
+        }
+
         // Trigger AI auto-reply for inbound text messages (not from groups)
         if (!isFromMe && !isGroup && messageType === "text" && messageContent && conversationId) {
           try {

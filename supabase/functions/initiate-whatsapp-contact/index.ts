@@ -239,32 +239,19 @@ Em breve um de nossos corretores entrará em contato para te ajudar!
             // Small delay between messages
             await new Promise(r => setTimeout(r, 1500));
 
-            // Send redirect text
-            const redirectText = `Para um atendimento mais rápido, envie sua mensagem diretamente para nosso corretor pelo contato abaixo 👇`;
+            // Send redirect text with wa.me link for direct chat
+            const contactName = rs.contact_name || "Daher Imóveis";
+            const redirectPhone = rs.redirect_phone.replace(/\D/g, "");
+            const waLink = `https://wa.me/55${redirectPhone.startsWith("55") ? redirectPhone.substring(2) : redirectPhone}`;
+            
+            const redirectText = `Para um atendimento mais rápido, fale diretamente com nosso corretor *${contactName}* clicando no link abaixo 👇\n\n${waLink}`;
             await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
               method: "POST",
               headers: { "Content-Type": "application/json", apikey: evolutionKey },
               body: JSON.stringify({ number: sendPhone, text: redirectText }),
             });
 
-            // Small delay before vCard
-            await new Promise(r => setTimeout(r, 1000));
-
-            // Send vCard
-            const contactName = rs.contact_name || "Daher Imóveis";
-            const redirectPhone = rs.redirect_phone.replace(/\D/g, "");
-            const formattedPhone = redirectPhone.startsWith("55") ? `+${redirectPhone}` : `+55${redirectPhone}`;
-
-            await fetch(`${baseUrl}/message/sendContact/${instanceName}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", apikey: evolutionKey },
-              body: JSON.stringify({
-                number: sendPhone,
-                contact: [{ fullName: contactName, wuid: redirectPhone, phoneNumber: formattedPhone }],
-              }),
-            });
-
-            console.log(`Redirect + vCard sent to ${sendPhone}, redirect to ${redirectPhone}`);
+            console.log(`Redirect link sent to ${sendPhone}, redirect to ${waLink}`);
           }
         }
       } catch (redirectErr) {

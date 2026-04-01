@@ -224,6 +224,52 @@ Em breve um de nossos corretores entrará em contato para te ajudar!
       // Still save the message even if sending failed
     } else {
       console.log("WhatsApp message sent successfully:", evolutionData);
+
+      // Send redirect message + vCard after the initial property message
+      try {
+        const { data: redirectConfig } = await supabase
+          .from("integrations_settings")
+          .select("value")
+          .eq("key", "waba_auto_redirect")
+          .maybeSingle();
+
+        if (redirectConfig?.value) {
+          const rs = redirectConfig.value as { enabled: boolean; redirect_phone: string; contact_name: string; message_text: string };
+          if (rs.enabled && rs.redirect_phone) {
+            // Small delay between messages
+            await new Promise(r => setTimeout(r, 1500));
+
+            // Send redirect text
+            const redirectText = `Para um atendimento mais rápido, envie sua mensagem diretamente para nosso corretor pelo contato abaixo 👇`;
+            await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: evolutionKey },
+              body: JSON.stringify({ number: sendPhone, text: redirectText }),
+            });
+
+            // Small delay before vCard
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Send vCard
+            const contactName = rs.contact_name || "Daher Imóveis";
+            const redirectPhone = rs.redirect_phone.replace(/\D/g, "");
+            const formattedPhone = redirectPhone.startsWith("55") ? `+${redirectPhone}` : `+55${redirectPhone}`;
+
+            await fetch(`${baseUrl}/message/sendContact/${instanceName}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: evolutionKey },
+              body: JSON.stringify({
+                number: sendPhone,
+                contact: [{ fullName: contactName, wuid: redirectPhone, phoneNumber: formattedPhone }],
+              }),
+            });
+
+            console.log(`Redirect + vCard sent to ${sendPhone}, redirect to ${redirectPhone}`);
+          }
+        }
+      } catch (redirectErr) {
+        console.error("Redirect error:", redirectErr);
+      }
     }
 
     // 6. Save message to database

@@ -1238,6 +1238,74 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="agent" className="space-y-6">
+          {/* WABA Auto-Redirect Card */}
+          <Card className="border-accent/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-accent-foreground" />
+                Redirecionamento Automático (WABA)
+              </CardTitle>
+              <CardDescription>
+                Quando ativo, toda mensagem recebida pela API Oficial será respondida automaticamente com uma mensagem + cartão de contato do corretor
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="font-medium">Ativar Redirecionamento</p>
+                  <p className="text-sm text-muted-foreground">
+                    Responde automaticamente com o contato do corretor
+                  </p>
+                </div>
+                <Switch checked={redirectEnabled} onCheckedChange={setRedirectEnabled} />
+              </div>
+
+              {redirectEnabled && (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Número do Corretor (com DDD)</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="21999999999"
+                      value={redirectPhone}
+                      onChange={(e) => setRedirectPhone(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      O número para onde o cliente será direcionado (apenas números)
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Nome do Contato</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Corretor Daher Imóveis"
+                      value={redirectContactName}
+                      onChange={(e) => setRedirectContactName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Mensagem Automática (opcional)</Label>
+                    <Textarea
+                      className="mt-1"
+                      rows={3}
+                      placeholder="Olá! Obrigado por entrar em contato. Para um atendimento mais rápido, por favor envie sua mensagem diretamente para nosso corretor pelo número abaixo 👇"
+                      value={redirectMessage}
+                      onChange={(e) => setRedirectMessage(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Deixe em branco para usar a mensagem padrão
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={handleSaveRedirect} disabled={savingRedirect}>
+                {savingRedirect ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Redirecionamento
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* AI Auto-Reply Card */}
           <Card className="border-primary/30">
             <CardHeader>

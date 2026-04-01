@@ -662,13 +662,16 @@ Deno.serve(async (req) => {
                       }
                     }
                     
-                    // Build redirect message
+                    // Build redirect message with wa.me link for direct chat
+                    const contactName = redirectSettings.contact_name || "Daher Imóveis";
+                    const redirectPhone = redirectSettings.redirect_phone.replace(/\D/g, "");
+                    const waLink = `https://wa.me/55${redirectPhone.startsWith("55") ? redirectPhone.substring(2) : redirectPhone}`;
+                    
                     let textMsg: string;
                     if (propertyInfo) {
-                      textMsg = `Olá! Obrigado pelo interesse no imóvel:${propertyInfo}\n\nPara um atendimento mais rápido, envie sua mensagem diretamente para nosso corretor pelo contato abaixo 👇`;
+                      textMsg = `Olá! Obrigado pelo interesse no imóvel:${propertyInfo}\n\nPara um atendimento mais rápido, fale diretamente com nosso corretor *${contactName}* clicando no link abaixo 👇\n\n${waLink}`;
                     } else {
-                      textMsg = redirectSettings.message_text || 
-                        `Olá! Obrigado por entrar em contato com a *Daher Imóveis*! 🏡\n\nPara um atendimento mais rápido, envie sua mensagem diretamente para nosso corretor pelo contato abaixo 👇`;
+                      textMsg = `Olá! Obrigado por entrar em contato com a *Daher Imóveis*! 🏡\n\nPara um atendimento mais rápido, fale diretamente com nosso corretor *${contactName}* clicando no link abaixo 👇\n\n${waLink}`;
                     }
                     
                     await fetch(`${baseUrl}/message/sendText/${instanceName}`, {
@@ -677,21 +680,7 @@ Deno.serve(async (req) => {
                       body: JSON.stringify({ number: senderJid, text: textMsg }),
                     });
 
-                    // Send vCard contact
-                    const contactName = redirectSettings.contact_name || "Daher Imóveis";
-                    const redirectPhone = redirectSettings.redirect_phone.replace(/\D/g, "");
-                    const formattedPhone = redirectPhone.startsWith("55") ? `+${redirectPhone}` : `+55${redirectPhone}`;
-
-                    await fetch(`${baseUrl}/message/sendContact/${instanceName}`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", apikey: evolutionKey },
-                      body: JSON.stringify({
-                        number: senderJid,
-                        contact: [{ fullName: contactName, wuid: redirectPhone, phoneNumber: formattedPhone }],
-                      }),
-                    });
-
-                    console.log(`Auto-redirect: sent text + vCard to ${senderJid}, redirect to ${redirectPhone}, hasProperty: ${!!propertyInfo}`);
+                    console.log(`Auto-redirect: sent wa.me link to ${senderJid}, redirect to ${waLink}, hasProperty: ${!!propertyInfo}`);
                   }
                 } else {
                   console.log(`Skipping auto-redirect: not first inbound message (count: ${inboundCount})`);

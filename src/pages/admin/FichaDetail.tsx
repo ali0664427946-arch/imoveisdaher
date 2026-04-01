@@ -590,7 +590,14 @@ export default function FichaDetail() {
             </CardHeader>
             <CardContent className="space-y-6">
               {(() => {
-                const mappedDocs = docs.map((d) => ({
+                // Deduplicate by category, keeping the most recent (first in the array since ordered by created_at DESC)
+                const deduped = new Map<string, typeof docs[0]>();
+                for (const d of docs) {
+                  if (!deduped.has(d.category)) {
+                    deduped.set(d.category, d);
+                  }
+                }
+                const mappedDocs = Array.from(deduped.values()).map((d) => ({
                   id: d.id,
                   category: d.category,
                   file_name: d.file_name,

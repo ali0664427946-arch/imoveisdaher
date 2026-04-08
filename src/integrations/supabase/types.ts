@@ -510,6 +510,7 @@ export type Database = {
           origin_id: string | null
           parking: number | null
           price: number
+          publication_type: string
           purpose: Database["public"]["Enums"]["property_purpose"]
           slug: string | null
           state: string
@@ -541,6 +542,7 @@ export type Database = {
           origin_id?: string | null
           parking?: number | null
           price: number
+          publication_type?: string
           purpose: Database["public"]["Enums"]["property_purpose"]
           slug?: string | null
           state?: string
@@ -572,6 +574,7 @@ export type Database = {
           origin_id?: string | null
           parking?: number | null
           price?: number
+          publication_type?: string
           purpose?: Database["public"]["Enums"]["property_purpose"]
           slug?: string | null
           state?: string

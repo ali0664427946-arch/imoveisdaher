@@ -276,8 +276,8 @@ export function EditPropertyDialog({
             />
           </div>
 
-          {/* Status and Featured */}
-          <div className="flex items-center justify-between gap-4 p-4 bg-secondary/50 rounded-lg">
+          {/* Status and Publication Type */}
+          <div className="flex items-center justify-between gap-4 p-4 bg-secondary/50 rounded-lg flex-wrap">
             <div className="flex items-center gap-3">
               <Label htmlFor="status">Status</Label>
               <Select
@@ -297,15 +297,26 @@ export function EditPropertyDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="featured"
-                checked={formData.featured}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, featured: checked })
+            <div className="flex items-center gap-3">
+              <Label htmlFor="publication_type">Tipo de Publicação</Label>
+              <Select
+                value={formData.publication_type}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, publication_type: value })
                 }
-              />
-              <Label htmlFor="featured">Destaque</Label>
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="STANDARD">Padrão</SelectItem>
+                  <SelectItem value="PREMIUM">Destaque Padrão</SelectItem>
+                  <SelectItem value="SUPER_PREMIUM">Super Destaque</SelectItem>
+                  <SelectItem value="PREMIERE_1">Destaque Exclusivo</SelectItem>
+                  <SelectItem value="PREMIERE_2">Destaque Superior</SelectItem>
+                  <SelectItem value="TRIPLE">Destaque Triplo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

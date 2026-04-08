@@ -96,6 +96,7 @@ export function EditPropertyDialog({
         parking: property.parking?.toString() || "",
         status: property.status,
         featured: property.featured || false,
+        publication_type: (property as any).publication_type || "STANDARD",
         youtube_url: (property as any).youtube_url || "",
       });
 

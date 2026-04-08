@@ -33,8 +33,9 @@ export default function Index() {
           property_photos (url, sort_order)
         `)
         .eq("status", "active")
-        .eq("featured", true)
-        .limit(4);
+        .in("publication_type", ["SUPER_PREMIUM", "PREMIUM"])
+        .order("publication_type", { ascending: true })
+        .limit(8);
 
       if (error) throw error;
 
@@ -52,6 +53,7 @@ export default function Index() {
         area: p.area ? Number(p.area) : undefined,
         imageUrl: p.property_photos?.[0]?.url,
         featured: p.featured ?? false,
+        publicationType: p.publication_type,
         origin: p.origin,
       }));
     },
@@ -171,7 +173,7 @@ export default function Index() {
                   Imóveis em Destaque no Rio de Janeiro
                 </h2>
                 <p className="text-muted-foreground mt-2 max-w-lg">
-                  Selecionamos as melhores opções de imóveis no estado do Rio de Janeiro para você.
+                  Super Destaques e Destaques selecionados para você.
                 </p>
               </div>
               <Button variant="outline" asChild>
@@ -182,7 +184,7 @@ export default function Index() {
               </Button>
             </div>
 
-            <PropertyGrid properties={featuredProperties} loading={loadingFeatured} />
+            <PropertyGrid properties={featuredProperties} loading={loadingFeatured} compact />
           </div>
         </section>
       )}

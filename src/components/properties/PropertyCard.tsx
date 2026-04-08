@@ -20,6 +20,7 @@ export interface Property {
   featured?: boolean;
   isNew?: boolean;
   origin?: "olx" | "imovelweb" | "import" | "manual";
+  publicationType?: string;
 }
 
 interface PropertyCardProps {
@@ -71,7 +72,9 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
                 <Badge variant="sale">Venda</Badge>
               )}
               {property.isNew && <Badge variant="new">Novo</Badge>}
-              {property.featured && <Badge variant="featured">Destaque</Badge>}
+              {property.publicationType === "SUPER_PREMIUM" && <Badge variant="featured">Super Destaque</Badge>}
+              {property.publicationType === "PREMIUM" && <Badge variant="featured">Destaque</Badge>}
+              {!property.publicationType && property.featured && <Badge variant="featured">Destaque</Badge>}
             </div>
 
             {/* Origin badge */}

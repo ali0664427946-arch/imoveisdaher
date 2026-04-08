@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       <ListingID>${escapeXml(prop.id)}</ListingID>
       <Title>${cdata(prop.title)}</Title>
       <TransactionType>${transactionType}</TransactionType>
-      <PublicationType>${prop.featured ? 'PREMIUM' : 'STANDARD'}</PublicationType>
+      <PublicationType>${prop.publication_type || (prop.featured ? 'PREMIUM' : 'STANDARD')}</PublicationType>
       <Details>
         <PropertyType>${propertyType}</PropertyType>
         <Description>${cdata(description)}</Description>`;

@@ -3,6 +3,7 @@ import { PropertyCard, type Property } from "./PropertyCard";
 interface PropertyGridProps {
   properties: Property[];
   loading?: boolean;
+  compact?: boolean;
 }
 
 export function PropertyGrid({ properties, loading }: PropertyGridProps) {

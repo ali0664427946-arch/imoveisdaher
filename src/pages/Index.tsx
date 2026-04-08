@@ -184,7 +184,7 @@ export default function Index() {
               </Button>
             </div>
 
-            <PropertyGrid properties={featuredProperties} loading={loadingFeatured} />
+            <PropertyGrid properties={featuredProperties} loading={loadingFeatured} compact />
           </div>
         </section>
       )}

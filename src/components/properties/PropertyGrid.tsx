@@ -6,7 +6,7 @@ interface PropertyGridProps {
   compact?: boolean;
 }
 
-export function PropertyGrid({ properties, loading }: PropertyGridProps) {
+export function PropertyGrid({ properties, loading, compact }: PropertyGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

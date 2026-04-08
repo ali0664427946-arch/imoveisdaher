@@ -70,6 +70,7 @@ export function EditPropertyDialog({
     parking: "",
     status: "active" as PropertyStatus,
     featured: false,
+    publication_type: "STANDARD",
     youtube_url: "",
   });
 

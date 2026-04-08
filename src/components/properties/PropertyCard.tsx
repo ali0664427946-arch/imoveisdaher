@@ -20,6 +20,7 @@ export interface Property {
   featured?: boolean;
   isNew?: boolean;
   origin?: "olx" | "imovelweb" | "import" | "manual";
+  publicationType?: string;
 }
 
 interface PropertyCardProps {

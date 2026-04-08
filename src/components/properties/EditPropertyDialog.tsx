@@ -219,7 +219,8 @@ export function EditPropertyDialog({
         bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
         parking: formData.parking ? parseInt(formData.parking) : null,
         status: formData.status,
-        featured: formData.featured,
+        featured: formData.publication_type !== "STANDARD",
+        publication_type: formData.publication_type,
         youtube_url: formData.youtube_url || null,
         features: features,
       } as any);

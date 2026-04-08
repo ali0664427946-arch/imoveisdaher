@@ -173,7 +173,7 @@ export default function Index() {
                   Imóveis em Destaque no Rio de Janeiro
                 </h2>
                 <p className="text-muted-foreground mt-2 max-w-lg">
-                  Selecionamos as melhores opções de imóveis no estado do Rio de Janeiro para você.
+                  Super Destaques e Destaques selecionados para você.
                 </p>
               </div>
               <Button variant="outline" asChild>

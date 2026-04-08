@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+
 import { Property, PropertyPurpose, PropertyStatus } from "@/hooks/useProperties";
 import { PropertyPhotoUploader } from "./PropertyPhotoUploader";
 import { PropertyFeaturesCheckboxes, PropertyFeatures } from "./PropertyFeaturesCheckboxes";

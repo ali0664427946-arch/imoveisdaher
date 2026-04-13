@@ -222,6 +222,19 @@ export default function ResendDocuments() {
                   </Button>
                 </div>
 
+                {/* Add Tenant/Fiador */}
+                <div className="flex items-center gap-3 p-4 bg-accent/5 rounded-xl border border-accent/20">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Precisa adicionar outro participante?</p>
+                    <p className="text-xs text-muted-foreground">Acrescente um locatário (complemento de renda) ou fiador à sua ficha.</p>
+                  </div>
+                  <AddTenantDialog
+                    fichaId={ficha.id}
+                    currentFormData={ficha.form_data as Record<string, unknown> | null}
+                    onSuccess={() => handleSearch()}
+                  />
+                </div>
+
                 {/* Documents per tenant */}
                 <div>
                   <h3 className="text-lg font-heading font-semibold mb-2">

@@ -218,6 +218,29 @@ export default function InterestForm() {
   };
 
   const nextStep = () => {
+    // Validate step 2 (Tenants) - required fields
+    if (currentStep === 2) {
+      for (let i = 0; i < tenants.length; i++) {
+        const t = tenants[i];
+        const label = i === 0 ? "Locatário Principal" : (t.role === "fiador" ? `Fiador` : `Locatário ${i + 1}`);
+        if (!t.fullName?.trim()) {
+          toast.error(`${label}: Nome Completo é obrigatório`);
+          return;
+        }
+        if (!t.cpf?.trim()) {
+          toast.error(`${label}: CPF é obrigatório`);
+          return;
+        }
+        if (!t.birthDate) {
+          toast.error(`${label}: Data de Nascimento é obrigatória`);
+          return;
+        }
+        if (!t.income?.trim()) {
+          toast.error(`${label}: Renda Mensal é obrigatória`);
+          return;
+        }
+      }
+    }
     if (currentStep < STEPS.length) {
       setCurrentStep(prev => prev + 1);
     }

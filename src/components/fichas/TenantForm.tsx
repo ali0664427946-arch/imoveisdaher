@@ -115,7 +115,7 @@ export function TenantForm({
           />
         </div>
         <div>
-          <Label htmlFor={`birthDate-${index}`}>Data de Nascimento</Label>
+          <Label htmlFor={`birthDate-${index}`}>Data de Nascimento *</Label>
           <Input
             id={`birthDate-${index}`}
             type="date"
@@ -197,7 +197,7 @@ export function TenantForm({
           />
         </div>
         <div>
-          <Label htmlFor={`income-${index}`}>Renda Mensal</Label>
+          <Label htmlFor={`income-${index}`}>Renda Mensal *</Label>
           <Input
             id={`income-${index}`}
             placeholder="R$ 0,00"

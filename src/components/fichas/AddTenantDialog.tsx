@@ -94,6 +94,7 @@ export function AddTenantDialog({ fichaId, currentFormData, onSuccess }: AddTena
       queryClient.invalidateQueries({ queryKey: ["fichas"] });
       setTenant({ ...emptyTenant });
       setOpen(false);
+      onSuccess?.();
     },
     onError: (error: Error) => {
       toast.error("Erro ao adicionar participante", { description: error.message });

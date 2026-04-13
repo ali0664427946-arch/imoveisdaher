@@ -41,6 +41,7 @@ interface TenantData {
 interface AddTenantDialogProps {
   fichaId: string;
   currentFormData: Record<string, unknown> | null;
+  onSuccess?: () => void;
 }
 
 const emptyTenant: TenantData = {
@@ -58,7 +59,7 @@ const emptyTenant: TenantData = {
   income: "",
 };
 
-export function AddTenantDialog({ fichaId, currentFormData }: AddTenantDialogProps) {
+export function AddTenantDialog({ fichaId, currentFormData, onSuccess }: AddTenantDialogProps) {
   const [open, setOpen] = useState(false);
   const [tenant, setTenant] = useState<TenantData>({ ...emptyTenant });
   const queryClient = useQueryClient();
@@ -93,6 +94,7 @@ export function AddTenantDialog({ fichaId, currentFormData }: AddTenantDialogPro
       queryClient.invalidateQueries({ queryKey: ["fichas"] });
       setTenant({ ...emptyTenant });
       setOpen(false);
+      onSuccess?.();
     },
     onError: (error: Error) => {
       toast.error("Erro ao adicionar participante", { description: error.message });

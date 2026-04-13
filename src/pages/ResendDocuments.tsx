@@ -8,6 +8,7 @@ import {
   DocumentUploader,
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
+import { AddTenantDialog } from "@/components/fichas/AddTenantDialog";
 import {
   Search,
   Loader2,
@@ -219,6 +220,19 @@ export default function ResendDocuments() {
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Trocar
                   </Button>
+                </div>
+
+                {/* Add Tenant/Fiador */}
+                <div className="flex items-center gap-3 p-4 bg-accent/5 rounded-xl border border-accent/20">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Precisa adicionar outro participante?</p>
+                    <p className="text-xs text-muted-foreground">Acrescente um locatário (complemento de renda) ou fiador à sua ficha.</p>
+                  </div>
+                  <AddTenantDialog
+                    fichaId={ficha.id}
+                    currentFormData={ficha.form_data as Record<string, unknown> | null}
+                    onSuccess={() => handleSearch()}
+                  />
                 </div>
 
                 {/* Documents per tenant */}

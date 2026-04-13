@@ -8,6 +8,7 @@ import {
   DocumentUploader,
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
+import { AddTenantDialog } from "@/components/fichas/AddTenantDialog";
 import {
   Search,
   Loader2,

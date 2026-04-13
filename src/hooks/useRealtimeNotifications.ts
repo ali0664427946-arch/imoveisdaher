@@ -231,6 +231,7 @@ export function useRealtimeNotifications() {
     return () => {
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(fichasChannel);
+      supabase.removeChannel(documentsChannel);
       supabase.removeChannel(messagesChannel);
     };
   }, [showNotification, queryClient]);

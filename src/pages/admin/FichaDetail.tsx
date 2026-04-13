@@ -202,6 +202,7 @@ export default function FichaDetail() {
             <XCircle className="w-4 h-4 mr-2" />
             Reprovar
           </Button>
+          <AddTenantDialog fichaId={ficha.id} currentFormData={formData as Record<string, unknown> | null} />
         </div>
       </div>
 

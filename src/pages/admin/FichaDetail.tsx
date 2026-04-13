@@ -122,9 +122,13 @@ export default function FichaDetail() {
     updateStatusMutation.mutate({ fichaId: ficha.id, status });
   };
 
-  const maskCPF = (cpf: string) => {
-    if (!cpf || cpf.length < 11) return cpf;
-    return `***.***.***-${cpf.slice(-2)}`;
+  const formatCPF = (cpf: string) => {
+    if (!cpf) return "-";
+    const digits = cpf.replace(/\D/g, "");
+    if (digits.length === 11) {
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    }
+    return cpf;
   };
 
   const formatCurrency = (value: number | null) => {
@@ -276,7 +280,7 @@ export default function FichaDetail() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">CPF</p>
-                    <p className="font-medium font-mono">{maskCPF(ficha.cpf)}</p>
+                    <p className="font-medium font-mono">{formatCPF(ficha.cpf)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">RG</p>
@@ -513,7 +517,7 @@ export default function FichaDetail() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">CPF</p>
-                      <p className="font-medium font-mono">{tenant.cpf ? maskCPF(tenant.cpf) : "-"}</p>
+                      <p className="font-medium font-mono">{tenant.cpf ? formatCPF(tenant.cpf) : "-"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">RG</p>

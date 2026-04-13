@@ -59,7 +59,7 @@ const emptyTenant: TenantData = {
   income: "",
 };
 
-export function AddTenantDialog({ fichaId, currentFormData }: AddTenantDialogProps) {
+export function AddTenantDialog({ fichaId, currentFormData, onSuccess }: AddTenantDialogProps) {
   const [open, setOpen] = useState(false);
   const [tenant, setTenant] = useState<TenantData>({ ...emptyTenant });
   const queryClient = useQueryClient();

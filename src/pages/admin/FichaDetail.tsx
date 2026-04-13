@@ -32,7 +32,7 @@ import {
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
 import { WhatsAppButton } from "@/components/fichas/WhatsAppButton";
-import { AddTenantDialog } from "@/components/fichas/AddTenantDialog";
+
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 import {
   useFichaById,

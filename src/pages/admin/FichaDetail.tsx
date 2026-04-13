@@ -564,12 +564,6 @@ export default function FichaDetail() {
               </Card>
             ));
           })()}
-
-          {/* Add Tenant Button */}
-          <div className="flex justify-center">
-            <AddTenantDialog fichaId={ficha.id} currentFormData={formData as Record<string, unknown> | null} />
-          </div>
-
           {/* Observations */}
           {ficha.observations && (
             <Card>

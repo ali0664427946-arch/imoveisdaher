@@ -32,7 +32,7 @@ import {
   UploadedDocument,
 } from "@/components/fichas/DocumentUploader";
 import { WhatsAppButton } from "@/components/fichas/WhatsAppButton";
-import { AddTenantDialog } from "@/components/fichas/AddTenantDialog";
+
 import { ScheduleMessageDialog } from "@/components/whatsapp/ScheduleMessageDialog";
 import {
   useFichaById,
@@ -202,7 +202,6 @@ export default function FichaDetail() {
             <XCircle className="w-4 h-4 mr-2" />
             Reprovar
           </Button>
-          <AddTenantDialog fichaId={ficha.id} currentFormData={formData as Record<string, unknown> | null} />
         </div>
       </div>
 
@@ -565,12 +564,6 @@ export default function FichaDetail() {
               </Card>
             ));
           })()}
-
-          {/* Add Tenant Button */}
-          <div className="flex justify-center">
-            <AddTenantDialog fichaId={ficha.id} currentFormData={formData as Record<string, unknown> | null} />
-          </div>
-
           {/* Observations */}
           {ficha.observations && (
             <Card>

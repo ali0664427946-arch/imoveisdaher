@@ -146,8 +146,23 @@ export function useRealtimeNotifications() {
           table: "fichas",
         },
         (payload) => {
-          const oldFicha = payload.old as { status: string };
-          const updatedFicha = payload.new as { full_name: string; status: string };
+          const oldFicha = payload.old as { status: string; form_data: any };
+          const updatedFicha = payload.new as { id: string; full_name: string; status: string; form_data: any };
+          
+          // Check for new tenant added
+          const oldTenants = (oldFicha.form_data?.additional_tenants || []) as any[];
+          const newTenants = (updatedFicha.form_data?.additional_tenants || []) as any[];
+          if (newTenants.length > oldTenants.length) {
+            const added = newTenants[newTenants.length - 1];
+            const role = added?.role === "fiador" ? "Fiador" : "Locatário";
+            showNotification({
+              type: "new_tenant",
+              title: "Novo Participante Adicionado!",
+              description: `${role}: ${added?.fullName || "Sem nome"} na ficha de ${updatedFicha.full_name}`,
+              data: { fichaId: updatedFicha.id },
+            });
+          }
+          
           if (oldFicha.status !== updatedFicha.status) {
             showNotification({
               type: "ficha_updated",
@@ -157,7 +172,32 @@ export function useRealtimeNotifications() {
             });
           }
           queryClient.invalidateQueries({ queryKey: ["fichas"] });
+          queryClient.invalidateQueries({ queryKey: ["ficha", updatedFicha.id] });
           queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+        }
+      )
+      .subscribe();
+
+    // Subscribe to new documents (resubmissions)
+    const documentsChannel = supabase
+      .channel("realtime-documents")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "documents",
+        },
+        (payload) => {
+          const newDoc = payload.new as { ficha_id: string; category: string; file_name: string };
+          showNotification({
+            type: "new_document",
+            title: "Novo Documento Recebido!",
+            description: `${newDoc.file_name} (${newDoc.category})`,
+            data: { fichaId: newDoc.ficha_id },
+          });
+          queryClient.invalidateQueries({ queryKey: ["fichas"] });
+          queryClient.invalidateQueries({ queryKey: ["ficha", newDoc.ficha_id] });
         }
       )
       .subscribe();

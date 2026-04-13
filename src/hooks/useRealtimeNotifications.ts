@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface RealtimeNotification {
-  type: "new_ficha" | "new_message" | "ficha_updated" | "new_lead";
+  type: "new_ficha" | "new_message" | "ficha_updated" | "new_lead" | "new_document" | "new_tenant";
   title: string;
   description: string;
   data?: Record<string, unknown>;

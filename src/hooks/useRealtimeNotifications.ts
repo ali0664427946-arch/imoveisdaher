@@ -62,7 +62,26 @@ export function useRealtimeNotifications() {
       new_message: "💬",
       ficha_updated: "🔄",
       new_lead: "🎯",
+      new_document: "📄",
+      new_tenant: "👤",
     };
+
+    if (notification.type === "new_document" || notification.type === "new_tenant") {
+      playNotificationSound();
+      toast(notification.title, {
+        description: notification.description,
+        icon: icons[notification.type],
+        duration: 10000,
+        dismissible: true,
+        action: notification.data?.fichaId ? {
+          label: "Ver Ficha",
+          onClick: () => {
+            window.location.href = `/admin/fichas/${notification.data!.fichaId}`;
+          },
+        } : undefined,
+      });
+      return;
+    }
 
     toast(notification.title, {
       description: notification.description,

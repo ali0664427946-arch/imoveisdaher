@@ -41,6 +41,7 @@ interface TenantData {
 interface AddTenantDialogProps {
   fichaId: string;
   currentFormData: Record<string, unknown> | null;
+  onSuccess?: () => void;
 }
 
 const emptyTenant: TenantData = {

@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
+      injectRegister: null,
       registerType: "autoUpdate",
       includeAssets: ["favicon.png", "favicon.ico", "robots.txt"],
       manifest: {
@@ -48,17 +49,16 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
+      devOptions: {
+        enabled: false,
+      },
       workbox: {
         clientsClaim: true,
         skipWaiting: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}"],
         navigateFallbackDenylist: [/^\/~oauth/, /^\/admin/],
-        // Do NOT intercept Supabase API calls - let the browser handle them directly.
-        // Intercepting them caused "no-response" errors when the network was slow/unstable.
-        navigateFallback: null,
         runtimeCaching: [
           {
-            // Only cache Supabase Storage (images), never the REST/Auth/Realtime APIs
             urlPattern: ({ url }) =>
               url.hostname.endsWith(".supabase.co") &&
               url.pathname.startsWith("/storage/v1/object/public/"),
@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => ({
               cacheName: "supabase-storage-cache",
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+                maxAgeSeconds: 60 * 60 * 24 * 7,
               },
               cacheableResponse: { statuses: [0, 200] },
             },

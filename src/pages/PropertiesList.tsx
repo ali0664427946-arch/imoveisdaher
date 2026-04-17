@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SearchFilters, type SearchFiltersState } from "@/components/properties/SearchFilters";
 import { PropertyGrid } from "@/components/properties/PropertyGrid";
 import { type Property } from "@/components/properties/PropertyCard";
-import { SlidersHorizontal, Grid3X3, List, MapPin, RefreshCw } from "lucide-react";
+import { SlidersHorizontal, Grid3X3, List, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -39,13 +39,7 @@ export default function PropertiesList() {
     setSearchParams(params);
   };
 
-  const {
-    data: properties = [],
-    isLoading,
-    error,
-    refetch,
-    isFetching,
-  } = useQuery({
+  const { data: properties = [], isLoading } = useQuery({
     queryKey: ["properties-list", searchParams.toString()],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -76,13 +70,12 @@ export default function PropertiesList() {
         origin: p.origin,
       }));
     },
-    retry: 1,
-    staleTime: 30_000,
   });
 
   const filteredAndSorted = useMemo(() => {
     let result = [...properties];
 
+    // Apply filters
     if (activeFilters.query) {
       const q = activeFilters.query.toLowerCase();
       result = result.filter(
@@ -97,7 +90,9 @@ export default function PropertiesList() {
       result = result.filter((p) => p.purpose === activeFilters.purpose);
     }
     if (activeFilters.type) {
-      result = result.filter((p) => p.type.toLowerCase() === activeFilters.type.toLowerCase());
+      result = result.filter(
+        (p) => p.type.toLowerCase() === activeFilters.type.toLowerCase()
+      );
     }
     if (activeFilters.neighborhood) {
       result = result.filter(
@@ -108,6 +103,7 @@ export default function PropertiesList() {
       result = result.filter((p) => p.price <= Number(activeFilters.priceMax));
     }
 
+    // Sort
     switch (sortBy) {
       case "price-asc":
         return result.sort((a, b) => a.price - b.price);
@@ -120,10 +116,9 @@ export default function PropertiesList() {
     }
   }, [properties, sortBy, activeFilters]);
 
-  const errorMessage = error instanceof Error ? error.message : "Não foi possível carregar os imóveis.";
-
   return (
     <div className="min-h-screen bg-secondary/30">
+      {/* Header */}
       <div className="bg-primary py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl">
@@ -137,11 +132,14 @@ export default function PropertiesList() {
         </div>
       </div>
 
+      {/* Search Bar */}
       <div className="container mx-auto px-4 -mt-8 relative z-10 mb-8">
         <SearchFilters onSearch={handleSearch} initialFilters={activeFilters} />
       </div>
 
+      {/* Results */}
       <div className="container mx-auto px-4 pb-20">
+        {/* Toolbar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-accent" />
@@ -185,18 +183,8 @@ export default function PropertiesList() {
           </div>
         </div>
 
-        {error ? (
-          <div className="rounded-xl border bg-card p-6 shadow-card">
-            <p className="text-foreground font-medium mb-2">Erro ao carregar os imóveis</p>
-            <p className="text-sm text-muted-foreground mb-4 break-words">{errorMessage}</p>
-            <Button onClick={() => refetch()} disabled={isFetching}>
-              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-              Tentar novamente
-            </Button>
-          </div>
-        ) : (
-          <PropertyGrid properties={filteredAndSorted} loading={isLoading} />
-        )}
+        {/* Properties Grid */}
+        <PropertyGrid properties={filteredAndSorted} loading={isLoading} />
       </div>
     </div>
   );

@@ -50,16 +50,24 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}"],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/admin/],
+        // Do NOT intercept Supabase API calls - let the browser handle them directly.
+        // Intercepting them caused "no-response" errors when the network was slow/unstable.
+        navigateFallback: null,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
+            // Only cache Supabase Storage (images), never the REST/Auth/Realtime APIs
+            urlPattern: ({ url }) =>
+              url.hostname.endsWith(".supabase.co") &&
+              url.pathname.startsWith("/storage/v1/object/public/"),
+            handler: "CacheFirst",
             options: {
-              cacheName: "supabase-cache",
+              cacheName: "supabase-storage-cache",
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
               },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],

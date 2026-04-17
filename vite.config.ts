@@ -49,6 +49,8 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}"],
         navigateFallbackDenylist: [/^\/~oauth/, /^\/admin/],
         // Do NOT intercept Supabase API calls - let the browser handle them directly.

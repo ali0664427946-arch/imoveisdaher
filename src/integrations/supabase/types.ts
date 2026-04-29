@@ -224,6 +224,7 @@ export type Database = {
           employment_type: Database["public"]["Enums"]["employment_type"] | null
           form_data: Json | null
           full_name: string
+          guarantee_type: string | null
           has_pets: boolean | null
           id: string
           income: number | null
@@ -261,6 +262,7 @@ export type Database = {
             | null
           form_data?: Json | null
           full_name: string
+          guarantee_type?: string | null
           has_pets?: boolean | null
           id?: string
           income?: number | null
@@ -298,6 +300,7 @@ export type Database = {
             | null
           form_data?: Json | null
           full_name?: string
+          guarantee_type?: string | null
           has_pets?: boolean | null
           id?: string
           income?: number | null

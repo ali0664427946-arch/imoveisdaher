@@ -100,6 +100,7 @@ export default function InterestForm() {
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   
   // Form state
+  const [guaranteeType, setGuaranteeType] = useState<string>("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedProtocol, setSubmittedProtocol] = useState<string | null>(null);
@@ -269,6 +270,11 @@ export default function InterestForm() {
       return;
     }
 
+    if (!guaranteeType) {
+      toast.error("Selecione uma forma de garantia");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -302,6 +308,7 @@ export default function InterestForm() {
           observations: residentsData.observations,
           property_id: selectedPropertyId || null,
           status: "pendente",
+          guarantee_type: guaranteeType,
           form_data: {
             additional_tenants: additionalTenants.map(t => ({
               full_name: t.fullName,
@@ -839,14 +846,71 @@ export default function InterestForm() {
               {currentStep === 6 && (
                 <div className="space-y-6">
                   <h2 className="text-xl font-heading font-semibold mb-6">Confirmação</h2>
+                  
+                  {/* Seleção de Garantia */}
+                  <div className="bg-accent/5 border-2 border-accent rounded-xl p-6 mb-6">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-accent" />
+                      Escolha a forma de garantia
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setGuaranteeType("deposito")}
+                        className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 text-center ${
+                          guaranteeType === "deposito"
+                            ? "border-accent bg-accent/10 shadow-md scale-[1.02]"
+                            : "border-border hover:border-accent/50 bg-card"
+                        }`}
+                      >
+                        <span className="font-bold text-lg">Depósito</span>
+                        <span className="text-xs text-muted-foreground">3 meses de caução</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGuaranteeType("fiador")}
+                        className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 text-center ${
+                          guaranteeType === "fiador"
+                            ? "border-accent bg-accent/10 shadow-md scale-[1.02]"
+                            : "border-border hover:border-accent/50 bg-card"
+                        }`}
+                      >
+                        <span className="font-bold text-lg">Fiador</span>
+                        <span className="text-xs text-muted-foreground">Com imóvel próprio</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGuaranteeType("seguro_fianca")}
+                        className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 text-center ${
+                          guaranteeType === "seguro_fianca"
+                            ? "border-accent bg-accent/10 shadow-md scale-[1.02]"
+                            : "border-border hover:border-accent/50 bg-card"
+                        }`}
+                      >
+                        <span className="font-bold text-lg">Seguro Fiança</span>
+                        <span className="text-xs text-muted-foreground">Aprovação rápida</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="bg-secondary/50 rounded-xl p-6">
                     <h3 className="font-semibold mb-4">Resumo dos Dados</h3>
                     
                     {/* Property */}
                     {property && (
-                      <div className="mb-4 pb-4 border-b">
-                        <dt className="text-muted-foreground text-sm">Imóvel</dt>
-                        <dd className="font-medium">{property.title}</dd>
+                      <div className="mb-4 pb-4 border-b flex justify-between items-center">
+                        <div>
+                          <dt className="text-muted-foreground text-sm">Imóvel</dt>
+                          <dd className="font-medium">{property.title}</dd>
+                        </div>
+                        {guaranteeType && (
+                          <div className="text-right">
+                            <dt className="text-muted-foreground text-sm">Garantia Selecionada</dt>
+                            <dd className="font-bold text-accent capitalize">
+                              {guaranteeType.replace("_", " ")}
+                            </dd>
+                          </div>
+                        )}
                       </div>
                     )}
                     

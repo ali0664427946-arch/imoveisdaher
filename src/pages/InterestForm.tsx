@@ -525,6 +525,24 @@ export default function InterestForm() {
 
           {/* Form Card */}
           <div className="bg-card rounded-2xl shadow-card p-6 md:p-8">
+            {/* Aviso de Garantias - aparece em todas as etapas */}
+            <div className="mb-6 relative overflow-hidden rounded-xl border-2 border-accent bg-gradient-to-r from-accent/15 via-accent/10 to-accent/15 p-4 shadow-md animate-fade-in">
+              <div className="absolute inset-0 bg-accent/5 animate-pulse" aria-hidden="true" />
+              <div className="relative flex items-center gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center shadow-lg">
+                  <ShieldCheck className="w-5 h-5 text-accent-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-accent mb-0.5">
+                    Garantias Aceitas
+                  </p>
+                  <p className="text-sm md:text-base font-semibold text-foreground">
+                    Depósito • Fiador • Seguro Fiança
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <motion.div
               key={currentStep}
               initial={{ opacity: 0, x: 20 }}

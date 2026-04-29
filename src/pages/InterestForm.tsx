@@ -27,6 +27,7 @@ import {
   Plus,
   Search,
   MessageCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -469,12 +470,6 @@ export default function InterestForm() {
             <h1 className="text-3xl font-heading font-bold mb-2">
               Ficha de Interesse
             </h1>
-            
-            <div className="max-w-md mx-auto mb-4 p-3 bg-accent/5 border border-accent/20 rounded-lg flex items-center justify-center gap-2 text-accent">
-              <span className="text-sm font-semibold">Garantias aceitas:</span>
-              <span className="text-sm">Depósito, Fiador ou Seguro Fiança</span>
-            </div>
-
             {property && (
               <p className="text-muted-foreground">
                 {property.title} • {formatPrice(property.price, property.purpose)}

@@ -6,6 +6,72 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+type InstanceRecord = {
+  instance?: Record<string, unknown>;
+  instanceId?: string;
+  id?: string;
+  instanceName?: string;
+  name?: string;
+  state?: string;
+  connectionStatus?: string;
+  status?: string;
+  [key: string]: unknown;
+};
+
+function normalizeEvolutionUrl(rawUrl: string) {
+  let baseUrl = rawUrl.trim().replace(/\/manager\/?$/i, "").replace(/\/+$/, "");
+
+  if (!/^https?:\/\//i.test(baseUrl)) {
+    baseUrl = `https://${baseUrl}`;
+  }
+
+  return baseUrl;
+}
+
+function getTlsErrorMessage(baseUrl: string, errorMessage: string) {
+  const host = (() => {
+    try {
+      return new URL(baseUrl).host;
+    } catch {
+      return baseUrl;
+    }
+  })();
+
+  if (host.includes("traefik.me")) {
+    return "O domínio traefik.me da Evolution GO está forçando HTTPS com certificado inválido para o runtime do backend. Use um domínio próprio com SSL válido (ex.: Cloudflare/NGINX/Let's Encrypt) ou um endpoint publicado com certificado confiável.";
+  }
+
+  return `Certificado TLS inválido no host ${host}. Publique a Evolution GO atrás de um domínio com SSL válido. Detalhe: ${errorMessage}`;
+}
+
+function extractInstances(payload: unknown): InstanceRecord[] {
+  if (Array.isArray(payload)) return payload as InstanceRecord[];
+  if (!payload || typeof payload !== "object") return [];
+
+  const record = payload as Record<string, unknown>;
+  const candidates = [record.instances, record.data, record.result, record.response];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+    if (candidate && typeof candidate === "object") {
+      const nested = candidate as Record<string, unknown>;
+      if (Array.isArray(nested.instances)) return nested.instances;
+      if (Array.isArray(nested.data)) return nested.data;
+    }
+  }
+
+  return [];
+}
+
+function getInstanceIdentity(instance: InstanceRecord) {
+  const instanceInfo = instance?.instance ?? instance;
+  return {
+    id: instanceInfo?.instanceId ?? instanceInfo?.id ?? instance?.instanceId ?? instance?.id,
+    name: instanceInfo?.instanceName ?? instanceInfo?.name ?? instance?.instanceName ?? instance?.name,
+    state: instanceInfo?.state ?? instance?.state ?? instance?.connectionStatus ?? instance?.status,
+  };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -29,8 +95,8 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: authError } = await supabase.auth.getClaims(token);
-    if (authError || !claims?.claims) {
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !userData?.user) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -63,57 +129,71 @@ Deno.serve(async (req) => {
         if (integrationType === "evogo") {
           console.log("Testing Evolution GO connection...");
 
-          // Normalize URL: ensure protocol, strip /manager (Swagger path) and trailing slashes
-          let baseUrl = evolutionUrl!.replace(/\/manager\/?$/i, "").replace(/\/+$/, "");
-          if (!/^https?:\/\//i.test(baseUrl)) {
-            baseUrl = `http://${baseUrl}`;
-          }
-
-          // traefik.me uses self-signed certs that Deno rejects → force HTTP
-          if (baseUrl.includes("traefik.me") && baseUrl.startsWith("https://")) {
-            baseUrl = baseUrl.replace(/^https:\/\//, "http://");
-            console.log("Forcing HTTP for traefik.me domain");
-          }
-
-          // Try original first, then HTTP fallback for any TLS error
-          const candidates: string[] = [baseUrl];
-          if (baseUrl.startsWith("https://")) {
-            candidates.push(baseUrl.replace(/^https:\/\//, "http://"));
-          }
-
+          const baseUrl = normalizeEvolutionUrl(evolutionUrl!);
           let lastError = "";
-          for (const url of candidates) {
-            try {
-              console.log(`Trying Evolution GO at: ${url}/instance/fetchInstances`);
-              const evogoRes = await fetch(`${url}/instance/fetchInstances`, {
-                headers: { "Content-Type": "application/json", apikey: evolutionKey! },
-              });
 
-              if (!evogoRes.ok) {
-                const errText = await evogoRes.text();
-                lastError = `HTTP ${evogoRes.status}: ${errText.slice(0, 300)}`;
-                continue;
-              }
+          try {
+            console.log(`Trying Evolution GO at: ${baseUrl}/instance/all`);
+            const evogoRes = await fetch(`${baseUrl}/instance/all`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json", apikey: evolutionKey! },
+            });
 
+            const responseText = await evogoRes.text();
+
+            if (!evogoRes.ok) {
               return new Response(JSON.stringify({
-                success: true,
-                state: "open",
-                instance: instanceName,
-                message: `Evolution GO conectada com sucesso via ${url}!`,
-              }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-            } catch (fetchErr) {
-              const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-              lastError = msg;
-              console.error(`Failed at ${url}:`, msg);
+                success: false,
+                error: "Falha na Evolution GO",
+                details: `A Evolution GO respondeu ${evogoRes.status} ao consultar /instance/all. Verifique a API Key e a publicação da instância. Detalhe: ${responseText.slice(0, 300)}`,
+              }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
+
+            let payload: unknown = null;
+            try {
+              payload = responseText ? JSON.parse(responseText) : null;
+            } catch {
+              payload = responseText;
+            }
+
+            const instances = extractInstances(payload);
+            const matched = instances.find((instance) => {
+              const identity = getInstanceIdentity(instance);
+              return identity.name === instanceName || identity.id === instanceName;
+            });
+
+            if (!matched) {
+              return new Response(JSON.stringify({
+                success: false,
+                error: `Instância "${instanceName}" não encontrada na Evolution GO`,
+                details: instances.length
+                  ? `Instâncias disponíveis: ${instances.map((instance) => {
+                      const identity = getInstanceIdentity(instance);
+                      return identity.name || identity.id || "sem identificação";
+                    }).join(", ")}`
+                  : "A conexão com a Evolution GO funcionou, mas a lista de instâncias veio vazia.",
+              }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+
+            const identity = getInstanceIdentity(matched);
+            return new Response(JSON.stringify({
+              success: true,
+              state: identity.state || "available",
+              instance: identity.name || identity.id || instanceName,
+              message: `Evolution GO conectada com sucesso via ${baseUrl}!`,
+            }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          } catch (fetchErr) {
+            const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+            lastError = msg;
+            console.error(`Failed at ${baseUrl}:`, msg);
           }
 
-          const isTlsErr = lastError.includes("UnknownIssuer") || lastError.includes("certificate");
+          const isTlsErr = lastError.includes("UnknownIssuer") || lastError.toLowerCase().includes("certificate") || lastError.toLowerCase().includes("tls");
           return new Response(JSON.stringify({
             success: false,
             error: "Falha na Evolution GO",
             details: isTlsErr
-              ? "Certificado TLS inválido. Use uma URL HTTP ou um domínio com certificado SSL válido."
+              ? getTlsErrorMessage(baseUrl, lastError)
               : `Não foi possível conectar. Verifique a URL (sem /manager) e a API Key. Detalhe: ${lastError}`,
           }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
@@ -190,7 +270,7 @@ Deno.serve(async (req) => {
 
     // Check if our instance exists
     const instances = Array.isArray(instanceData) ? instanceData : instanceData.instances || [];
-    const ourInstance = instances.find((inst: any) => 
+    const ourInstance = instances.find((inst: InstanceRecord) => 
       inst.instance?.instanceName === instanceName || 
       inst.instanceName === instanceName ||
       inst.name === instanceName
@@ -201,8 +281,8 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: `Instância "${instanceName}" não encontrada`,
-          details: `Instâncias disponíveis: ${instances.map((i: any) => i.instance?.instanceName || i.instanceName || i.name).join(", ") || "nenhuma"}`,
-          instances: instances.map((i: any) => i.instance?.instanceName || i.instanceName || i.name)
+          details: `Instâncias disponíveis: ${instances.map((i: InstanceRecord) => i.instance?.instanceName || i.instanceName || i.name).join(", ") || "nenhuma"}`,
+          instances: instances.map((i: InstanceRecord) => i.instance?.instanceName || i.instanceName || i.name)
         }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

@@ -62,16 +62,54 @@ Deno.serve(async (req) => {
         
         if (integrationType === "evogo") {
           console.log("Testing Evolution GO connection...");
-          const evogoRes = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
-            headers: { "Content-Type": "application/json", apikey: evolutionKey }
-          });
-          
-          if (!evogoRes.ok) {
-             const err = await evogoRes.json();
-             return new Response(JSON.stringify({ success: false, error: "Falha na Evolution GO", details: err.message || JSON.stringify(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+          // Normalize URL: strip /manager (Swagger UI path) and trailing slashes
+          let baseUrl = evolutionUrl!.replace(/\/manager\/?$/i, "").replace(/\/+$/, "");
+
+          // Build candidate URLs - try original protocol first, then HTTP fallback
+          // (traefik.me uses self-signed certs that Deno rejects with UnknownIssuer)
+          const candidates: string[] = [baseUrl];
+          if (baseUrl.startsWith("https://")) {
+            candidates.push(baseUrl.replace(/^https:\/\//, "http://"));
           }
-          
-          return new Response(JSON.stringify({ success: true, instance: instanceName, message: "Evolution GO conectada com sucesso!" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+          let lastError: string = "";
+          for (const url of candidates) {
+            try {
+              console.log(`Trying Evolution GO at: ${url}/instance/fetchInstances`);
+              const evogoRes = await fetch(`${url}/instance/fetchInstances`, {
+                headers: { "Content-Type": "application/json", apikey: evolutionKey! }
+              });
+
+              if (!evogoRes.ok) {
+                const errText = await evogoRes.text();
+                lastError = `HTTP ${evogoRes.status}: ${errText.slice(0, 300)}`;
+                continue;
+              }
+
+              return new Response(JSON.stringify({
+                success: true,
+                state: "open",
+                instance: instanceName,
+                message: `Evolution GO conectada com sucesso via ${url}!`
+              }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            } catch (fetchErr) {
+              const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+              lastError = msg;
+              console.error(`Failed at ${url}:`, msg);
+              // If TLS issue, try next candidate (HTTP fallback)
+              if (msg.includes("UnknownIssuer") || msg.includes("certificate")) continue;
+              // Other errors: also try fallback
+            }
+          }
+
+          return new Response(JSON.stringify({
+            success: false,
+            error: "Falha na Evolution GO",
+            details: lastError.includes("UnknownIssuer") || lastError.includes("certificate")
+              ? "Certificado TLS inválido (traefik.me usa certificado auto-assinado). Configure a URL usando HTTP em vez de HTTPS, ou use um domínio com certificado válido."
+              : `Não foi possível conectar. Verifique se a URL está correta (sem /manager) e a API Key. Detalhe: ${lastError}`
+          }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
     } catch (e) { console.error("Failed to load DB config:", e); }

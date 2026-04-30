@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
             details: isTlsErr
               ? getTlsErrorMessage(baseUrl, lastError)
               : `Não foi possível conectar. Verifique a URL (sem /manager) e a API Key. Detalhe: ${lastError}`,
-          }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
     } catch (e) { console.error("Failed to load DB config:", e); }

@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
                 success: false,
                 error: "Falha na Evolution GO",
                 details: `A Evolution GO respondeu ${evogoRes.status} ao consultar /instance/all. Verifique a API Key e a publicação da instância. Detalhe: ${responseText.slice(0, 300)}`,
-              }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+              }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 
             let payload: unknown = null;

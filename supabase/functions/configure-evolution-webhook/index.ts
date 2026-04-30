@@ -123,9 +123,20 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
+    const isTlsErr = msg.includes("UnknownIssuer") || msg.toLowerCase().includes("certificate") || msg.toLowerCase().includes("tls");
+    
+    let details = msg;
+    if (isTlsErr && evolutionUrl?.includes("traefik.me")) {
+      details = "O domínio traefik.me usa certificado inválido. Publique a Evolution GO com SSL válido (ex.: Cloudflare) para configurar automaticamente.";
+    }
+
     return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        success: false, 
+        error: "Erro ao configurar webhook", 
+        details 
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

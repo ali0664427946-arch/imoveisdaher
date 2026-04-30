@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+type InstanceRecord = {
+  instance?: Record<string, unknown>;
+  instanceId?: string;
+  id?: string;
+  instanceName?: string;
+  name?: string;
+  state?: string;
+  connectionStatus?: string;
+  status?: string;
+  [key: string]: unknown;
+};
+
 function normalizeEvolutionUrl(rawUrl: string) {
   let baseUrl = rawUrl.trim().replace(/\/manager\/?$/i, "").replace(/\/+$/, "");
 
@@ -32,8 +44,8 @@ function getTlsErrorMessage(baseUrl: string, errorMessage: string) {
   return `Certificado TLS inválido no host ${host}. Publique a Evolution GO atrás de um domínio com SSL válido. Detalhe: ${errorMessage}`;
 }
 
-function extractInstances(payload: unknown): any[] {
-  if (Array.isArray(payload)) return payload;
+function extractInstances(payload: unknown): InstanceRecord[] {
+  if (Array.isArray(payload)) return payload as InstanceRecord[];
   if (!payload || typeof payload !== "object") return [];
 
   const record = payload as Record<string, unknown>;
@@ -51,7 +63,7 @@ function extractInstances(payload: unknown): any[] {
   return [];
 }
 
-function getInstanceIdentity(instance: any) {
+function getInstanceIdentity(instance: InstanceRecord) {
   const instanceInfo = instance?.instance ?? instance;
   return {
     id: instanceInfo?.instanceId ?? instanceInfo?.id ?? instance?.instanceId ?? instance?.id,
@@ -153,7 +165,7 @@ Deno.serve(async (req) => {
             if (!matched) {
               return new Response(JSON.stringify({
                 success: false,
-                error: `Instância \"${instanceName}\" não encontrada na Evolution GO`,
+                error: `Instância "${instanceName}" não encontrada na Evolution GO`,
                 details: instances.length
                   ? `Instâncias disponíveis: ${instances.map((instance) => {
                       const identity = getInstanceIdentity(instance);

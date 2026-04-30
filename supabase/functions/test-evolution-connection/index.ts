@@ -328,7 +328,7 @@ Deno.serve(async (req) => {
         error: "Erro ao testar conexão",
         details: errorMessage
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

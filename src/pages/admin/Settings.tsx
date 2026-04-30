@@ -135,7 +135,7 @@ export default function Settings() {
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
         setEvolutionInstance(settings.instance_name || "");
-        setIntegrationType(settings.integration_type || "qrcode");
+        setIntegrationType("evogo");
         setMetaAccessToken(settings.meta_access_token || "");
         setPhoneNumberId(settings.phone_number_id || "");
         setBusinessAccountId(settings.business_account_id || "");

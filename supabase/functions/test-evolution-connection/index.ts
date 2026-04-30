@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
 
     // Check if our instance exists
     const instances = Array.isArray(instanceData) ? instanceData : instanceData.instances || [];
-    const ourInstance = instances.find((inst: any) => 
+    const ourInstance = instances.find((inst: InstanceRecord) => 
       inst.instance?.instanceName === instanceName || 
       inst.instanceName === instanceName ||
       inst.name === instanceName
@@ -281,8 +281,8 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: `Instância "${instanceName}" não encontrada`,
-          details: `Instâncias disponíveis: ${instances.map((i: any) => i.instance?.instanceName || i.instanceName || i.name).join(", ") || "nenhuma"}`,
-          instances: instances.map((i: any) => i.instance?.instanceName || i.instanceName || i.name)
+          details: `Instâncias disponíveis: ${instances.map((i: InstanceRecord) => i.instance?.instanceName || i.instanceName || i.name).join(", ") || "nenhuma"}`,
+          instances: instances.map((i: InstanceRecord) => i.instance?.instanceName || i.instanceName || i.name)
         }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

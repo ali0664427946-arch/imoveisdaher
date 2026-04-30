@@ -237,6 +237,7 @@ Deno.serve(async (req) => {
           let evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
           let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
           let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+          let integrationType = "qrcode";
 
           try {
             const { data: dbConfig } = await supabase
@@ -245,10 +246,11 @@ Deno.serve(async (req) => {
               .eq("key", "evolution_api")
               .maybeSingle();
             if (dbConfig?.value) {
-              const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+              const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
               if (cfg.base_url) evolutionUrl = cfg.base_url;
               if (cfg.api_key) evolutionKey = cfg.api_key;
               if (cfg.instance_name) instanceName = cfg.instance_name;
+              if (cfg.integration_type) integrationType = cfg.integration_type;
             }
           } catch (_e) { /* use env vars */ }
           
@@ -256,15 +258,21 @@ Deno.serve(async (req) => {
             return null;
           }
           
+          const findGroupUrl = integrationType === "evogo"
+            ? `${evolutionUrl}/group/findGroupInfos`
+            : `${evolutionUrl}/group/findGroupInfos/${instanceName}`;
+
           const groupInfoRes = await fetch(
-            `${evolutionUrl}/group/findGroupInfos/${instanceName}`,
+            findGroupUrl,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "apikey": evolutionKey,
               },
-              body: JSON.stringify({ groupJid }),
+              body: JSON.stringify(integrationType === "evogo" 
+                ? { instanceId: instanceName, groupJid } 
+                : { groupJid }),
             }
           );
           
@@ -291,6 +299,7 @@ Deno.serve(async (req) => {
           let evolutionUrl = Deno.env.get("EVOLUTION_API_URL");
           let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
           let instanceName = Deno.env.get("EVOLUTION_INSTANCE_NAME");
+          let integrationType = "qrcode";
 
           try {
             const { data: dbConfig } = await supabase
@@ -299,10 +308,11 @@ Deno.serve(async (req) => {
               .eq("key", "evolution_api")
               .maybeSingle();
             if (dbConfig?.value) {
-              const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+              const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
               if (cfg.base_url) evolutionUrl = cfg.base_url;
               if (cfg.api_key) evolutionKey = cfg.api_key;
               if (cfg.instance_name) instanceName = cfg.instance_name;
+              if (cfg.integration_type) integrationType = cfg.integration_type;
             }
           } catch (_e) { /* use env vars */ }
 
@@ -311,17 +321,23 @@ Deno.serve(async (req) => {
             return null;
           }
 
-          console.log(`Downloading media via getBase64FromMediaMessage for key: ${messageKey.id}`);
+          const mediaUrl = integrationType === "evogo"
+            ? `${evolutionUrl}/chat/getBase64FromMediaMessage`
+            : `${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`;
 
           const res = await fetch(
-            `${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`,
+            mediaUrl,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "apikey": evolutionKey,
               },
-              body: JSON.stringify({
+              body: JSON.stringify(integrationType === "evogo" ? {
+                instanceId: instanceName,
+                message: { key: messageKey },
+                convertToMp4: false,
+              } : {
                 message: { key: messageKey },
                 convertToMp4: false,
               }),

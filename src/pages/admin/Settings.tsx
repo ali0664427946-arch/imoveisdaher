@@ -35,7 +35,7 @@ export default function Settings() {
   const [evolutionKey, setEvolutionKey] = useState("");
   const [evolutionInstance, setEvolutionInstance] = useState("");
   const [savingEvolution, setSavingEvolution] = useState(false);
-  const [integrationType, setIntegrationType] = useState<"qrcode" | "waba" | "evogo">("qrcode");
+  const [integrationType, setIntegrationType] = useState<"qrcode" | "waba" | "evogo">("evogo");
   const [metaAccessToken, setMetaAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");
@@ -135,7 +135,7 @@ export default function Settings() {
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
         setEvolutionInstance(settings.instance_name || "");
-        setIntegrationType(settings.integration_type || "qrcode");
+        setIntegrationType("evogo");
         setMetaAccessToken(settings.meta_access_token || "");
         setPhoneNumberId(settings.phone_number_id || "");
         setBusinessAccountId(settings.business_account_id || "");
@@ -969,23 +969,10 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Integration Type Toggle */}
-              <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+              {/* Integration Type - Evolution GO only */}
+              <div className="p-3 bg-muted/50 rounded-lg">
                 <Label className="text-sm font-medium">Tipo de Integração</Label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationType === "qrcode"} onChange={() => setIntegrationType("qrcode")} className="accent-primary" />
-                    <span className="text-sm">QR Code (não oficial)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationType === "waba"} onChange={() => setIntegrationType("waba")} className="accent-primary" />
-                    <span className="text-sm">WABA Oficial (Cloud API Meta)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationType === "evogo"} onChange={() => setIntegrationType("evogo")} className="accent-primary" />
-                    <span className="text-sm">Evolution GO</span>
-                  </label>
-                </div>
+                <p className="text-sm mt-1">Evolution GO</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

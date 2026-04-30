@@ -969,23 +969,10 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Integration Type Toggle */}
-              <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+              {/* Integration Type - Evolution GO only */}
+              <div className="p-3 bg-muted/50 rounded-lg">
                 <Label className="text-sm font-medium">Tipo de Integração</Label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationType === "qrcode"} onChange={() => setIntegrationType("qrcode")} className="accent-primary" />
-                    <span className="text-sm">QR Code (não oficial)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationType === "waba"} onChange={() => setIntegrationType("waba")} className="accent-primary" />
-                    <span className="text-sm">WABA Oficial (Cloud API Meta)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationType === "evogo"} onChange={() => setIntegrationType("evogo")} className="accent-primary" />
-                    <span className="text-sm">Evolution GO</span>
-                  </label>
-                </div>
+                <p className="text-sm mt-1">Evolution GO</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

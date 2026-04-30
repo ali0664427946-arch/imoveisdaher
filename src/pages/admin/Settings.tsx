@@ -26,6 +26,7 @@ export default function Settings() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [testingWebhook, setTestingWebhook] = useState<string | null>(null);
   const [testingEvolution, setTestingEvolution] = useState(false);
+  const [configuringWebhook, setConfiguringWebhook] = useState(false);
   const [syncingGroups, setSyncingGroups] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [savingAutoSync, setSavingAutoSync] = useState(false);

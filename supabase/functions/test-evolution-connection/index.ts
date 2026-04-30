@@ -62,7 +62,6 @@ Deno.serve(async (req) => {
         
         if (integrationType === "evogo") {
           console.log("Testing Evolution GO connection...");
-          // Evolution GO connection test - just try to fetch instances or simple health check
           const evogoRes = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
             headers: { "Content-Type": "application/json", apikey: evolutionKey }
           });
@@ -72,10 +71,9 @@ Deno.serve(async (req) => {
              return new Response(JSON.stringify({ success: false, error: "Falha na Evolution GO", details: err.message || JSON.stringify(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
           
-          const evogoData = await evogoRes.json();
-          // Evogo often has a different structure, but let's assume if OK, it's connected
           return new Response(JSON.stringify({ success: true, instance: instanceName, message: "Evolution GO conectada com sucesso!" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
+      }
     } catch (e) { console.error("Failed to load DB config:", e); }
 
     console.log("Testing Evolution API connection...");

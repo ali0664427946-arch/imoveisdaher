@@ -35,7 +35,7 @@ export default function Settings() {
   const [evolutionKey, setEvolutionKey] = useState("");
   const [evolutionInstance, setEvolutionInstance] = useState("");
   const [savingEvolution, setSavingEvolution] = useState(false);
-  const [integrationType, setIntegrationType] = useState<"qrcode" | "waba" | "evogo">("qrcode");
+  const [integrationType, setIntegrationType] = useState<"qrcode" | "waba" | "evogo">("evogo");
   const [metaAccessToken, setMetaAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");

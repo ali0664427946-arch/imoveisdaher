@@ -519,6 +519,33 @@ export default function Settings() {
       setTestingEvolution(false);
     }
   };
+  
+  const handleConfigureWebhook = async () => {
+    setConfiguringWebhook(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("configure-evolution-webhook");
+      
+      if (error) throw new Error(error.message || "Erro ao configurar webhook");
+      
+      if (data?.success) {
+        toast({
+          title: "Webhook configurado! ✅",
+          description: "A Evolution API agora enviará mensagens para o sistema.",
+        });
+      } else {
+        toast({
+          title: "Falha na configuração ❌",
+          description: data?.error || "Verifique se a instância está conectada",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao configurar";
+      toast({ title: "Erro ❌", description: message, variant: "destructive" });
+    } finally {
+      setConfiguringWebhook(false);
+    }
+  };
 
   const handleConnectWaba = async () => {
     setConnectingWaba(true);

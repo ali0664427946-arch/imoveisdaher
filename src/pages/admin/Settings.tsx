@@ -1075,6 +1075,49 @@ export default function Settings() {
                   </Button>
                 )}
               </div>
+              
+              <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-medium text-blue-800">
+                    <Webhook className="w-4 h-4" />
+                    Configuração do Webhook
+                  </div>
+                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
+                    Importante
+                  </Badge>
+                </div>
+                <p className="text-sm text-blue-700">
+                  O webhook é necessário para receber mensagens em tempo real. Sem ele, você só poderá enviar mensagens, mas não receberá as respostas no sistema.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs text-blue-600">URL do Webhook para Evolution API:</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      readOnly 
+                      value={`${supabaseFunctionsUrl}/evolution-webhook`} 
+                      className="h-8 text-xs bg-white border-blue-200"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 text-blue-700 hover:text-blue-800 hover:bg-blue-100"
+                      onClick={() => copyToClipboard(`${supabaseFunctionsUrl}/evolution-webhook`, 'evowebhook')}
+                    >
+                      <Copy className="w-3 h-3 mr-1" /> Copiar
+                    </Button>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={handleConfigureWebhook}
+                  disabled={configuringWebhook || !evolutionUrl || !evolutionInstance}
+                >
+                  {configuringWebhook ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                  Configurar Webhook Automaticamente
+                </Button>
+              </div>
+
               <p className="text-xs text-muted-foreground">
                 💡 As configurações salvas aqui serão usadas por todas as funções do sistema (envio, webhook, agendamentos, etc.)
               </p>

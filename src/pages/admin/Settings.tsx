@@ -35,7 +35,7 @@ export default function Settings() {
   const [evolutionKey, setEvolutionKey] = useState("");
   const [evolutionInstance, setEvolutionInstance] = useState("");
   const [savingEvolution, setSavingEvolution] = useState(false);
-  const [integrationTypeWaba, setIntegrationTypeWaba] = useState(false);
+  const [integrationType, setIntegrationType] = useState<"qrcode" | "waba" | "evogo">("qrcode");
   const [metaAccessToken, setMetaAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");
@@ -129,13 +129,13 @@ export default function Settings() {
       if (data?.value) {
         const settings = data.value as {
           base_url: string; api_key: string; instance_name: string;
-          integration_type?: string;
+          integration_type?: "qrcode" | "waba" | "evogo";
           meta_access_token?: string; phone_number_id?: string; business_account_id?: string;
         };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
         setEvolutionInstance(settings.instance_name || "");
-        setIntegrationTypeWaba(settings.integration_type === "waba");
+        setIntegrationType(settings.integration_type || "qrcode");
         setMetaAccessToken(settings.meta_access_token || "");
         setPhoneNumberId(settings.phone_number_id || "");
         setBusinessAccountId(settings.business_account_id || "");
@@ -359,7 +359,7 @@ export default function Settings() {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (integrationTypeWaba && (!metaAccessToken.trim() || !phoneNumberId.trim())) {
+    if (integrationType === "waba" && (!metaAccessToken.trim() || !phoneNumberId.trim())) {
       toast({ title: "Preencha os campos WABA obrigatórios", variant: "destructive" });
       return;
     }
@@ -369,10 +369,10 @@ export default function Settings() {
         base_url: evolutionUrl.trim().replace(/\/+$/, ""),
         api_key: evolutionKey.trim(),
         instance_name: evolutionInstance.trim(),
-        integration_type: integrationTypeWaba ? "waba" : "qrcode",
+        integration_type: integrationType,
       };
 
-      if (integrationTypeWaba) {
+      if (integrationType === "waba") {
         value.meta_access_token = metaAccessToken.trim();
         value.phone_number_id = phoneNumberId.trim();
         value.business_account_id = businessAccountId.trim();
@@ -974,12 +974,16 @@ export default function Settings() {
                 <Label className="text-sm font-medium">Tipo de Integração</Label>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={!integrationTypeWaba} onChange={() => setIntegrationTypeWaba(false)} className="accent-primary" />
+                    <input type="radio" name="intType" checked={integrationType === "qrcode"} onChange={() => setIntegrationType("qrcode")} className="accent-primary" />
                     <span className="text-sm">QR Code (não oficial)</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="intType" checked={integrationTypeWaba} onChange={() => setIntegrationTypeWaba(true)} className="accent-primary" />
+                    <input type="radio" name="intType" checked={integrationType === "waba"} onChange={() => setIntegrationType("waba")} className="accent-primary" />
                     <span className="text-sm">WABA Oficial (Cloud API Meta)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="intType" checked={integrationType === "evogo"} onChange={() => setIntegrationType("evogo")} className="accent-primary" />
+                    <span className="text-sm">Evolution GO</span>
                   </label>
                 </div>
               </div>
@@ -1000,7 +1004,7 @@ export default function Settings() {
               </div>
 
               {/* WABA Fields */}
-              {integrationTypeWaba && (
+              {integrationType === "waba" && (
                 <div className="border border-primary/30 rounded-lg p-4 space-y-4 bg-primary/5">
                   <p className="text-sm font-medium text-primary flex items-center gap-2">
                     <Shield className="w-4 h-4" />
@@ -1028,8 +1032,8 @@ export default function Settings() {
 
               {/* Status badge */}
               <div className="flex items-center gap-2">
-                <Badge variant={integrationTypeWaba ? "default" : "secondary"}>
-                  {integrationTypeWaba ? "WABA Oficial" : "QR Code"}
+                <Badge variant={integrationType === "waba" ? "default" : integrationType === "evogo" ? "destructive" : "secondary"}>
+                  {integrationType === "waba" ? "WABA Oficial" : integrationType === "evogo" ? "Evolution GO" : "QR Code"}
                 </Badge>
                 {evolutionUrl && evolutionInstance && (
                   <Badge variant="outline">{evolutionInstance}</Badge>
@@ -1049,7 +1053,7 @@ export default function Settings() {
                   {syncingGroups ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Users className="w-4 h-4 mr-2" />}
                   Sincronizar Nomes de Grupos
                 </Button>
-                {integrationTypeWaba && (
+                {integrationType === "waba" && (
                   <Button variant="default" onClick={handleConnectWaba} disabled={connectingWaba} className="bg-green-600 hover:bg-green-700 text-white">
                     {connectingWaba ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Link2 className="w-4 h-4 mr-2" />}
                     Conectar WABA

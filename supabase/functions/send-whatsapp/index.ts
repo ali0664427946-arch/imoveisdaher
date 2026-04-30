@@ -193,7 +193,8 @@ Deno.serve(async (req) => {
     } catch (e) { console.error("Failed to load DB config, using env vars:", e); }
     
     const isWaba = integrationType === "waba";
-    console.log(`Integration type: ${integrationType}, isWaba: ${isWaba}`);
+    const isEvogo = integrationType === "evogo";
+    console.log(`Integration type: ${integrationType}, isWaba: ${isWaba}, isEvogo: ${isEvogo}`);
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       console.error("Missing Evolution API configuration");
@@ -231,7 +232,7 @@ Deno.serve(async (req) => {
     // Find valid WhatsApp number
     let validPhone: string | null = null;
     
-    if (isWaba) {
+    if (isWaba || isEvogo) {
       // WABA doesn't support /chat/whatsappNumbers/ endpoint
       // Just clean and format the number directly
       let cleanPhone = phone.replace(/\D/g, "");
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
         }
         validPhone = cleanPhone;
       }
-      console.log(`WABA mode - using phone directly: ${validPhone}`);
+      console.log(`${integrationType} mode - using phone directly: ${validPhone}`);
     } else {
       // Baileys/QR mode - validate number on WhatsApp
       console.log(`Looking for valid WhatsApp number for: ${phone}`);
@@ -304,7 +305,11 @@ Deno.serve(async (req) => {
     console.log(`Sending WhatsApp message to ${validPhone}`);
 
     // Build API URL
-    const apiUrl = `${baseUrl}/message/sendText/${instanceName}`;
+    // Evolution GO uses different endpoint for sending text
+    const apiUrl = isEvogo 
+      ? `${baseUrl}/message/sendText` 
+      : `${baseUrl}/message/sendText/${instanceName}`;
+    
     console.log(`API URL: ${apiUrl}`);
 
     // Send message via Evolution API
@@ -314,7 +319,11 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         apikey: evolutionKey,
       },
-      body: JSON.stringify({
+      body: JSON.stringify(isEvogo ? {
+        instanceId: instanceName,
+        number: validPhone,
+        text: message,
+      } : {
         number: validPhone,
         text: message,
       }),

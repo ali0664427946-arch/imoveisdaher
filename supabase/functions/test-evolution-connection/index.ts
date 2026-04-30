@@ -54,10 +54,25 @@ Deno.serve(async (req) => {
         .eq("key", "evolution_api")
         .maybeSingle();
       if (dbConfig?.value) {
-        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
         if (cfg.base_url) evolutionUrl = cfg.base_url.replace(/\/+$/, "");
         if (cfg.api_key) evolutionKey = cfg.api_key;
         if (cfg.instance_name) instanceName = cfg.instance_name;
+        const integrationType = cfg.integration_type || "qrcode";
+        
+        if (integrationType === "evogo") {
+          console.log("Testing Evolution GO connection...");
+          const evogoRes = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
+            headers: { "Content-Type": "application/json", apikey: evolutionKey }
+          });
+          
+          if (!evogoRes.ok) {
+             const err = await evogoRes.json();
+             return new Response(JSON.stringify({ success: false, error: "Falha na Evolution GO", details: err.message || JSON.stringify(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          
+          return new Response(JSON.stringify({ success: true, instance: instanceName, message: "Evolution GO conectada com sucesso!" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
       }
     } catch (e) { console.error("Failed to load DB config:", e); }
 

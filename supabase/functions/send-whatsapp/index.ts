@@ -364,12 +364,13 @@ Deno.serve(async (req) => {
 
     console.log(`Sending WhatsApp message to ${validPhone}`);
 
+    // Evolution GO uses /send/text with `instance` field; classic Evolution API uses /message/sendText/{instanceName}
     const primaryApiUrl = isEvogo
-      ? `${baseUrl}/message/sendText`
+      ? `${baseUrl}/send/text`
       : `${baseUrl}/message/sendText/${instanceName}`;
     const primaryBody = isEvogo
       ? {
-          instanceId: instanceName,
+          instance: instanceName,
           number: validPhone,
           text: message,
         }
@@ -396,21 +397,8 @@ Deno.serve(async (req) => {
       };
     };
 
-    let sendResult = await sendAttempt(primaryApiUrl, primaryBody);
-    let usedFallbackEndpoint = false;
-
-    const shouldRetryEvogoWithInstancePath = isEvogo && (
-      sendResult.parsed.looksLikeHtml ||
-      sendResult.response.status === 404 ||
-      sendResult.response.status === 405
-    );
-
-    if (shouldRetryEvogoWithInstancePath) {
-      const fallbackApiUrl = `${baseUrl}/message/sendText/${instanceName}`;
-      console.warn(`Evolution GO primary send endpoint failed, retrying with instance path: ${fallbackApiUrl}`);
-      usedFallbackEndpoint = true;
-      sendResult = await sendAttempt(fallbackApiUrl, { number: validPhone, text: message });
-    }
+    const sendResult = await sendAttempt(primaryApiUrl, primaryBody);
+    const usedFallbackEndpoint = false;
 
     const evolutionResponse = sendResult.response;
     const evolutionParsed = sendResult.parsed;

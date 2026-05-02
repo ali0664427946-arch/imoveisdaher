@@ -132,6 +132,8 @@ export default function Settings() {
           base_url: string; api_key: string; instance_name: string;
           integration_type?: "qrcode" | "waba" | "evogo";
           meta_access_token?: string; phone_number_id?: string; business_account_id?: string;
+          last_validated_at?: string;
+          connection_status?: string;
         };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");

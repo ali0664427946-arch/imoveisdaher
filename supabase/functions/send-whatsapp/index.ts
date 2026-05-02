@@ -266,13 +266,14 @@ Deno.serve(async (req) => {
       .replace(/\/+$/, "")
       .replace(/\/manager\/?$/i, "");
 
-    // Pre-flight: validate API key before doing anything else
-    // Evolution GO: GET /instance/all  |  Classic Evolution: GET /instance/fetchInstances
+    // Pre-flight: validate API key AND auto-discover a working instance.
+    // Lists all instances available for this credential and picks the best match.
+    let instanceAutoSwitched = false;
     try {
       const authCheckUrl = isEvogo
         ? `${baseUrl}/instance/all`
         : `${baseUrl}/instance/fetchInstances`;
-      console.log(`Validating API key at: ${authCheckUrl}`);
+      console.log(`Validating API key + listing instances at: ${authCheckUrl}`);
       const authRes = await fetch(authCheckUrl, {
         method: "GET",
         headers: { "Content-Type": "application/json", apikey: evolutionKey },
@@ -292,39 +293,90 @@ Deno.serve(async (req) => {
         );
       }
 
-      if (!authRes.ok) {
+      if (authRes.ok) {
         const parsed = await readEvolutionResponse(authRes);
-        console.warn(`API key check returned ${authRes.status} (non-auth error):`, parsed.preview);
-        // Non-auth error (404, 500, etc) — proceed; later steps will surface real issue
-      } else {
-        console.log("API key válida ✓");
-      }
-    } catch (e) {
-      console.error("Failed to validate API key (network/timeout):", e);
-      // Network failure — proceed; the actual send will surface the issue
-    }
+        // Normalize response into a flat array of instances
+        let instances: any[] = [];
+        if (Array.isArray(parsed.data)) {
+          instances = parsed.data;
+        } else if (parsed.data && typeof parsed.data === "object") {
+          const obj = parsed.data as Record<string, any>;
+          instances = obj.instances || obj.data || [];
+          if (!Array.isArray(instances)) instances = [];
+        }
 
-    // Check instance connection state before attempting to send
-    try {
-      const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {
-        headers: { "Content-Type": "application/json", apikey: evolutionKey },
-      });
-      if (stateRes.ok) {
-        const stateData = await stateRes.json();
-        const state = stateData.instance?.state || stateData.state || "unknown";
-        if (state !== "open") {
-          console.error(`Instance ${instanceName} is not connected. State: ${state}`);
+        const normalize = (inst: any) => {
+          const name = inst?.name || inst?.instanceName || inst?.instance?.instanceName || inst?.instance?.name;
+          const id = inst?.id || inst?.instanceId || inst?.instance?.instanceId;
+          const state = (inst?.connectionStatus || inst?.connection_status || inst?.state || inst?.instance?.state || "").toString().toLowerCase();
+          return { name, id, state };
+        };
+        const normalized = instances.map(normalize).filter((i) => i.name || i.id);
+
+        if (normalized.length === 0) {
+          console.warn("Nenhuma instância retornada pela credencial.");
           return new Response(
             JSON.stringify({
               success: false,
-              error: `Instância "${instanceName}" não está conectada (estado: ${state}). Conecte o WhatsApp antes de enviar mensagens.`,
+              error: "Nenhuma instância encontrada para esta credencial. Crie/publique uma instância no Evolution e tente novamente.",
+              details: { url: authCheckUrl, preview: parsed.preview },
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        const configuredLower = (instanceName || "").toLowerCase();
+        const exactMatch = normalized.find(
+          (i) => i.name?.toLowerCase() === configuredLower || i.id?.toLowerCase() === configuredLower
+        );
+
+        let chosen = exactMatch;
+        if (!chosen) {
+          // Configured instance does not exist — pick a connected one as fallback
+          chosen = normalized.find((i) => i.state === "open" || i.state === "connected") || normalized[0];
+          console.warn(
+            `Instância configurada "${instanceName}" não existe. Disponíveis: ${normalized.map((i) => `${i.name}(${i.state})`).join(", ")}. Usando: ${chosen.name}`
+          );
+          if (chosen.name && chosen.name !== instanceName) {
+            instanceName = chosen.name;
+            instanceAutoSwitched = true;
+          }
+        }
+
+        // Verify chosen instance is connected
+        if (chosen.state && chosen.state !== "open" && chosen.state !== "connected") {
+          try {
+            const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {
+              headers: { "Content-Type": "application/json", apikey: evolutionKey },
+            });
+            if (stateRes.ok) {
+              const stateData = await stateRes.json();
+              const liveState = (stateData.instance?.state || stateData.state || "unknown").toString().toLowerCase();
+              if (liveState !== "open" && liveState !== "connected") {
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: `Instância "${instanceName}" não está conectada (estado: ${liveState}). Conecte o WhatsApp antes de enviar mensagens.`,
+                    details: { available: normalized.map((i) => ({ name: i.name, state: i.state })) },
+                  }),
+                  { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+              }
+            }
+          } catch (e) {
+            console.error("Live state check failed:", e);
+          }
+        }
+
+        console.log(`✓ Instância ativa: "${instanceName}" (auto-switched: ${instanceAutoSwitched})`);
+      } else {
+        const parsed = await readEvolutionResponse(authRes);
+        console.warn(`API key check returned ${authRes.status} (non-auth error):`, parsed.preview);
+        // Non-auth error — proceed; later steps will surface real issue
       }
     } catch (e) {
-      console.error("Failed to check instance state:", e);
+      console.error("Failed to validate API key / discover instance:", e);
+      // Network failure — proceed; the actual send will surface the issue
     }
 
     // Find valid WhatsApp number

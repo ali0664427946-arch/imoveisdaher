@@ -297,8 +297,17 @@ Deno.serve(async (req) => {
         },
       }
     );
-
-    const instanceData = await instanceResponse.json();
+    const instanceText = await instanceResponse.text();
+    let instanceData: any;
+    try {
+      instanceData = JSON.parse(instanceText);
+    } catch {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Resposta inválida da Evolution API",
+        details: `URL respondeu HTML em vez de JSON. Verifique se a URL termina sem /manager (ex.: https://api.exemplo.com, não https://api.exemplo.com/manager). Status: ${instanceResponse.status}`,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!instanceResponse.ok) {
       console.error("Evolution API error:", instanceData);

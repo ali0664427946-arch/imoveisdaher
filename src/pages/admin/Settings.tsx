@@ -528,39 +528,7 @@ export default function Settings() {
     }
   };
 
-  const testEvolutionConnection = async () => {
-    setTestingEvolution(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("test-evolution-connection");
-
-      if (error) {
-        throw new Error(error.message || "Erro ao testar conexão");
-      }
-
-      if (data?.success) {
-        toast({
-          title: "Conexão bem sucedida! ✅",
-          description: data.message || `Instância: ${data.instance} (${data.state})`,
-        });
-      } else {
-        toast({
-          title: "Falha na conexão ❌",
-          description: data?.details || data?.error || "Erro desconhecido",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao testar conexão";
-      toast({
-        title: "Erro na conexão ❌",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setTestingEvolution(false);
-    }
-  };
+  // Removed redundant testEvolutionConnection implementation as it was moved up to avoid redeclaration.
   
   const handleConfigureWebhook = async () => {
     setConfiguringWebhook(true);

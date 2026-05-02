@@ -364,12 +364,13 @@ Deno.serve(async (req) => {
 
     console.log(`Sending WhatsApp message to ${validPhone}`);
 
+    // Evolution GO uses /send/text with `instance` field; classic Evolution API uses /message/sendText/{instanceName}
     const primaryApiUrl = isEvogo
-      ? `${baseUrl}/message/sendText`
+      ? `${baseUrl}/send/text`
       : `${baseUrl}/message/sendText/${instanceName}`;
     const primaryBody = isEvogo
       ? {
-          instanceId: instanceName,
+          instance: instanceName,
           number: validPhone,
           text: message,
         }

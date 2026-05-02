@@ -360,6 +360,42 @@ export default function Settings() {
     }
   };
 
+  const testEvolutionConnection = async () => {
+    setTestingEvolution(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-evolution-connection");
+
+      if (error) throw error;
+
+      if (data?.success) {
+        let expirationMsg = "";
+        if (data.expires_at) {
+          const daysToExpire = Math.ceil((new Date(data.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+          if (daysToExpire <= 7) {
+            expirationMsg = ` ⚠️ Sua assinatura expira em ${daysToExpire} dias! Renove para evitar interrupções.`;
+          }
+        }
+
+        toast({
+          title: "Conexão OK! ✅",
+          description: `Estado: ${data.state}. Webhook: ${data.webhook_status || 'desconhecido'}.${expirationMsg}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["evolution-api-settings"] });
+      } else {
+        throw new Error(data?.details || data?.error || "Erro no teste");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao testar";
+      toast({
+        title: "Falha na conexão ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setTestingEvolution(false);
+    }
+  };
+
   const handleSaveEvolution = async () => {
     if (!evolutionUrl.trim() || !evolutionKey.trim() || !evolutionInstance.trim()) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });

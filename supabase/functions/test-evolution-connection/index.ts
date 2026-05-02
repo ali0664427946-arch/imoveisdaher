@@ -134,24 +134,30 @@ Deno.serve(async (req) => {
           let lastError = "";
 
           try {
-            console.log(`Checking webhook status for ${instanceName} at: ${baseUrl}/webhook/find/${instanceName}`);
-            const webhookRes = await fetch(`${baseUrl}/webhook/find/${instanceName}`, {
-              method: "GET",
-              headers: { "Content-Type": "application/json", apikey: evolutionKey! },
-            });
-
+            console.log(`[v2] Checking webhook status for ${instanceName} at: ${baseUrl}/webhook/find/${instanceName}`);
             let webhookOnline = false;
-            if (webhookRes.ok) {
-              const webhookData = await webhookRes.json();
-              // Check if our current project's webhook URL is configured and enabled
-              const supabaseUrl = Deno.env.get("SUPABASE_URL");
-              const expectedUrl = `${supabaseUrl}/functions/v1/evolution-webhook`;
-              
-              // Evolution v2 might return a single object or array
-              const webhooks = Array.isArray(webhookData) ? webhookData : (webhookData.webhooks || [webhookData]);
-              webhookOnline = webhooks.some((wh: any) => 
-                wh.url === expectedUrl && (wh.enabled === true || wh.status === "SUCCESS")
-              );
+            try {
+              const webhookRes = await fetch(`${baseUrl}/webhook/find/${instanceName}`, {
+                method: "GET",
+                headers: { "Content-Type": "application/json", apikey: evolutionKey! },
+              });
+
+              if (webhookRes.ok) {
+                const webhookText = await webhookRes.text();
+                try {
+                  const webhookData = JSON.parse(webhookText);
+                  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+                  const expectedUrl = `${supabaseUrl}/functions/v1/evolution-webhook`;
+                  const webhooks = Array.isArray(webhookData) ? webhookData : (webhookData.webhooks || [webhookData]);
+                  webhookOnline = webhooks.some((wh: any) =>
+                    wh.url === expectedUrl && (wh.enabled === true || wh.status === "SUCCESS")
+                  );
+                } catch (_e) {
+                  console.log("Webhook find returned non-JSON, assuming offline");
+                }
+              }
+            } catch (whErr) {
+              console.error("Webhook check failed:", whErr);
             }
 
             console.log(`Trying Evolution GO at: ${baseUrl}/instance/all`);
@@ -291,8 +297,17 @@ Deno.serve(async (req) => {
         },
       }
     );
-
-    const instanceData = await instanceResponse.json();
+    const instanceText = await instanceResponse.text();
+    let instanceData: any;
+    try {
+      instanceData = JSON.parse(instanceText);
+    } catch {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Resposta inválida da Evolution API",
+        details: `URL respondeu HTML em vez de JSON. Verifique se a URL termina sem /manager (ex.: https://api.exemplo.com, não https://api.exemplo.com/manager). Status: ${instanceResponse.status}`,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!instanceResponse.ok) {
       console.error("Evolution API error:", instanceData);

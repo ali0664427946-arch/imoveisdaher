@@ -135,6 +135,8 @@ export default function Settings() {
           last_validated_at?: string;
           connection_status?: string;
           expires_at?: string;
+          webhook_status?: "online" | "offline";
+          last_webhook_check?: string;
         };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
@@ -358,6 +360,42 @@ export default function Settings() {
     }
   };
 
+  const testEvolutionConnection = async () => {
+    setTestingEvolution(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-evolution-connection");
+
+      if (error) throw error;
+
+      if (data?.success) {
+        let expirationMsg = "";
+        if (data.expires_at) {
+          const daysToExpire = Math.ceil((new Date(data.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+          if (daysToExpire <= 7) {
+            expirationMsg = ` ⚠️ Sua assinatura expira em ${daysToExpire} dias! Renove para evitar interrupções.`;
+          }
+        }
+
+        toast({
+          title: "Conexão OK! ✅",
+          description: `Estado: ${data.state}. Webhook: ${data.webhook_status || 'desconhecido'}.${expirationMsg}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["evolution-api-settings"] });
+      } else {
+        throw new Error(data?.details || data?.error || "Erro no teste");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao testar";
+      toast({
+        title: "Falha na conexão ❌",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setTestingEvolution(false);
+    }
+  };
+
   const handleSaveEvolution = async () => {
     if (!evolutionUrl.trim() || !evolutionKey.trim() || !evolutionInstance.trim()) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
@@ -490,39 +528,7 @@ export default function Settings() {
     }
   };
 
-  const testEvolutionConnection = async () => {
-    setTestingEvolution(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("test-evolution-connection");
-
-      if (error) {
-        throw new Error(error.message || "Erro ao testar conexão");
-      }
-
-      if (data?.success) {
-        toast({
-          title: "Conexão bem sucedida! ✅",
-          description: data.message || `Instância: ${data.instance} (${data.state})`,
-        });
-      } else {
-        toast({
-          title: "Falha na conexão ❌",
-          description: data?.details || data?.error || "Erro desconhecido",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao testar conexão";
-      toast({
-        title: "Erro na conexão ❌",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setTestingEvolution(false);
-    }
-  };
+  // Removed redundant testEvolutionConnection implementation as it was moved up to avoid redeclaration.
   
   const handleConfigureWebhook = async () => {
     setConfiguringWebhook(true);
@@ -1105,13 +1111,26 @@ export default function Settings() {
                     <Webhook className="w-4 h-4" />
                     Configuração do Webhook
                   </div>
-                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
-                    Importante
-                  </Badge>
+                  <div className="flex gap-2">
+                    {evolutionSettings?.webhook_status && (
+                      <Badge variant={evolutionSettings.webhook_status === "online" ? "secondary" : "destructive"} className={evolutionSettings.webhook_status === "online" ? "bg-green-100 text-green-700 border-green-200" : ""}>
+                        Webhook {evolutionSettings.webhook_status === "online" ? "Online" : "Offline"}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
+                      Importante
+                    </Badge>
+                  </div>
                 </div>
                 <p className="text-sm text-blue-700">
                   O webhook é necessário para receber mensagens em tempo real. Sem ele, você só poderá enviar mensagens, mas não receberá as respostas no sistema.
                 </p>
+                {evolutionSettings?.last_webhook_check && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Última verificação: {formatDistanceToNow(new Date(evolutionSettings.last_webhook_check), { addSuffix: true, locale: ptBR })}
+                  </p>
+                )}
                 <div className="flex flex-col gap-2">
                   <Label className="text-xs text-blue-600">URL do Webhook para Evolution API:</Label>
                   <div className="flex gap-2">

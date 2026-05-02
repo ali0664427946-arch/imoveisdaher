@@ -204,6 +204,39 @@ export type Database = {
           },
         ]
       }
+      evolution_audit_logs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          event_type: string | null
+          id: string
+          instance_name: string | null
+          ip_address: string | null
+          payload: Json | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          instance_name?: string | null
+          ip_address?: string | null
+          payload?: Json | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          instance_name?: string | null
+          ip_address?: string | null
+          payload?: Json | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       fichas: {
         Row: {
           address_cep: string | null

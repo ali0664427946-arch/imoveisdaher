@@ -455,13 +455,20 @@ export default function PropertyDetail() {
                     </Link>
                   </Button>
                   <Button 
-                    variant="outline" 
                     size="lg" 
-                    className="w-full"
-                    onClick={() => setWhatsappDialogOpen(true)}
+                    className="w-full bg-success hover:bg-success/90 text-white"
+                    asChild
                   >
-                    <MessageCircle className="w-5 h-5" />
-                    WhatsApp
+                    <a
+                      href={`https://wa.me/5521982095993?text=${encodeURIComponent(
+                        `Olá! Tenho interesse no imóvel: ${property.title} (${property.neighborhood}, ${property.city}). ${window.location.origin}/imovel/${property.id}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      WhatsApp
+                    </a>
                   </Button>
                   <Button variant="ghost" size="lg" className="w-full">
                     <Phone className="w-5 h-5" />

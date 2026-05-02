@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Car, Maximize, MapPin, FileText } from "lucide-react";
+import { Bed, Bath, Car, Maximize, MapPin, FileText, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export interface Property {

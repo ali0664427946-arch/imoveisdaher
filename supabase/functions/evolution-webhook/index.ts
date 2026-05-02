@@ -73,11 +73,49 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const payload: EvolutionWebhookPayload = await req.json();
-    
-    console.log("Evolution webhook received:", JSON.stringify(payload, null, 2));
+    // 1. Get configuration for security check
+    let evolutionKey = Deno.env.get("EVOLUTION_API_KEY");
+    try {
+      const { data: dbConfig } = await supabase
+        .from("integrations_settings")
+        .select("value")
+        .eq("key", "evolution_api")
+        .maybeSingle();
+      if (dbConfig?.value) {
+        const cfg = dbConfig.value as { api_key: string };
+        if (cfg.api_key) evolutionKey = cfg.api_key;
+      }
+    } catch (e) { console.error("Failed to load config for validation:", e); }
 
+    // 2. Security Validation (Check API Key / Token)
+    // Evolution API typically sends the apikey in a header like 'apikey'
+    const receivedApiKey = req.headers.get("apikey") || req.headers.get("x-api-key");
+    const clientIp = req.headers.get("x-forwarded-for") || "unknown";
+
+    const payload: EvolutionWebhookPayload = await req.json();
     const { event: rawEvent, data, instance } = payload;
+
+    if (evolutionKey && receivedApiKey !== evolutionKey) {
+      console.error(`Invalid webhook attempt from IP ${clientIp}. Expected key: ${evolutionKey?.substring(0, 5)}..., Received: ${receivedApiKey?.substring(0, 5)}...`);
+      
+      // Log for audit
+      await supabase.from("evolution_audit_logs").insert({
+        event_type: rawEvent,
+        instance_name: instance,
+        payload: payload,
+        status: "invalid_token",
+        error_message: "API Key mismatch",
+        ip_address: clientIp
+      });
+
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    console.log("Evolution webhook verified and received:", JSON.stringify(payload, null, 2));
+
     const event = normalizeEvent(rawEvent);
     console.log(`Normalized event: ${rawEvent} -> ${event}`);
 

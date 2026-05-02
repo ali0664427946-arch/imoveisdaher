@@ -24,6 +24,63 @@ async function antiBanDelay(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
+type ParsedEvolutionResponse = {
+  contentType: string | null;
+  data: unknown;
+  isJson: boolean;
+  looksLikeHtml: boolean;
+  preview: string;
+  rawText: string;
+};
+
+function parseMaybeJson(rawText: string): { data: unknown; isJson: boolean } {
+  const trimmed = rawText.trim();
+
+  if (!trimmed) {
+    return { data: null, isJson: false };
+  }
+
+  const maybeJson = /^[\[{\"]/.test(trimmed) || /^(true|false|null|-?\d)/.test(trimmed);
+  if (maybeJson) {
+    try {
+      return { data: JSON.parse(trimmed), isJson: true };
+    } catch {
+      // fall through and treat as plain text
+    }
+  }
+
+  return { data: trimmed, isJson: false };
+}
+
+async function readEvolutionResponse(response: Response): Promise<ParsedEvolutionResponse> {
+  const rawText = await response.text();
+  const trimmed = rawText.trim();
+  const contentType = response.headers.get("content-type");
+  const { data, isJson } = parseMaybeJson(rawText);
+
+  return {
+    contentType,
+    data,
+    isJson,
+    looksLikeHtml: /<!doctype html|<html[\s>]/i.test(trimmed) || contentType?.includes("text/html") === true,
+    preview: trimmed.replace(/\s+/g, " ").slice(0, 220),
+    rawText,
+  };
+}
+
+function getEvolutionErrorMessage(parsed: ParsedEvolutionResponse, fallbackMessage: string): string {
+  if (parsed.data && typeof parsed.data === "object") {
+    const record = parsed.data as Record<string, any>;
+    return record.message || record.error || record.response?.message || fallbackMessage;
+  }
+
+  if (typeof parsed.data === "string" && parsed.data.trim()) {
+    return parsed.data.trim().slice(0, 220);
+  }
+
+  return fallbackMessage;
+}
+
 // Check if a number exists on WhatsApp using Evolution API
 async function checkWhatsAppNumber(
   baseUrl: string,
@@ -307,48 +364,97 @@ Deno.serve(async (req) => {
 
     console.log(`Sending WhatsApp message to ${validPhone}`);
 
-    // Build API URL
-    // Evolution GO uses different endpoint for sending text
-    const apiUrl = isEvogo 
-      ? `${baseUrl}/message/sendText` 
+    const primaryApiUrl = isEvogo
+      ? `${baseUrl}/message/sendText`
       : `${baseUrl}/message/sendText/${instanceName}`;
-    
-    console.log(`API URL: ${apiUrl}`);
+    const primaryBody = isEvogo
+      ? {
+          instanceId: instanceName,
+          number: validPhone,
+          text: message,
+        }
+      : {
+          number: validPhone,
+          text: message,
+        };
 
-    // Send message via Evolution API
-    const evolutionResponse = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: evolutionKey,
-      },
-      body: JSON.stringify(isEvogo ? {
-        instanceId: instanceName,
-        number: validPhone,
-        text: message,
-      } : {
-        number: validPhone,
-        text: message,
-      }),
-    });
+    const sendAttempt = async (url: string, body: Record<string, unknown>) => {
+      console.log(`API URL: ${url}`);
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: evolutionKey,
+        },
+        body: JSON.stringify(body),
+      });
 
-    const evolutionData = await evolutionResponse.json();
+      return {
+        parsed: await readEvolutionResponse(response),
+        response,
+        url,
+      };
+    };
+
+    let sendResult = await sendAttempt(primaryApiUrl, primaryBody);
+    let usedFallbackEndpoint = false;
+
+    const shouldRetryEvogoWithInstancePath = isEvogo && (
+      sendResult.parsed.looksLikeHtml ||
+      sendResult.response.status === 404 ||
+      sendResult.response.status === 405
+    );
+
+    if (shouldRetryEvogoWithInstancePath) {
+      const fallbackApiUrl = `${baseUrl}/message/sendText/${instanceName}`;
+      console.warn(`Evolution GO primary send endpoint failed, retrying with instance path: ${fallbackApiUrl}`);
+      usedFallbackEndpoint = true;
+      sendResult = await sendAttempt(fallbackApiUrl, { number: validPhone, text: message });
+    }
+
+    const evolutionResponse = sendResult.response;
+    const evolutionParsed = sendResult.parsed;
+    const invalidSuccessfulResponse = evolutionResponse.ok && (evolutionParsed.looksLikeHtml || !evolutionParsed.isJson);
+    const requestSucceeded = evolutionResponse.ok && !invalidSuccessfulResponse;
+    const evolutionData = evolutionParsed.isJson
+      ? evolutionParsed.data
+      : {
+          raw_response_preview: evolutionParsed.preview,
+          request_url: sendResult.url,
+          used_fallback_endpoint: usedFallbackEndpoint,
+        };
+    const sendErrorMessage = requestSucceeded
+      ? null
+      : invalidSuccessfulResponse
+        ? `A Evolution GO respondeu ${evolutionParsed.contentType || "texto"} em vez de JSON ao enviar a mensagem.`
+        : getEvolutionErrorMessage(evolutionParsed, "Failed to send message");
 
     // Log to centralized send log
     const logClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await logClient.from("whatsapp_send_log").insert({
       function_name: "send-whatsapp",
       phone: validPhone,
-      status: evolutionResponse.ok ? "success" : "failed",
+      status: requestSucceeded ? "success" : "failed",
       delay_ms: delayApplied,
-      error_message: evolutionResponse.ok ? null : (evolutionData.message || "API error"),
+      error_message: sendErrorMessage,
       message_preview: message.substring(0, 80),
     }).then(({ error }) => { if (error) console.error("Send log error:", error); });
 
-    if (!evolutionResponse.ok) {
-      console.error("Evolution API error:", evolutionData);
+    if (!requestSucceeded) {
+      console.error("Evolution API error:", {
+        contentType: evolutionParsed.contentType,
+        preview: evolutionParsed.preview,
+        response: evolutionData,
+        status: evolutionResponse.status,
+        url: sendResult.url,
+      });
+
+      const detailedError = invalidSuccessfulResponse
+        ? `${sendErrorMessage} Verifique a URL base publicada da Evolution GO e se o endpoint de envio está acessível.${usedFallbackEndpoint ? " O fallback com /message/sendText/{instanceName} também falhou." : ""}`
+        : sendErrorMessage || "Failed to send message";
+
       return new Response(
-        JSON.stringify({ success: false, error: evolutionData.message || "Failed to send message" }),
+        JSON.stringify({ success: false, error: detailedError, details: evolutionData }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

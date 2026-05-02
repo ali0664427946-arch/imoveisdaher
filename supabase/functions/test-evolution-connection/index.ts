@@ -176,11 +176,25 @@ Deno.serve(async (req) => {
             }
 
             const identity = getInstanceIdentity(matched);
+            
+            // Save validation info back to DB
+            await supabaseAdmin
+              .from("integrations_settings")
+              .update({ 
+                value: { 
+                  ...cfg,
+                  last_validated_at: new Date().toISOString(),
+                  connection_status: identity.state || "open"
+                } 
+              })
+              .eq("key", "evolution_api");
+
             return new Response(JSON.stringify({
               success: true,
               state: identity.state || "available",
               instance: identity.name || identity.id || instanceName,
               message: `Evolution GO conectada com sucesso via ${baseUrl}!`,
+              validated_at: new Date().toISOString()
             }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           } catch (fetchErr) {
             const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);

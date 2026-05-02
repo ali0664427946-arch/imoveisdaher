@@ -1070,6 +1070,12 @@ export default function Settings() {
                     Última validação: {formatDistanceToNow(new Date(evolutionSettings.last_validated_at), { addSuffix: true, locale: ptBR })}
                   </p>
                 )}
+                {evolutionSettings?.expires_at && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <CalendarClock className="w-3 h-3" />
+                    Expira em: {new Date(evolutionSettings.expires_at).toLocaleDateString('pt-BR')} ({formatDistanceToNow(new Date(evolutionSettings.expires_at), { addSuffix: true, locale: ptBR })})
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2 flex-wrap">

@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
     let evolutionUrl = (Deno.env.get("EVOLUTION_API_URL") || "").replace(/\/+$/, "").trim();
     let evolutionKey = (Deno.env.get("EVOLUTION_API_KEY") || "").trim();
     let instanceName = (Deno.env.get("EVOLUTION_INSTANCE_NAME") || "").trim();
+    let integrationType = "qrcode";
 
     try {
       const { data: dbConfig } = await supabase
@@ -73,12 +74,14 @@ Deno.serve(async (req) => {
         .eq("key", "evolution_api")
         .maybeSingle();
       if (dbConfig?.value) {
-        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string };
+        const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
         if (cfg.base_url) evolutionUrl = cfg.base_url.replace(/\/+$/, "").trim();
         if (cfg.api_key) evolutionKey = cfg.api_key.trim();
         if (cfg.instance_name) instanceName = cfg.instance_name.trim();
+        if (cfg.integration_type) integrationType = cfg.integration_type;
       }
     } catch (e) { console.error("Failed to load DB config:", e); }
+    const isEvogo = integrationType === "evogo";
 
     if (!evolutionUrl || !evolutionKey || !instanceName) {
       return new Response(

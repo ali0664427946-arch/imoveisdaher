@@ -135,6 +135,8 @@ export default function Settings() {
           last_validated_at?: string;
           connection_status?: string;
           expires_at?: string;
+          webhook_status?: "online" | "offline";
+          last_webhook_check?: string;
         };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");

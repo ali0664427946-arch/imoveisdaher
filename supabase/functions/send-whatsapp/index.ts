@@ -204,7 +204,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const baseUrl = evolutionUrl.replace(/\/+$/, ""); // Remove trailing slashes
+    // Sanitize: remove trailing slashes AND `/manager` (which is the web UI, not the API)
+    const baseUrl = evolutionUrl
+      .replace(/\/+$/, "")
+      .replace(/\/manager\/?$/i, "");
 
     // Check instance connection state before attempting to send
     try {

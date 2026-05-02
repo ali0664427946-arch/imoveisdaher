@@ -185,7 +185,8 @@ Deno.serve(async (req) => {
                 value: { 
                   ...cfg,
                   last_validated_at: new Date().toISOString(),
-                  connection_status: identity.state || "open"
+                  connection_status: identity.state || "open",
+                  expires_at: identity.expiresAt || null
                 } 
               })
               .eq("key", "evolution_api");
@@ -195,7 +196,8 @@ Deno.serve(async (req) => {
               state: identity.state || "available",
               instance: identity.name || identity.id || instanceName,
               message: `Evolution GO conectada com sucesso via ${baseUrl}!`,
-              validated_at: new Date().toISOString()
+              validated_at: new Date().toISOString(),
+              expires_at: identity.expiresAt || null
             }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           } catch (fetchErr) {
             const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);

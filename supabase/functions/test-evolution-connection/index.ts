@@ -206,7 +206,9 @@ Deno.serve(async (req) => {
                   ...cfg,
                   last_validated_at: new Date().toISOString(),
                   connection_status: identity.state || "open",
-                  expires_at: identity.expiresAt || null
+                  expires_at: identity.expiresAt || null,
+                  webhook_status: webhookOnline ? "online" : "offline",
+                  last_webhook_check: new Date().toISOString()
                 } 
               })
               .eq("key", "evolution_api");
@@ -215,6 +217,7 @@ Deno.serve(async (req) => {
               success: true,
               state: identity.state || "available",
               instance: identity.name || identity.id || instanceName,
+              webhook_status: webhookOnline ? "online" : "offline",
               message: `Evolution GO conectada com sucesso via ${baseUrl}!`,
               validated_at: new Date().toISOString(),
               expires_at: identity.expiresAt || null

@@ -163,9 +163,3 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
     </motion.div>
   );
 }
-          </div>
-        </article>
-      </Link>
-    </motion.div>
-  );
-}

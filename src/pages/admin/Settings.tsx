@@ -366,7 +366,8 @@ export default function Settings() {
     }
     setSavingEvolution(true);
     try {
-      const value: Record<string, string> = {
+      // Only save what's necessary for the selected integration type
+      const value: Record<string, any> = {
         base_url: evolutionUrl.trim().replace(/\/+$/, ""),
         api_key: evolutionKey.trim(),
         instance_name: evolutionInstance.trim(),

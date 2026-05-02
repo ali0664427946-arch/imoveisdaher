@@ -156,12 +156,17 @@ Deno.serve(async (req) => {
         if (!phone.startsWith("55")) phone = "55" + phone;
       }
 
-      const apiUrl = `${evolutionUrl}/message/sendText/${instanceName}`;
+      const apiUrl = isEvogo
+        ? `${evolutionUrl}/send/text`
+        : `${evolutionUrl}/message/sendText/${instanceName}`;
+      const reqBody = isEvogo
+        ? { instance: instanceName, number: phone, text: msg.message }
+        : { number: phone, text: msg.message };
       console.log(`Sending to ${apiUrl} phone=${phone}`);
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: evolutionKey },
-        body: JSON.stringify({ number: phone, text: msg.message }),
+        body: JSON.stringify(reqBody),
       });
 
       const responseText = await res.text();

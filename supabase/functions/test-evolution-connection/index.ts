@@ -69,6 +69,7 @@ function getInstanceIdentity(instance: InstanceRecord) {
     id: instanceInfo?.instanceId ?? instanceInfo?.id ?? instance?.instanceId ?? instance?.id,
     name: instanceInfo?.instanceName ?? instanceInfo?.name ?? instance?.instanceName ?? instance?.name,
     state: instanceInfo?.state ?? instance?.state ?? instance?.connectionStatus ?? instance?.status,
+    expiresAt: instanceInfo?.expiresAt ?? instance?.expiresAt ?? instanceInfo?.expiration ?? instance?.expiration,
   };
 }
 

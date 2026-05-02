@@ -134,6 +134,26 @@ Deno.serve(async (req) => {
           let lastError = "";
 
           try {
+            console.log(`Checking webhook status for ${instanceName} at: ${baseUrl}/webhook/find/${instanceName}`);
+            const webhookRes = await fetch(`${baseUrl}/webhook/find/${instanceName}`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json", apikey: evolutionKey! },
+            });
+
+            let webhookOnline = false;
+            if (webhookRes.ok) {
+              const webhookData = await webhookRes.json();
+              // Check if our current project's webhook URL is configured and enabled
+              const supabaseUrl = Deno.env.get("SUPABASE_URL");
+              const expectedUrl = `${supabaseUrl}/functions/v1/evolution-webhook`;
+              
+              // Evolution v2 might return a single object or array
+              const webhooks = Array.isArray(webhookData) ? webhookData : (webhookData.webhooks || [webhookData]);
+              webhookOnline = webhooks.some((wh: any) => 
+                wh.url === expectedUrl && (wh.enabled === true || wh.status === "SUCCESS")
+              );
+            }
+
             console.log(`Trying Evolution GO at: ${baseUrl}/instance/all`);
             const evogoRes = await fetch(`${baseUrl}/instance/all`, {
               method: "GET",
@@ -146,7 +166,7 @@ Deno.serve(async (req) => {
               return new Response(JSON.stringify({
                 success: false,
                 error: "Falha na Evolution GO",
-                details: `A Evolution GO respondeu ${evogoRes.status} ao consultar /instance/all. Verifique a API Key e a publicação da instância. Detalhe: ${responseText.slice(0, 300)}`,
+                details: `A Evolution GO respondeu ${evogoRes.status} ao consultar /instance/all. Verifique a API Key e a publicação da instância.`,
               }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 

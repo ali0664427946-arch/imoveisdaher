@@ -266,6 +266,44 @@ Deno.serve(async (req) => {
       .replace(/\/+$/, "")
       .replace(/\/manager\/?$/i, "");
 
+    // Pre-flight: validate API key before doing anything else
+    // Evolution GO: GET /instance/all  |  Classic Evolution: GET /instance/fetchInstances
+    try {
+      const authCheckUrl = isEvogo
+        ? `${baseUrl}/instance/all`
+        : `${baseUrl}/instance/fetchInstances`;
+      console.log(`Validating API key at: ${authCheckUrl}`);
+      const authRes = await fetch(authCheckUrl, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      });
+
+      if (authRes.status === 401 || authRes.status === 403) {
+        const parsed = await readEvolutionResponse(authRes);
+        console.error(`API key inválida (${authRes.status}):`, parsed.preview);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `API Key do WhatsApp inválida ou expirada (${authRes.status}). Acesse Configurações → WhatsApp e atualize a API Key do Evolution${isEvogo ? " GO" : ""}.`,
+            details: { status: authRes.status, preview: parsed.preview, url: authCheckUrl },
+            invalid_api_key: true,
+          }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!authRes.ok) {
+        const parsed = await readEvolutionResponse(authRes);
+        console.warn(`API key check returned ${authRes.status} (non-auth error):`, parsed.preview);
+        // Non-auth error (404, 500, etc) — proceed; later steps will surface real issue
+      } else {
+        console.log("API key válida ✓");
+      }
+    } catch (e) {
+      console.error("Failed to validate API key (network/timeout):", e);
+      // Network failure — proceed; the actual send will surface the issue
+    }
+
     // Check instance connection state before attempting to send
     try {
       const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {

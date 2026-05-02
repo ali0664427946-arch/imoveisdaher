@@ -1049,12 +1049,25 @@ export default function Settings() {
               )}
 
               {/* Status badge */}
-              <div className="flex items-center gap-2">
-                <Badge variant={integrationType === "waba" ? "default" : integrationType === "evogo" ? "destructive" : "secondary"}>
-                  {integrationType === "waba" ? "WABA Oficial" : integrationType === "evogo" ? "Evolution GO" : "QR Code"}
-                </Badge>
-                {evolutionUrl && evolutionInstance && (
-                  <Badge variant="outline">{evolutionInstance}</Badge>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant={integrationType === "waba" ? "default" : integrationType === "evogo" ? "destructive" : "secondary"}>
+                    {integrationType === "waba" ? "WABA Oficial" : integrationType === "evogo" ? "Evolution GO" : "QR Code"}
+                  </Badge>
+                  {evolutionUrl && evolutionInstance && (
+                    <Badge variant="outline">{evolutionInstance}</Badge>
+                  )}
+                  {evolutionSettings?.connection_status && (
+                    <Badge variant={evolutionSettings.connection_status === "open" ? "secondary" : "outline"} className={evolutionSettings.connection_status === "open" ? "bg-green-100 text-green-700 border-green-200" : ""}>
+                      {evolutionSettings.connection_status === "open" ? "Online" : evolutionSettings.connection_status}
+                    </Badge>
+                  )}
+                </div>
+                {evolutionSettings?.last_validated_at && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Última validação: {formatDistanceToNow(new Date(evolutionSettings.last_validated_at), { addSuffix: true, locale: ptBR })}
+                  </p>
                 )}
               </div>
 

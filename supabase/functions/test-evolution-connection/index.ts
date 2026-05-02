@@ -69,6 +69,7 @@ function getInstanceIdentity(instance: InstanceRecord) {
     id: instanceInfo?.instanceId ?? instanceInfo?.id ?? instance?.instanceId ?? instance?.id,
     name: instanceInfo?.instanceName ?? instanceInfo?.name ?? instance?.instanceName ?? instance?.name,
     state: instanceInfo?.state ?? instance?.state ?? instance?.connectionStatus ?? instance?.status,
+    expiresAt: instanceInfo?.expiresAt ?? instance?.expiresAt ?? instanceInfo?.expiration ?? instance?.expiration,
   };
 }
 
@@ -176,11 +177,27 @@ Deno.serve(async (req) => {
             }
 
             const identity = getInstanceIdentity(matched);
+            
+            // Save validation info back to DB
+            await supabaseAdmin
+              .from("integrations_settings")
+              .update({ 
+                value: { 
+                  ...cfg,
+                  last_validated_at: new Date().toISOString(),
+                  connection_status: identity.state || "open",
+                  expires_at: identity.expiresAt || null
+                } 
+              })
+              .eq("key", "evolution_api");
+
             return new Response(JSON.stringify({
               success: true,
               state: identity.state || "available",
               instance: identity.name || identity.id || instanceName,
               message: `Evolution GO conectada com sucesso via ${baseUrl}!`,
+              validated_at: new Date().toISOString(),
+              expires_at: identity.expiresAt || null
             }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           } catch (fetchErr) {
             const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);

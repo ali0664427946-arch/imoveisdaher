@@ -132,6 +132,9 @@ export default function Settings() {
           base_url: string; api_key: string; instance_name: string;
           integration_type?: "qrcode" | "waba" | "evogo";
           meta_access_token?: string; phone_number_id?: string; business_account_id?: string;
+          last_validated_at?: string;
+          connection_status?: string;
+          expires_at?: string;
         };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");
@@ -366,7 +369,8 @@ export default function Settings() {
     }
     setSavingEvolution(true);
     try {
-      const value: Record<string, string> = {
+      // Only save what's necessary for the selected integration type
+      const value: Record<string, any> = {
         base_url: evolutionUrl.trim().replace(/\/+$/, ""),
         api_key: evolutionKey.trim(),
         instance_name: evolutionInstance.trim(),
@@ -1046,12 +1050,31 @@ export default function Settings() {
               )}
 
               {/* Status badge */}
-              <div className="flex items-center gap-2">
-                <Badge variant={integrationType === "waba" ? "default" : integrationType === "evogo" ? "destructive" : "secondary"}>
-                  {integrationType === "waba" ? "WABA Oficial" : integrationType === "evogo" ? "Evolution GO" : "QR Code"}
-                </Badge>
-                {evolutionUrl && evolutionInstance && (
-                  <Badge variant="outline">{evolutionInstance}</Badge>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant={integrationType === "waba" ? "default" : integrationType === "evogo" ? "destructive" : "secondary"}>
+                    {integrationType === "waba" ? "WABA Oficial" : integrationType === "evogo" ? "Evolution GO" : "QR Code"}
+                  </Badge>
+                  {evolutionUrl && evolutionInstance && (
+                    <Badge variant="outline">{evolutionInstance}</Badge>
+                  )}
+                  {evolutionSettings?.connection_status && (
+                    <Badge variant={evolutionSettings.connection_status === "open" ? "secondary" : "outline"} className={evolutionSettings.connection_status === "open" ? "bg-green-100 text-green-700 border-green-200" : ""}>
+                      {evolutionSettings.connection_status === "open" ? "Online" : evolutionSettings.connection_status}
+                    </Badge>
+                  )}
+                </div>
+                {evolutionSettings?.last_validated_at && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Última validação: {formatDistanceToNow(new Date(evolutionSettings.last_validated_at), { addSuffix: true, locale: ptBR })}
+                  </p>
+                )}
+                {evolutionSettings?.expires_at && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <CalendarClock className="w-3 h-3" />
+                    Expira em: {new Date(evolutionSettings.expires_at).toLocaleDateString('pt-BR')} ({formatDistanceToNow(new Date(evolutionSettings.expires_at), { addSuffix: true, locale: ptBR })})
+                  </p>
                 )}
               </div>
 

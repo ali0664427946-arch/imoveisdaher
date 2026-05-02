@@ -134,6 +134,7 @@ export default function Settings() {
           meta_access_token?: string; phone_number_id?: string; business_account_id?: string;
           last_validated_at?: string;
           connection_status?: string;
+          expires_at?: string;
         };
         setEvolutionUrl(settings.base_url || "");
         setEvolutionKey(settings.api_key || "");

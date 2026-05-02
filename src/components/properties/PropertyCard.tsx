@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bed, Bath, Car, Maximize, MapPin, FileText } from "lucide-react";
+import { Bed, Bath, Car, Maximize, MapPin, FileText, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export interface Property {
@@ -126,7 +126,7 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
             </div>
 
             {/* Interest Form Button */}
-            <div className="pt-4">
+            <div className="pt-4 space-y-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -138,6 +138,23 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
                   <FileText className="w-4 h-4 mr-2" />
                   Preencher Ficha
                 </Link>
+              </Button>
+              <Button
+                size="sm"
+                className="w-full bg-success hover:bg-success/90 text-white"
+                asChild
+                onClick={(e) => e.stopPropagation()}
+              >
+                <a
+                  href={`https://wa.me/5521982095993?text=${encodeURIComponent(
+                    `Olá! Tenho interesse no imóvel: ${property.title} (${property.neighborhood}, ${property.city}). ${window.location.origin}/imovel/${property.id}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  WhatsApp
+                </a>
               </Button>
             </div>
           </div>

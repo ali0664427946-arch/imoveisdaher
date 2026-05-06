@@ -18,6 +18,7 @@ import {
   XCircle,
   Clock,
   Calendar,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -456,6 +457,29 @@ export default function FichaDetail() {
                     );
                   })()}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Guarantee */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileCheck className="w-5 h-5" />
+                  Forma de Garantia
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="font-medium capitalize">
+                  {ficha.guarantee_type
+                    ? ({
+                        deposito: "Depósito Caução",
+                        fiador: "Fiador",
+                        seguro_fianca: "Seguro Fiança",
+                        titulo_capitalizacao: "Título de Capitalização",
+                      } as Record<string, string>)[ficha.guarantee_type] ||
+                      ficha.guarantee_type.replace(/_/g, " ")
+                    : "-"}
+                </p>
               </CardContent>
             </Card>
 

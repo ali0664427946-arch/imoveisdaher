@@ -486,15 +486,15 @@ export default function FichaDetail() {
             const fd = formData as Record<string, unknown> | null;
             const additionalTenants = (fd?.additional_tenants || fd?.tenants) as Array<{
               role?: string;
-              fullName?: string;
+              full_name?: string;
               cpf?: string;
               rg?: string;
-              birthDate?: string;
-              maritalStatus?: string;
+              birth_date?: string;
+              marital_status?: string;
               phone?: string;
               email?: string;
               occupation?: string;
-              employmentType?: string;
+              employment_type?: string;
               company?: string;
               income?: string;
             }> | undefined;
@@ -506,14 +506,14 @@ export default function FichaDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <User className="w-5 h-5 text-accent" />
-                    {tenant.role === "fiador" ? "Fiador" : `Locatário ${idx + 2}`} — {tenant.fullName || "Sem nome"}
+                    {tenant.role === "fiador" ? "Fiador" : `Locatário ${idx + 2}`} — {tenant.full_name || "Sem nome"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Nome Completo</p>
-                      <p className="font-medium">{tenant.fullName || "-"}</p>
+                      <p className="font-medium">{tenant.full_name || "-"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">CPF</p>
@@ -526,14 +526,14 @@ export default function FichaDetail() {
                     <div>
                       <p className="text-sm text-muted-foreground">Data de Nascimento</p>
                       <p className="font-medium">
-                        {tenant.birthDate
-                          ? format(new Date(tenant.birthDate), "dd/MM/yyyy")
+                        {tenant.birth_date
+                          ? format(new Date(tenant.birth_date), "dd/MM/yyyy")
                           : "-"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Estado Civil</p>
-                      <p className="font-medium capitalize">{tenant.maritalStatus || "-"}</p>
+                      <p className="font-medium capitalize">{tenant.marital_status || "-"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Telefone</p>
@@ -550,8 +550,8 @@ export default function FichaDetail() {
                     <div>
                       <p className="text-sm text-muted-foreground">Tipo de Vínculo</p>
                       <p className="font-medium">
-                        {tenant.employmentType
-                          ? employmentTypeLabels[tenant.employmentType] || tenant.employmentType
+                        {tenant.employment_type
+                          ? employmentTypeLabels[tenant.employment_type] || tenant.employment_type
                           : "-"}
                       </p>
                     </div>
@@ -637,7 +637,7 @@ export default function FichaDetail() {
 
                 // Get tenant names from form_data
                 const fd = formData as Record<string, unknown> | null;
-                const additionalTenants = (fd?.additional_tenants || fd?.tenants) as Array<{ fullName?: string }> | undefined;
+                const additionalTenants = (fd?.additional_tenants || fd?.tenants) as Array<{ full_name?: string }> | undefined;
 
                 return tenantPrefixes.map((prefix, idx) => {
                   const prefixIndex = parseInt(prefix.replace("loc", ""));
@@ -645,7 +645,7 @@ export default function FichaDetail() {
                   if (prefixIndex === 0) {
                     tenantName = ficha.full_name;
                   } else if (additionalTenants && additionalTenants[prefixIndex - 1]) {
-                    tenantName = additionalTenants[prefixIndex - 1].fullName || `Locatário ${prefixIndex + 1}`;
+                    tenantName = additionalTenants[prefixIndex - 1].full_name || `Locatário ${prefixIndex + 1}`;
                   } else {
                     tenantName = `Locatário ${prefixIndex + 1}`;
                   }

@@ -75,9 +75,13 @@ function FichasTable({
   handleShowAnalysis,
   handleUpdateStatus,
 }: any) {
-  const maskCPF = (cpf: string) => {
-    if (!cpf || cpf.length < 11) return cpf;
-    return `***.***.***-${cpf.slice(-2)}`;
+  const formatCPF = (cpf: string) => {
+    if (!cpf) return "-";
+    const digits = cpf.replace(/\D/g, "");
+    if (digits.length === 11) {
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    }
+    return cpf;
   };
 
   const filtered = (fichas || []).filter(
@@ -134,7 +138,7 @@ function FichasTable({
                   </TableCell>
                   <TableCell className="font-medium">{ficha.full_name}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {maskCPF(ficha.cpf)}
+                    {formatCPF(ficha.cpf)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">

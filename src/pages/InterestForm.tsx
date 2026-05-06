@@ -311,6 +311,7 @@ export default function InterestForm() {
           guarantee_type: guaranteeType,
           form_data: {
             additional_tenants: additionalTenants.map(t => ({
+              role: t.role,
               full_name: t.fullName,
               cpf: t.cpf?.replace(/\D/g, ""),
               rg: t.rg,

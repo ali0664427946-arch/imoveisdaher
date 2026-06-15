@@ -88,6 +88,7 @@ export default function Properties() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPurpose, setFilterPurpose] = useState<"all" | "rent" | "sale">("all");
   const [filterPhoto, setFilterPhoto] = useState<"all" | "with" | "without">("all");
+  const [viewStatus, setViewStatus] = useState<"active" | "suspended">("active");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
@@ -140,6 +141,8 @@ export default function Properties() {
 
   const filteredProperties = useMemo(() => {
     return properties.filter((p) => {
+      const matchesStatus =
+        viewStatus === "active" ? p.status === "active" : p.status === "inactive";
       const matchesSearch =
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -151,9 +154,9 @@ export default function Properties() {
         filterPhoto === "all" ||
         (filterPhoto === "with" && hasPhotos) ||
         (filterPhoto === "without" && !hasPhotos);
-      return matchesSearch && matchesPurpose && matchesPhoto;
+      return matchesStatus && matchesSearch && matchesPurpose && matchesPhoto;
     });
-  }, [properties, searchQuery, filterPurpose, filterPhoto]);
+  }, [properties, searchQuery, filterPurpose, filterPhoto, viewStatus]);
 
   const handleDelete = async () => {
     if (deleteId) {
@@ -194,9 +197,11 @@ export default function Properties() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-bold">Imóveis</h1>
+          <h1 className="text-2xl font-heading font-bold">
+            {viewStatus === "active" ? "Imóveis Ativos" : "Imóveis Suspensos"}
+          </h1>
           <p className="text-muted-foreground">
-            {properties.length} imóveis cadastrados — Gerencie e publique nos portais
+            {filteredProperties.length} {viewStatus === "active" ? "ativos" : "suspensos"} — {properties.length} total
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -223,6 +228,21 @@ export default function Properties() {
             />
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant={viewStatus === "active" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewStatus("active")}
+            >
+              Ativos
+            </Button>
+            <Button
+              variant={viewStatus === "suspended" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewStatus("suspended")}
+            >
+              Suspensos
+            </Button>
+            <span className="w-px h-6 bg-border mx-1" />
             <Button
               variant={filterPurpose === "all" && filterPhoto === "all" ? "outline" : "default"}
               size="sm"

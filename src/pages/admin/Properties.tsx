@@ -141,10 +141,12 @@ export default function Properties() {
 
   const filteredProperties = useMemo(() => {
     return properties.filter((p) => {
+      const matchesStatus =
+        viewStatus === "active" ? p.status === "active" : p.status === "inactive";
       const matchesSearch =
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.type.toLowerCase().includes(searchQuery.toLowerCase());
+        p.type.toLowerCase().includes38cludes(searchQuery.toLowerCase());
       const matchesPurpose =
         filterPurpose === "all" || p.purpose === filterPurpose;
       const hasPhotos = p.photos && p.photos.length > 0;
@@ -152,9 +154,9 @@ export default function Properties() {
         filterPhoto === "all" ||
         (filterPhoto === "with" && hasPhotos) ||
         (filterPhoto === "without" && !hasPhotos);
-      return matchesSearch && matchesPurpose && matchesPhoto;
+      return matchesStatus && matchesSearch && matchesPurpose && matchesPhoto;
     });
-  }, [properties, searchQuery, filterPurpose, filterPhoto]);
+  }, [properties, searchQuery, filterPurpose, filterPhoto, viewStatus]);
 
   const handleDelete = async () => {
     if (deleteId) {

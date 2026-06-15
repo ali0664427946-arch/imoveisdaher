@@ -88,6 +88,7 @@ export default function Properties() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPurpose, setFilterPurpose] = useState<"all" | "rent" | "sale">("all");
   const [filterPhoto, setFilterPhoto] = useState<"all" | "with" | "without">("all");
+  const [viewStatus, setViewStatus] = useState<"active" | "suspended">("active");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);

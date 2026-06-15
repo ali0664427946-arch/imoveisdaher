@@ -146,7 +146,7 @@ export default function Properties() {
       const matchesSearch =
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.type.toLowerCase().includes38cludes(searchQuery.toLowerCase());
+        p.type.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesPurpose =
         filterPurpose === "all" || p.purpose === filterPurpose;
       const hasPhotos = p.photos && p.photos.length > 0;

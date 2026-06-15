@@ -197,9 +197,11 @@ export default function Properties() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-bold">Imóveis</h1>
+          <h1 className="text-2xl font-heading font-bold">
+            {viewStatus === "active" ? "Imóveis Ativos" : "Imóveis Suspensos"}
+          </h1>
           <p className="text-muted-foreground">
-            {properties.length} imóveis cadastrados — Gerencie e publique nos portais
+            {filteredProperties.length} {viewStatus === "active" ? "ativos" : "suspensos"} — {properties.length} total
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -229,6 +229,21 @@ export default function Properties() {
           </div>
           <div className="flex items-center gap-1">
             <Button
+              variant={viewStatus === "active" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewStatus("active")}
+            >
+              Ativos
+            </Button>
+            <Button
+              variant={viewStatus === "suspended" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewStatus("suspended")}
+            >
+              Suspensos
+            </Button>
+            <span className="w-px h-6 bg-border mx-1" />
+            <Button
               variant={filterPurpose === "all" && filterPhoto === "all" ? "outline" : "default"}
               size="sm"
               onClick={() => { setFilterPurpose("all"); setFilterPhoto("all"); }}

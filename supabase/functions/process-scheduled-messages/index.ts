@@ -141,11 +141,32 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < pendingMessages.length; i++) {
       const msg = pendingMessages[i];
+      const meta = (msg.metadata || {}) as Record<string, unknown>;
+      const isBroker = meta.source === "corretor";
 
       // ─── Re-check send window before each message ───
       if (!isSendWindowOpen()) {
         console.log("Send window closed during processing. Stopping.");
         break;
+      }
+
+      // ─── Broker daily cap (20 sent in last 24h) ───
+      if (isBroker && msg.created_by) {
+        const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count: sentInWindow } = await supabase
+          .from("scheduled_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("created_by", msg.created_by)
+          .eq("status", "sent")
+          .gte("sent_at", since24h);
+        if ((sentInWindow ?? 0) >= ANTI_BAN.brokerDailyCap) {
+          console.log(`Broker ${msg.created_by} reached daily cap (${ANTI_BAN.brokerDailyCap}). Skipping.`);
+          await supabase.from("scheduled_messages").update({
+            status: "failed",
+            error_message: `Limite diário do corretor atingido (${ANTI_BAN.brokerDailyCap}/24h). Reagende mais tarde.`,
+          }).eq("id", msg.id);
+          continue;
+        }
       }
 
       // ─── Simulated typing delay (2-8s) ───

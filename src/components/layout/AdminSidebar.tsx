@@ -13,6 +13,7 @@ import {
   Activity,
   Clock,
   Send,
+  UserRound,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logoImage from "@/assets/logo-daher.png";

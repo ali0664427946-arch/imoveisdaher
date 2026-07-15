@@ -28,6 +28,7 @@ import IntegrationStatus from "./pages/admin/IntegrationStatus";
 import SendQueue from "./pages/admin/SendQueue";
 import BulkSend from "./pages/admin/BulkSend";
 import Users from "./pages/admin/Users";
+import BrokerArea from "./pages/admin/BrokerArea";
 import InstallApp from "./pages/InstallApp";
 import InstallPWA from "./pages/admin/InstallPWA";
 import NotFound from "./pages/NotFound";

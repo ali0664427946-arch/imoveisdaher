@@ -13,6 +13,7 @@ import {
   Activity,
   Clock,
   Send,
+  UserRound,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logoImage from "@/assets/logo-daher.png";
@@ -39,6 +40,7 @@ const menuItems = [
   { title: "Templates", url: "/admin/templates", icon: FileCode },
   { title: "Fila de Envio", url: "/admin/fila-envio", icon: Clock },
   { title: "Envio em Massa", url: "/admin/envio-massa", icon: Send },
+  { title: "Área do Corretor", url: "/admin/corretor", icon: UserRound },
 ];
 
 const adminItems = [

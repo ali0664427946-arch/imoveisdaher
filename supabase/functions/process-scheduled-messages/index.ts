@@ -17,6 +17,10 @@ const ANTI_BAN = {
   messagesBeforeRest: 10,
   restMinMs: 7 * 60_000,  // 7 min rest
   restMaxMs: 10 * 60_000, // 10 min rest
+  // ── Regras conservadoras da Área do Corretor ──
+  brokerMinIntervalMs: 2 * 60_000,   // 2 min
+  brokerMaxIntervalMs: 4 * 60_000,   // 4 min
+  brokerDailyCap: 20,                // Máx 20 msgs / 24h por corretor
 };
 
 function randomBetween(min: number, max: number): number {
@@ -137,11 +141,32 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < pendingMessages.length; i++) {
       const msg = pendingMessages[i];
+      const meta = (msg.metadata || {}) as Record<string, unknown>;
+      const isBroker = meta.source === "corretor";
 
       // ─── Re-check send window before each message ───
       if (!isSendWindowOpen()) {
         console.log("Send window closed during processing. Stopping.");
         break;
+      }
+
+      // ─── Broker daily cap (20 sent in last 24h) ───
+      if (isBroker && msg.created_by) {
+        const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count: sentInWindow } = await supabase
+          .from("scheduled_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("created_by", msg.created_by)
+          .eq("status", "sent")
+          .gte("sent_at", since24h);
+        if ((sentInWindow ?? 0) >= ANTI_BAN.brokerDailyCap) {
+          console.log(`Broker ${msg.created_by} reached daily cap (${ANTI_BAN.brokerDailyCap}). Skipping.`);
+          await supabase.from("scheduled_messages").update({
+            status: "failed",
+            error_message: `Limite diário do corretor atingido (${ANTI_BAN.brokerDailyCap}/24h). Reagende mais tarde.`,
+          }).eq("id", msg.id);
+          continue;
+        }
       }
 
       // ─── Simulated typing delay (2-8s) ───
@@ -279,11 +304,15 @@ Deno.serve(async (req) => {
         }).eq("id", msg.id);
       }
 
-      // ─── Anti-ban interval between messages (60-120s) ───
-      // Only wait if there are more messages to send
+      // ─── Anti-ban interval between messages ───
+      // Corretor: 2-4 min (conservador). Demais: 60-120s.
       if (i < pendingMessages.length - 1) {
-        const intervalMs = randomBetween(ANTI_BAN.minIntervalMs, ANTI_BAN.maxIntervalMs);
-        console.log(`Anti-ban interval: ${Math.round(intervalMs / 1000)}s`);
+        const nextMeta = (pendingMessages[i + 1].metadata || {}) as Record<string, unknown>;
+        const nextIsBroker = nextMeta.source === "corretor" || isBroker;
+        const intervalMs = nextIsBroker
+          ? randomBetween(ANTI_BAN.brokerMinIntervalMs, ANTI_BAN.brokerMaxIntervalMs)
+          : randomBetween(ANTI_BAN.minIntervalMs, ANTI_BAN.maxIntervalMs);
+        console.log(`Anti-ban interval: ${Math.round(intervalMs / 1000)}s${nextIsBroker ? " (broker)" : ""}`);
         await new Promise((r) => setTimeout(r, intervalMs));
       }
     }

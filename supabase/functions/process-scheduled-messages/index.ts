@@ -17,6 +17,10 @@ const ANTI_BAN = {
   messagesBeforeRest: 10,
   restMinMs: 7 * 60_000,  // 7 min rest
   restMaxMs: 10 * 60_000, // 10 min rest
+  // ── Regras conservadoras da Área do Corretor ──
+  brokerMinIntervalMs: 2 * 60_000,   // 2 min
+  brokerMaxIntervalMs: 4 * 60_000,   // 4 min
+  brokerDailyCap: 20,                // Máx 20 msgs / 24h por corretor
 };
 
 function randomBetween(min: number, max: number): number {

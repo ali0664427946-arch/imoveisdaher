@@ -304,11 +304,15 @@ Deno.serve(async (req) => {
         }).eq("id", msg.id);
       }
 
-      // ─── Anti-ban interval between messages (60-120s) ───
-      // Only wait if there are more messages to send
+      // ─── Anti-ban interval between messages ───
+      // Corretor: 2-4 min (conservador). Demais: 60-120s.
       if (i < pendingMessages.length - 1) {
-        const intervalMs = randomBetween(ANTI_BAN.minIntervalMs, ANTI_BAN.maxIntervalMs);
-        console.log(`Anti-ban interval: ${Math.round(intervalMs / 1000)}s`);
+        const nextMeta = (pendingMessages[i + 1].metadata || {}) as Record<string, unknown>;
+        const nextIsBroker = nextMeta.source === "corretor" || isBroker;
+        const intervalMs = nextIsBroker
+          ? randomBetween(ANTI_BAN.brokerMinIntervalMs, ANTI_BAN.brokerMaxIntervalMs)
+          : randomBetween(ANTI_BAN.minIntervalMs, ANTI_BAN.maxIntervalMs);
+        console.log(`Anti-ban interval: ${Math.round(intervalMs / 1000)}s${nextIsBroker ? " (broker)" : ""}`);
         await new Promise((r) => setTimeout(r, intervalMs));
       }
     }

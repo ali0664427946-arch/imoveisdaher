@@ -76,6 +76,7 @@ const App = () => (
               <Route path="fila-envio" element={<SendQueue />} />
               <Route path="envio-massa" element={<BulkSend />} />
               <Route path="usuarios" element={<Users />} />
+              <Route path="corretor" element={<BrokerArea />} />
               <Route path="instalar" element={<InstallPWA />} />
             </Route>
             

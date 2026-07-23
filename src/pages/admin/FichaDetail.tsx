@@ -684,6 +684,11 @@ export default function FichaDetail() {
                     ? `Locatário Principal — ${tenantName}` 
                     : `Locatário ${prefixIndex + 1} — ${tenantName}`;
 
+                  // For loc0, docs may be stored unprefixed (legacy) — detect and adjust
+                  const effectivePrefix = prefix === "loc0" && !mappedDocs.some((d) => d.category.startsWith("loc0_"))
+                    ? ""
+                    : prefix;
+
                   return (
                     <div key={prefix}>
                       <DocumentUploader
@@ -692,7 +697,7 @@ export default function FichaDetail() {
                         onDocumentsChange={() => refetch()}
                         readOnly
                         tenantLabel={label}
-                        categoryPrefix={prefix}
+                        categoryPrefix={effectivePrefix}
                       />
                       {idx < tenantPrefixes.length - 1 && <Separator className="my-6" />}
                     </div>

@@ -656,6 +656,12 @@ export default function FichaDetail() {
                     .filter(Boolean)
                 )] as string[];
 
+                // If there are unprefixed docs (legacy main tenant), include loc0 implicitly
+                const hasUnprefixed = mappedDocs.some((d) => !/^loc\d+_/.test(d.category));
+                if (hasUnprefixed && !tenantPrefixes.includes("loc0")) {
+                  tenantPrefixes.push("loc0");
+                }
+
                 // Sort prefixes: loc0, loc1, loc2
                 tenantPrefixes.sort();
 

@@ -202,7 +202,9 @@ export default function BrokerArea() {
       <Tabs defaultValue="agendar" className="space-y-4">
         <TabsList>
           <TabsTrigger value="agendar"><Send className="w-4 h-4 mr-2" />Agendar</TabsTrigger>
-          <TabsTrigger value="historico"><Clock className="w-4 h-4 mr-2" />Meus Envios</TabsTrigger>
+          <TabsTrigger value="agendados"><Clock className="w-4 h-4 mr-2" />Agendados{pendingMessages.length > 0 ? ` (${pendingMessages.length})` : ""}</TabsTrigger>
+          <TabsTrigger value="historico"><ListChecks className="w-4 h-4 mr-2" />Meus Envios</TabsTrigger>
+
           <TabsTrigger value="leads"><ListChecks className="w-4 h-4 mr-2" />Meus Leads</TabsTrigger>
         </TabsList>
 

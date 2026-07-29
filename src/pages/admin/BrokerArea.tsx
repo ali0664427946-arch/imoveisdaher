@@ -44,32 +44,29 @@ export default function BrokerArea() {
   const { messages: allMessages, cancelMessage, isLoading: loadingMessages } = useScheduledMessages();
   const [activeTab, setActiveTab] = useState("agendar");
 
-  // Só mensagens do corretor logado
-  const myMessages = useMemo(
-    () => (allMessages || []).filter((m) => m.created_by === user?.id),
-    [allMessages, user?.id]
-  );
+  // Mostra todos os envios agendados, sem filtro por created_by
+  const allScheduledMessages = useMemo(() => allMessages || [], [allMessages]);
 
   // Aguardando envio — mais próximos primeiro
   const pendingMessages = useMemo(
     () =>
-      myMessages
+      allScheduledMessages
         .filter((m) => m.status === "pending")
         .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()),
-    [myMessages]
+    [allScheduledMessages]
   );
 
   // Já processados (enviados/falhos/cancelados) — mais novo para o mais antigo
   const processedMessages = useMemo(
     () =>
-      myMessages
-        .filter((m) => m.status !== "pending")
+      allScheduledMessages
+        .filter((m) => ["sent", "failed", "cancelled"].includes(m.status))
         .sort(
           (a, b) =>
             new Date(b.sent_at || b.scheduled_at).getTime() -
             new Date(a.sent_at || a.scheduled_at).getTime()
         ),
-    [myMessages]
+    [allScheduledMessages]
   );
 
 

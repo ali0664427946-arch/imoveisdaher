@@ -431,7 +431,7 @@ export default function BrokerArea() {
                       type="button"
                       onClick={() => {
                         handleLeadChange(l.id);
-                        (document.querySelector('[data-value="agendar"]') as HTMLElement)?.click();
+                        setActiveTab("agendar");
                       }}
                       className="text-left border rounded-lg p-3 hover:bg-muted transition-colors"
                     >

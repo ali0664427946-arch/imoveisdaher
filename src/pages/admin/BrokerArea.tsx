@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { UserRound, Send, Clock, ListChecks, ShieldCheck, AlertTriangle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, addHours, subHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +40,9 @@ export default function BrokerArea() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { leads } = useLeads();
+  const queryClient = useQueryClient();
   const { messages: allMessages, cancelMessage, isLoading: loadingMessages } = useScheduledMessages();
+  const [activeTab, setActiveTab] = useState("agendar");
 
   // Só mensagens do corretor logado
   const myMessages = useMemo(
@@ -147,11 +149,15 @@ export default function BrokerArea() {
       });
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ["scheduled-messages"] });
+      await queryClient.invalidateQueries({ queryKey: ["broker-24h-count"] });
+
       toast({
         title: "Mensagem agendada ✅",
         description: `Envio programado para ${format(scheduledAt, "dd/MM 'às' HH:mm", { locale: ptBR })}`,
       });
       setMessage("");
+      setActiveTab("agendados");
     } catch (err) {
       toast({
         title: "Erro ao agendar",
@@ -199,7 +205,7 @@ export default function BrokerArea() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="agendar" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="agendar"><Send className="w-4 h-4 mr-2" />Agendar</TabsTrigger>
           <TabsTrigger value="agendados"><Clock className="w-4 h-4 mr-2" />Agendados{pendingMessages.length > 0 ? ` (${pendingMessages.length})` : ""}</TabsTrigger>
@@ -425,7 +431,7 @@ export default function BrokerArea() {
                       type="button"
                       onClick={() => {
                         handleLeadChange(l.id);
-                        (document.querySelector('[data-value="agendar"]') as HTMLElement)?.click();
+                        setActiveTab("agendar");
                       }}
                       className="text-left border rounded-lg p-3 hover:bg-muted transition-colors"
                     >

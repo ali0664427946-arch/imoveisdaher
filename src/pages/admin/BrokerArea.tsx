@@ -149,11 +149,15 @@ export default function BrokerArea() {
       });
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ["scheduled-messages"] });
+      await queryClient.invalidateQueries({ queryKey: ["broker-24h-count"] });
+
       toast({
         title: "Mensagem agendada ✅",
         description: `Envio programado para ${format(scheduledAt, "dd/MM 'às' HH:mm", { locale: ptBR })}`,
       });
       setMessage("");
+      setActiveTab("agendados");
     } catch (err) {
       toast({
         title: "Erro ao agendar",

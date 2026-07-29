@@ -205,12 +205,13 @@ export function useScheduledMessages() {
     },
   });
 
-  const pendingMessages = messages?.filter((m) => m.status === "pending") || [];
-  const sentMessages = messages?.filter((m) => m.status === "sent") || [];
-  const failedMessages = messages?.filter((m) => m.status === "failed" || m.status === "cancelled") || [];
+  const pendingMessages = pending || [];
+  const sentMessages = (history || []).filter((m) => m.status === "sent");
+  const failedMessages = (history || []).filter((m) => m.status === "failed" || m.status === "cancelled");
 
   return {
-    messages,
+    messages: [...(pending || []), ...(history || [])],
+
     pendingMessages,
     sentMessages,
     failedMessages,

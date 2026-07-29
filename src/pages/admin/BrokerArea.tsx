@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { UserRound, Send, Clock, ListChecks, ShieldCheck, AlertTriangle } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { format, addHours, subHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

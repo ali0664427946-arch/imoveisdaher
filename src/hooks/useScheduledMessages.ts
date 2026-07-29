@@ -31,18 +31,40 @@ export function useScheduledMessages() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: messages, isLoading, error } = useQuery({
-    queryKey: ["scheduled-messages"],
+  const { data: pending, isLoading: isLoadingPending, error: pendingError } = useQuery({
+    queryKey: ["scheduled-messages", "pending"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("scheduled_messages")
         .select("*")
-        .order("scheduled_at", { ascending: true });
+        .eq("status", "pending")
+        .order("scheduled_at", { ascending: true })
+        .limit(500);
 
       if (error) throw error;
       return data as ScheduledMessage[];
     },
   });
+
+  const { data: history, isLoading: isLoadingHistory, error: historyError } = useQuery({
+    queryKey: ["scheduled-messages", "history"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scheduled_messages")
+        .select("*")
+        .in("status", ["sent", "failed", "cancelled"])
+        .order("sent_at", { ascending: false, nullsFirst: false })
+        .order("scheduled_at", { ascending: false })
+        .limit(500);
+
+      if (error) throw error;
+      return data as ScheduledMessage[];
+    },
+  });
+
+  const isLoading = isLoadingPending || isLoadingHistory;
+  const error = pendingError || historyError;
+
 
   const createMutation = useMutation({
     mutationFn: async (input: CreateScheduledMessageInput) => {

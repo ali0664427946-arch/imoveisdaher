@@ -70,25 +70,20 @@ export default function BrokerArea() {
   );
 
 
-  // Contagem nas últimas 24h (pending + sent, para respeitar cap real de envios)
-  const { data: last24hCount = 0 } = useQuery({
-    queryKey: ["broker-24h-count", user?.id],
-    enabled: !!user?.id,
-    refetchInterval: 30000,
-    queryFn: async () => {
-      const since = subHours(new Date(), 24).toISOString();
-      const { count } = await supabase
-        .from("scheduled_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("created_by", user!.id)
-        .in("status", ["pending", "sent"])
-        .gte("created_at", since);
-      return count ?? 0;
-    },
-  });
+  // Contagem nas últimas 24h — mesma regra de visibilidade das abas (escopo da equipe),
+  // sem depender de created_by
+  const last24hCount = useMemo(() => {
+    const since = subHours(new Date(), 24).getTime();
+    return allScheduledMessages.filter(
+      (m) =>
+        ["pending", "sent"].includes(m.status) &&
+        new Date(m.created_at).getTime() >= since
+    ).length;
+  }, [allScheduledMessages]);
 
   const remainingToday = Math.max(0, BROKER_LIMITS.dailyCap - last24hCount);
   const capReached = remainingToday <= 0;
+
 
   // ─── Formulário ───
   const [selectedLeadId, setSelectedLeadId] = useState<string>("");

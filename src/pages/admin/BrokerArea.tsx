@@ -317,10 +317,23 @@ export default function BrokerArea() {
         <TabsContent value="agendados">
           <Card>
             <CardHeader>
-              <CardTitle>Envios agendados</CardTitle>
-              <CardDescription>
-                Mensagens aguardando envio. Após enviadas, elas passam para "Meus Envios".
-              </CardDescription>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Envios agendados</CardTitle>
+                  <CardDescription>
+                    Mensagens aguardando envio. Após enviadas, elas passam para "Meus Envios".
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={refreshing || loadingMessages}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${refreshing || loadingMessages ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingMessages ? (

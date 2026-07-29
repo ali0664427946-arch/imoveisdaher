@@ -48,6 +48,29 @@ export default function BrokerArea() {
     [allMessages, user?.id]
   );
 
+  // Aguardando envio — mais próximos primeiro
+  const pendingMessages = useMemo(
+    () =>
+      myMessages
+        .filter((m) => m.status === "pending")
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()),
+    [myMessages]
+  );
+
+  // Já processados (enviados/falhos/cancelados) — mais novo para o mais antigo
+  const processedMessages = useMemo(
+    () =>
+      myMessages
+        .filter((m) => m.status !== "pending")
+        .sort(
+          (a, b) =>
+            new Date(b.sent_at || b.scheduled_at).getTime() -
+            new Date(a.sent_at || a.scheduled_at).getTime()
+        ),
+    [myMessages]
+  );
+
+
   // Contagem nas últimas 24h (pending + sent, para respeitar cap real de envios)
   const { data: last24hCount = 0 } = useQuery({
     queryKey: ["broker-24h-count", user?.id],

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { UserRound, Send, Clock, ListChecks, ShieldCheck, AlertTriangle } from "lucide-react";
+import { UserRound, Send, Clock, ListChecks, ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, addHours, subHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -161,6 +161,20 @@ export default function BrokerArea() {
     }
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["scheduled-messages"] }),
+        queryClient.invalidateQueries({ queryKey: ["broker-24h-count"] }),
+      ]);
+      toast({ title: "Lista atualizada" });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const outsideWindow = !withinBusinessWindow(new Date(`${date}T${time}`));
 
   return (
@@ -317,10 +331,23 @@ export default function BrokerArea() {
         <TabsContent value="agendados">
           <Card>
             <CardHeader>
-              <CardTitle>Envios agendados</CardTitle>
-              <CardDescription>
-                Mensagens aguardando envio. Após enviadas, elas passam para "Meus Envios".
-              </CardDescription>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Envios agendados</CardTitle>
+                  <CardDescription>
+                    Mensagens aguardando envio. Após enviadas, elas passam para "Meus Envios".
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={refreshing || loadingMessages}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${refreshing || loadingMessages ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingMessages ? (

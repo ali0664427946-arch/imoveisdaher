@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { UserRound, Send, Clock, ListChecks, ShieldCheck, AlertTriangle } from "lucide-react";
+import { UserRound, Send, Clock, ListChecks, ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, addHours, subHours } from "date-fns";
 import { ptBR } from "date-fns/locale";

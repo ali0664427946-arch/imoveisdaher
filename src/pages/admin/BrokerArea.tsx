@@ -48,6 +48,29 @@ export default function BrokerArea() {
     [allMessages, user?.id]
   );
 
+  // Aguardando envio — mais próximos primeiro
+  const pendingMessages = useMemo(
+    () =>
+      myMessages
+        .filter((m) => m.status === "pending")
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()),
+    [myMessages]
+  );
+
+  // Já processados (enviados/falhos/cancelados) — mais novo para o mais antigo
+  const processedMessages = useMemo(
+    () =>
+      myMessages
+        .filter((m) => m.status !== "pending")
+        .sort(
+          (a, b) =>
+            new Date(b.sent_at || b.scheduled_at).getTime() -
+            new Date(a.sent_at || a.scheduled_at).getTime()
+        ),
+    [myMessages]
+  );
+
+
   // Contagem nas últimas 24h (pending + sent, para respeitar cap real de envios)
   const { data: last24hCount = 0 } = useQuery({
     queryKey: ["broker-24h-count", user?.id],
@@ -179,7 +202,9 @@ export default function BrokerArea() {
       <Tabs defaultValue="agendar" className="space-y-4">
         <TabsList>
           <TabsTrigger value="agendar"><Send className="w-4 h-4 mr-2" />Agendar</TabsTrigger>
-          <TabsTrigger value="historico"><Clock className="w-4 h-4 mr-2" />Meus Envios</TabsTrigger>
+          <TabsTrigger value="agendados"><Clock className="w-4 h-4 mr-2" />Agendados{pendingMessages.length > 0 ? ` (${pendingMessages.length})` : ""}</TabsTrigger>
+          <TabsTrigger value="historico"><ListChecks className="w-4 h-4 mr-2" />Meus Envios</TabsTrigger>
+
           <TabsTrigger value="leads"><ListChecks className="w-4 h-4 mr-2" />Meus Leads</TabsTrigger>
         </TabsList>
 
@@ -290,35 +315,28 @@ export default function BrokerArea() {
           </Card>
         </TabsContent>
 
-        {/* HISTÓRICO */}
-        <TabsContent value="historico">
+        {/* AGENDADOS (pendentes) */}
+        <TabsContent value="agendados">
           <Card>
             <CardHeader>
-              <CardTitle>Meus envios agendados</CardTitle>
-              <CardDescription>Somente mensagens criadas por você</CardDescription>
+              <CardTitle>Envios agendados</CardTitle>
+              <CardDescription>
+                Mensagens aguardando envio. Após enviadas, elas passam para "Meus Envios".
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loadingMessages ? (
                 <p className="text-sm text-muted-foreground">Carregando...</p>
-              ) : myMessages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma mensagem agendada ainda.</p>
+              ) : pendingMessages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma mensagem aguardando envio.</p>
               ) : (
                 <ScrollArea className="h-[500px] pr-3">
                   <div className="space-y-2">
-                    {myMessages.map((m) => (
+                    {pendingMessages.map((m) => (
                       <div key={m.id} className="border rounded-lg p-3 space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                m.status === "sent" ? "default"
-                                : m.status === "failed" ? "destructive"
-                                : m.status === "cancelled" ? "outline"
-                                : "secondary"
-                              }
-                            >
-                              {m.status}
-                            </Badge>
+                            <Badge variant="secondary">pendente</Badge>
                             <span className="text-sm font-medium">{m.phone}</span>
                           </div>
                           <span className="text-xs text-muted-foreground">
@@ -326,18 +344,60 @@ export default function BrokerArea() {
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground line-clamp-2">{m.message}</p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => cancelMessage(m.id)}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* HISTÓRICO */}
+        <TabsContent value="historico">
+          <Card>
+            <CardHeader>
+              <CardTitle>Meus envios</CardTitle>
+              <CardDescription>Mensagens já processadas — do mais novo para o mais antigo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingMessages ? (
+                <p className="text-sm text-muted-foreground">Carregando...</p>
+              ) : processedMessages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum envio realizado ainda.</p>
+              ) : (
+                <ScrollArea className="h-[500px] pr-3">
+                  <div className="space-y-2">
+                    {processedMessages.map((m) => (
+                      <div key={m.id} className="border rounded-lg p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                                m.status === "sent" ? "default"
+                                : m.status === "failed" ? "destructive"
+                                : "outline"
+                              }
+                            >
+                              {m.status}
+                            </Badge>
+                            <span className="text-sm font-medium">{m.phone}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(m.sent_at || m.scheduled_at), "dd/MM HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{m.message}</p>
                         {m.error_message && (
                           <p className="text-xs text-destructive">Erro: {m.error_message}</p>
-                        )}
-                        {m.status === "pending" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs"
-                            onClick={() => cancelMessage(m.id)}
-                          >
-                            Cancelar
-                          </Button>
                         )}
                       </div>
                     ))}
@@ -347,6 +407,7 @@ export default function BrokerArea() {
             </CardContent>
           </Card>
         </TabsContent>
+
 
         {/* LEADS */}
         <TabsContent value="leads">

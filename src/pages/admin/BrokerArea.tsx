@@ -161,6 +161,20 @@ export default function BrokerArea() {
     }
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["scheduled-messages"] }),
+        queryClient.invalidateQueries({ queryKey: ["broker-24h-count"] }),
+      ]);
+      toast({ title: "Lista atualizada" });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const outsideWindow = !withinBusinessWindow(new Date(`${date}T${time}`));
 
   return (

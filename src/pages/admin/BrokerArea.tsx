@@ -40,7 +40,9 @@ export default function BrokerArea() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { leads } = useLeads();
+  const queryClient = useQueryClient();
   const { messages: allMessages, cancelMessage, isLoading: loadingMessages } = useScheduledMessages();
+  const [activeTab, setActiveTab] = useState("agendar");
 
   // Só mensagens do corretor logado
   const myMessages = useMemo(

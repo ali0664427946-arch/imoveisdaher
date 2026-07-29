@@ -205,7 +205,7 @@ export default function BrokerArea() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="agendar" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="agendar"><Send className="w-4 h-4 mr-2" />Agendar</TabsTrigger>
           <TabsTrigger value="agendados"><Clock className="w-4 h-4 mr-2" />Agendados{pendingMessages.length > 0 ? ` (${pendingMessages.length})` : ""}</TabsTrigger>

@@ -9,7 +9,7 @@ const corsHeaders = {
 const ANTI_BAN = {
   sendWindowStart: 7,   // 07:00
   sendWindowEnd: 20,    // 20:00
-  activeDays: [1, 2, 3, 4, 5], // Mon-Fri (0=Sun)
+  activeDays: [1, 2, 3, 4, 5, 6], // Mon-Sat (0=Sun)
   minIntervalMs: 60_000,  // 60s between messages
   maxIntervalMs: 120_000, // 120s between messages
   typingMinMs: 2_000,     // 2s simulated typing
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
 
     // ─── Check send window ───
     if (!isSendWindowOpen()) {
-      console.log("Outside send window (07:00-20:00 Mon-Fri Brasília). Skipping.");
+      console.log("Outside send window (07:00-20:00 Mon-Sat Brasília). Skipping.");
       return new Response(
         JSON.stringify({ success: true, sent: 0, reason: "outside_send_window" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

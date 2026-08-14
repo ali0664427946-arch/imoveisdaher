@@ -27,13 +27,13 @@ const BROKER_LIMITS = {
   maxGapMinutes: 4,       // Intervalo máximo (o processador escolhe entre 2-4min)
   windowStart: 7,         // 07:00 Brasília
   windowEnd: 20,          // 20:00
-  activeDaysLabel: "Segunda a sexta",
+  activeDaysLabel: "Segunda a sábado",
 };
 
 function withinBusinessWindow(d: Date) {
   const h = d.getHours();
   const day = d.getDay();
-  return h >= BROKER_LIMITS.windowStart && h < BROKER_LIMITS.windowEnd && day >= 1 && day <= 5;
+  return h >= BROKER_LIMITS.windowStart && h < BROKER_LIMITS.windowEnd && day >= 1 && day <= 6;
 }
 
 export default function BrokerArea() {
@@ -301,7 +301,7 @@ export default function BrokerArea() {
                     <AlertTriangle className="w-4 h-4" />
                     <AlertTitle>Fora da janela de envio</AlertTitle>
                     <AlertDescription>
-                      Agendamentos fora de seg–sex, 07h–20h ficam pendentes até a próxima janela.
+                      Agendamentos fora de seg–sáb, 07h–20h ficam pendentes até a próxima janela.
                     </AlertDescription>
                   </Alert>
                 )}

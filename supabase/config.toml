@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.configure-evolution-webhook]
 verify_jwt = false
+
+[functions.add-ficha-tenant]
+verify_jwt = false

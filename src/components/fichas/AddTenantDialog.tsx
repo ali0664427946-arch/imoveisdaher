@@ -70,22 +70,14 @@ export function AddTenantDialog({ fichaId, currentFormData, onSuccess }: AddTena
 
   const addTenantMutation = useMutation({
     mutationFn: async () => {
-      const fd = currentFormData || {};
-      const existing = (fd.additional_tenants || fd.tenants || []) as TenantData[];
-      const updatedTenants = [...existing, tenant];
-
-      const { error } = await supabase
-        .from("fichas")
-        .update({
-          form_data: {
-            ...fd,
-            additional_tenants: updatedTenants,
-          } as any,
-        })
-        .eq("id", fichaId);
+      const { data, error } = await supabase.functions.invoke("add-ficha-tenant", {
+        body: { fichaId, tenant },
+      });
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Não foi possível salvar o participante");
     },
+
     onSuccess: () => {
       toast.success("Participante adicionado!", {
         description: `${tenant.role === "fiador" ? "Fiador" : "Locatário"} ${tenant.fullName} foi adicionado à ficha.`,

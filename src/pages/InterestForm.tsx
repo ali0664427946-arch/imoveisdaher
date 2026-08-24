@@ -275,11 +275,22 @@ export default function InterestForm() {
       return;
     }
 
+    // Any extra participant with partial data must be completed (never dropped silently)
+    const filledExtras = tenants.slice(1).filter(
+      (t) => t.fullName || t.cpf || t.phone || t.email || t.income || t.rg
+    );
+    const incompleteExtra = filledExtras.find((t) => !t.fullName?.trim() || !t.cpf?.trim());
+    if (incompleteExtra) {
+      toast.error("Complete o nome e o CPF de todos os locatários/fiadores adicionados");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       // Prepare additional tenants data
-      const additionalTenants = tenants.slice(1).filter(t => t.fullName && t.cpf);
+      const additionalTenants = filledExtras;
+
       
       // Create ficha for primary tenant
       const { data: ficha, error: fichaError } = await supabase

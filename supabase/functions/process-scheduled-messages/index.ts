@@ -34,7 +34,7 @@ function getEvolutionErrorMessage(data: unknown): string {
   const response = payload.response && typeof payload.response === "object"
     ? payload.response as Record<string, unknown>
     : undefined;
-  const candidate = payload.message ?? payload.error ?? response?.message;
+  const candidate = response?.message ?? payload.message ?? payload.error;
 
   if (Array.isArray(candidate)) return candidate.map(String).join("; ");
   if (typeof candidate === "string" && candidate.trim()) return candidate.trim();

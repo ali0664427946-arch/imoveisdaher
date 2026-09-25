@@ -81,7 +81,7 @@ async function sendWithRetry(
     if (attempt === 1 && errorMessage.toLowerCase().includes("connection closed")) {
       console.warn("Evolution reports a stale connection. Restarting the configured instance before retrying.");
       const restartResponse = await fetch(restartUrl, {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json", apikey: evolutionKey },
       });
       const restartText = await restartResponse.text();

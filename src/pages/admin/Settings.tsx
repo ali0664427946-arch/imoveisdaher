@@ -368,6 +368,7 @@ export default function Settings() {
       if (error) throw error;
 
       if (data?.success) {
+        const validatedAt = data.validated_at || new Date().toISOString();
         let expirationMsg = "";
         if (data.expires_at) {
           const daysToExpire = Math.ceil((new Date(data.expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -380,7 +381,15 @@ export default function Settings() {
           title: "Conexão OK! ✅",
           description: `Estado: ${data.state}. Webhook: ${data.webhook_status || 'desconhecido'}.${expirationMsg}`,
         });
-        queryClient.invalidateQueries({ queryKey: ["evolution-api-settings"] });
+        queryClient.setQueryData(["evolution-api-settings"], (current: typeof evolutionSettings) => ({
+          ...current,
+          connection_status: data.state || "open",
+          last_validated_at: validatedAt,
+          webhook_status: data.webhook_status || current?.webhook_status,
+          last_webhook_check: validatedAt,
+          expires_at: data.expires_at || current?.expires_at,
+        }));
+        await queryClient.invalidateQueries({ queryKey: ["evolution-api-settings"] });
       } else {
         throw new Error(data?.details || data?.error || "Erro no teste");
       }

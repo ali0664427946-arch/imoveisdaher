@@ -363,11 +363,38 @@ Deno.serve(async (req) => {
 
     console.log("Connection successful! Instance state:", connectionState);
 
+    const validatedAt = new Date().toISOString();
+    const { data: currentConfig } = await supabaseAdmin
+      .from("integrations_settings")
+      .select("value")
+      .eq("key", "evolution_api")
+      .maybeSingle();
+
+    const savedConfig = currentConfig?.value && typeof currentConfig.value === "object"
+      ? currentConfig.value as Record<string, unknown>
+      : {};
+
+    const { error: validationSaveError } = await supabaseAdmin
+      .from("integrations_settings")
+      .update({
+        value: {
+          ...savedConfig,
+          last_validated_at: validatedAt,
+          connection_status: connectionState,
+        },
+      })
+      .eq("key", "evolution_api");
+
+    if (validationSaveError) {
+      console.error("Failed to save Evolution validation status:", validationSaveError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         instance: instanceName,
         state: connectionState,
+        validated_at: validatedAt,
         message: connectionState === "open" 
           ? "Conectado e pronto para enviar mensagens!" 
           : `Instância encontrada (estado: ${connectionState})`

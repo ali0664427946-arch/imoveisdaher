@@ -58,6 +58,7 @@ async function sendWithRetry(
   apiUrl: string,
   evolutionKey: string,
   reqBody: Record<string, unknown>,
+  restartUrl: string,
 ): Promise<{ response: Response; data: any; errorMessage: string; attempts: number }> {
   const maxAttempts = 3;
 
@@ -77,7 +78,17 @@ async function sendWithRetry(
       return { response, data, errorMessage, attempts: attempt };
     }
 
-    const retryDelayMs = attempt * 4_000;
+    if (attempt === 1 && errorMessage.toLowerCase().includes("connection closed")) {
+      console.warn("Evolution reports a stale connection. Restarting the configured instance before retrying.");
+      const restartResponse = await fetch(restartUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      });
+      const restartText = await restartResponse.text();
+      console.log(`Instance restart status=${restartResponse.status} body=${restartText.substring(0, 200)}`);
+    }
+
+    const retryDelayMs = attempt === 1 ? 8_000 : attempt * 4_000;
     console.warn(`Temporary Evolution connection failure. Retrying in ${retryDelayMs}ms: ${errorMessage}`);
     await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
   }
@@ -250,6 +261,7 @@ Deno.serve(async (req) => {
         apiUrl,
         evolutionKey,
         reqBody,
+        `${evolutionUrl}/instance/restart/${instanceName}`,
       );
       const transientFailure = !res.ok && isTransientConnectionError(evolutionError, res.status);
 

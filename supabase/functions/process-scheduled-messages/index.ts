@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js@2.91.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,11 +34,66 @@ function getEvolutionErrorMessage(data: unknown): string {
   const response = payload.response && typeof payload.response === "object"
     ? payload.response as Record<string, unknown>
     : undefined;
-  const candidate = payload.message ?? payload.error ?? response?.message;
+  const candidate = response?.message ?? payload.message ?? payload.error;
 
   if (Array.isArray(candidate)) return candidate.map(String).join("; ");
   if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
   return "Falha no envio pela Evolution API";
+}
+
+function isTransientConnectionError(message: string, status: number): boolean {
+  const normalized = message.toLowerCase();
+  return status >= 500 || [
+    "connection closed",
+    "connection reset",
+    "socket hang up",
+    "timeout",
+    "timed out",
+    "temporarily unavailable",
+    "service unavailable",
+  ].some((fragment) => normalized.includes(fragment));
+}
+
+async function sendWithRetry(
+  apiUrl: string,
+  evolutionKey: string,
+  reqBody: Record<string, unknown>,
+  restartUrl: string,
+): Promise<{ response: Response; data: any; errorMessage: string; attempts: number }> {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      body: JSON.stringify(reqBody),
+    });
+    const responseText = await response.text();
+    let data: any;
+    try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
+    const errorMessage = getEvolutionErrorMessage(data);
+
+    console.log(`Send attempt=${attempt}/${maxAttempts} status=${response.status} body=${responseText.substring(0, 200)}`);
+    if (response.ok || !isTransientConnectionError(errorMessage, response.status) || attempt === maxAttempts) {
+      return { response, data, errorMessage, attempts: attempt };
+    }
+
+    if (attempt === 1 && errorMessage.toLowerCase().includes("connection closed")) {
+      console.warn("Evolution reports a stale connection. Restarting the configured instance before retrying.");
+      const restartResponse = await fetch(restartUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      });
+      const restartText = await restartResponse.text();
+      console.log(`Instance restart status=${restartResponse.status} body=${restartText.substring(0, 200)}`);
+    }
+
+    const retryDelayMs = attempt === 1 ? 8_000 : attempt * 4_000;
+    console.warn(`Temporary Evolution connection failure. Retrying in ${retryDelayMs}ms: ${errorMessage}`);
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+  }
+
+  throw new Error("Evolution retry loop ended unexpectedly");
 }
 
 function isSendWindowOpen(): boolean {
@@ -202,17 +257,13 @@ Deno.serve(async (req) => {
         ? { instance: instanceName, number: phone, text: msg.message }
         : { number: phone, text: msg.message };
       console.log(`Sending to ${apiUrl} phone=${phone}`);
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: evolutionKey },
-        body: JSON.stringify(reqBody),
-      });
-
-      const responseText = await res.text();
-      console.log(`Response status=${res.status} body=${responseText.substring(0, 200)}`);
-      let data: any;
-      try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
-      const evolutionError = getEvolutionErrorMessage(data);
+      const { response: res, errorMessage: evolutionError, attempts } = await sendWithRetry(
+        apiUrl,
+        evolutionKey,
+        reqBody,
+        `${evolutionUrl}/instance/restart/${instanceName}`,
+      );
+      const transientFailure = !res.ok && isTransientConnectionError(evolutionError, res.status);
 
       // Calculate actual delay for logging
       const totalDelayMs = typingDelayMs;
@@ -223,8 +274,11 @@ Deno.serve(async (req) => {
         phone,
         status: res.ok ? "success" : "failed",
         delay_ms: totalDelayMs,
-        error_message: res.ok ? null : evolutionError,
+        error_message: res.ok ? null : transientFailure
+          ? `${evolutionError} (tentativa ${attempts}/3; mantida na fila)`
+          : evolutionError,
         message_preview: msg.message.substring(0, 80),
+        metadata: { attempts, transient: transientFailure },
       }).then(({ error: logErr }) => { if (logErr) console.error("Send log error:", logErr); });
 
       if (res.ok) {
@@ -312,6 +366,11 @@ Deno.serve(async (req) => {
         }
 
         sentCount++;
+      } else if (transientFailure) {
+        await supabase.from("scheduled_messages").update({
+          error_message: `${evolutionError} — falha temporária; nova tentativa automática pendente`,
+        }).eq("id", msg.id);
+        console.warn(`Message ${msg.id} kept pending after ${attempts} temporary connection failures.`);
       } else {
         await supabase.from("scheduled_messages").update({
           status: "failed",

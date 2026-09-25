@@ -59,6 +59,7 @@ async function sendWithRetry(
   evolutionKey: string,
   reqBody: Record<string, unknown>,
   restartUrl: string,
+  connectUrl: string,
 ): Promise<{ response: Response; data: any; errorMessage: string; attempts: number }> {
   const maxAttempts = 3;
 
@@ -86,6 +87,13 @@ async function sendWithRetry(
       });
       const restartText = await restartResponse.text();
       console.log(`Instance restart status=${restartResponse.status} body=${restartText.substring(0, 200)}`);
+
+      const connectResponse = await fetch(connectUrl, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", apikey: evolutionKey },
+      });
+      const connectText = await connectResponse.text();
+      console.log(`Instance reconnect status=${connectResponse.status} body=${connectText.substring(0, 200)}`);
     }
 
     const retryDelayMs = attempt === 1 ? 8_000 : attempt * 4_000;
@@ -199,7 +207,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!pendingMessages || pendingMessages.length === 0) {
+    const eligibleMessages = (pendingMessages || []).filter((message) => {
+      const metadata = (message.metadata || {}) as Record<string, unknown>;
+      const retryAfter = typeof metadata.retry_after === "string"
+        ? Date.parse(metadata.retry_after)
+        : 0;
+      return !retryAfter || retryAfter <= Date.now();
+    });
+
+    if (eligibleMessages.length === 0) {
       return new Response(
         JSON.stringify({ success: true, sent: 0, expired: expiredMessages?.length || 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -208,8 +224,10 @@ Deno.serve(async (req) => {
 
     let sentCount = 0;
 
-    for (let i = 0; i < pendingMessages.length; i++) {
-      const msg = pendingMessages[i];
+    // Process one message per cron execution. This prevents overlapping workers and
+    // lets the one-minute scheduler provide the spacing between sends.
+    for (let i = 0; i < Math.min(eligibleMessages.length, 1); i++) {
+      const msg = eligibleMessages[i];
       const meta = (msg.metadata || {}) as Record<string, unknown>;
       const isBroker = meta.source === "corretor";
 
@@ -262,6 +280,7 @@ Deno.serve(async (req) => {
         evolutionKey,
         reqBody,
         `${evolutionUrl}/instance/restart/${instanceName}`,
+        `${evolutionUrl}/instance/connect/${instanceName}`,
       );
       const transientFailure = !res.ok && isTransientConnectionError(evolutionError, res.status);
 
@@ -285,6 +304,8 @@ Deno.serve(async (req) => {
         await supabase.from("scheduled_messages").update({
           status: "sent",
           sent_at: new Date().toISOString(),
+          error_message: null,
+          metadata: { ...meta, retry_after: null, last_attempt_at: new Date().toISOString() },
         }).eq("id", msg.id);
 
         // Find or create conversation for this message
@@ -367,10 +388,12 @@ Deno.serve(async (req) => {
 
         sentCount++;
       } else if (transientFailure) {
+        const retryAfter = new Date(Date.now() + 5 * 60_000).toISOString();
         await supabase.from("scheduled_messages").update({
           error_message: `${evolutionError} — falha temporária; nova tentativa automática pendente`,
+          metadata: { ...meta, retry_after: retryAfter, last_attempt_at: new Date().toISOString() },
         }).eq("id", msg.id);
-        console.warn(`Message ${msg.id} kept pending after ${attempts} temporary connection failures.`);
+        console.warn(`Message ${msg.id} kept pending after ${attempts} temporary connection failures. Retry after ${retryAfter}.`);
       } else {
         await supabase.from("scheduled_messages").update({
           status: "failed",
@@ -378,17 +401,6 @@ Deno.serve(async (req) => {
         }).eq("id", msg.id);
       }
 
-      // ─── Anti-ban interval between messages ───
-      // Corretor: 2-4 min (conservador). Demais: 60-120s.
-      if (i < pendingMessages.length - 1) {
-        const nextMeta = (pendingMessages[i + 1].metadata || {}) as Record<string, unknown>;
-        const nextIsBroker = nextMeta.source === "corretor" || isBroker;
-        const intervalMs = nextIsBroker
-          ? randomBetween(ANTI_BAN.brokerMinIntervalMs, ANTI_BAN.brokerMaxIntervalMs)
-          : randomBetween(ANTI_BAN.minIntervalMs, ANTI_BAN.maxIntervalMs);
-        console.log(`Anti-ban interval: ${Math.round(intervalMs / 1000)}s${nextIsBroker ? " (broker)" : ""}`);
-        await new Promise((r) => setTimeout(r, intervalMs));
-      }
     }
 
     // If we sent a full batch, log that a rest period should follow

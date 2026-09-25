@@ -412,7 +412,11 @@ export default function Settings() {
         base_url: evolutionUrl.trim().replace(/\/+$/, ""),
         api_key: evolutionKey.trim(),
         instance_name: evolutionInstance.trim(),
-        integration_type: integrationType,
+        // This server exposes the Evolution API v2 routes
+        // (/instance/fetchInstances and /message/sendText/{instance}).
+        // Keep the single "Evolution GO" option in the UI, but persist the
+        // compatible API variant so tests and sends use the correct routes.
+        integration_type: "qrcode",
       };
 
       if (integrationType === "waba") {

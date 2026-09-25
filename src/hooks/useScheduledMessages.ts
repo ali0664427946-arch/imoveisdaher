@@ -53,7 +53,6 @@ export function useScheduledMessages() {
         .from("scheduled_messages")
         .select("*")
         .in("status", ["sent", "failed", "cancelled"])
-        .order("sent_at", { ascending: false, nullsFirst: false })
         .order("scheduled_at", { ascending: false })
         .limit(500);
 

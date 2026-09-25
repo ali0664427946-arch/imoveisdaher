@@ -419,6 +419,12 @@ export default function Settings() {
         integration_type: "qrcode",
       };
 
+      if (evolutionSettings?.last_validated_at) value.last_validated_at = evolutionSettings.last_validated_at;
+      if (evolutionSettings?.connection_status) value.connection_status = evolutionSettings.connection_status;
+      if (evolutionSettings?.expires_at) value.expires_at = evolutionSettings.expires_at;
+      if (evolutionSettings?.webhook_status) value.webhook_status = evolutionSettings.webhook_status;
+      if (evolutionSettings?.last_webhook_check) value.last_webhook_check = evolutionSettings.last_webhook_check;
+
       if (integrationType === "waba") {
         value.meta_access_token = metaAccessToken.trim();
         value.phone_number_id = phoneNumberId.trim();
@@ -644,6 +650,14 @@ export default function Settings() {
       setCleaningPayloads(false);
     }
   };
+
+  const evolutionIsOnline = ["open", "online", "connected"].includes(
+    evolutionSettings?.connection_status?.toLowerCase() || "",
+  );
+
+  const lastEvolutionTest = evolutionSettings?.last_validated_at
+    ? new Date(evolutionSettings.last_validated_at)
+    : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -1059,29 +1073,37 @@ export default function Settings() {
                 </div>
               )}
 
-              {/* Status badge */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
+              <div className="rounded-lg border bg-muted/30 p-4" aria-live="polite">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Status da conexão</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {lastEvolutionTest
+                        ? `Último teste em ${lastEvolutionTest.toLocaleDateString("pt-BR")} às ${lastEvolutionTest.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                        : "A conexão ainda não foi testada"}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={evolutionIsOnline ? "secondary" : "outline"}
+                    className={evolutionIsOnline ? "border-success/30 bg-success/10 text-success" : ""}
+                  >
+                    <span className={`mr-2 h-2 w-2 rounded-full ${evolutionIsOnline ? "bg-success" : "bg-muted-foreground"}`} />
+                    {evolutionSettings?.connection_status
+                      ? evolutionIsOnline ? "Conectado" : "Desconectado"
+                      : "Não testado"}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
                   <Badge variant={integrationType === "waba" ? "default" : integrationType === "evogo" ? "destructive" : "secondary"}>
                     {integrationType === "waba" ? "WABA Oficial" : integrationType === "evogo" ? "Evolution GO" : "QR Code"}
                   </Badge>
                   {evolutionUrl && evolutionInstance && (
                     <Badge variant="outline">{evolutionInstance}</Badge>
                   )}
-                  {evolutionSettings?.connection_status && (
-                    <Badge variant={evolutionSettings.connection_status === "open" ? "secondary" : "outline"} className={evolutionSettings.connection_status === "open" ? "bg-green-100 text-green-700 border-green-200" : ""}>
-                      {evolutionSettings.connection_status === "open" ? "Online" : evolutionSettings.connection_status}
-                    </Badge>
-                  )}
                 </div>
-                {evolutionSettings?.last_validated_at && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    Última validação: {formatDistanceToNow(new Date(evolutionSettings.last_validated_at), { addSuffix: true, locale: ptBR })}
-                  </p>
-                )}
                 {evolutionSettings?.expires_at && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <p className="mt-2 text-xs text-warning flex items-center gap-1">
                     <CalendarClock className="w-3 h-3" />
                     Expira em: {new Date(evolutionSettings.expires_at).toLocaleDateString('pt-BR')} ({formatDistanceToNow(new Date(evolutionSettings.expires_at), { addSuffix: true, locale: ptBR })})
                   </p>

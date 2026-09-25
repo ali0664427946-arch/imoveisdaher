@@ -27,6 +27,20 @@ function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function getEvolutionErrorMessage(data: unknown): string {
+  if (!data || typeof data !== "object") return "Falha no envio pela Evolution API";
+
+  const payload = data as Record<string, unknown>;
+  const response = payload.response && typeof payload.response === "object"
+    ? payload.response as Record<string, unknown>
+    : undefined;
+  const candidate = payload.message ?? payload.error ?? response?.message;
+
+  if (Array.isArray(candidate)) return candidate.map(String).join("; ");
+  if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  return "Falha no envio pela Evolution API";
+}
+
 function isSendWindowOpen(): boolean {
   // Get Brasília time (UTC-3)
   const now = new Date();
@@ -198,6 +212,7 @@ Deno.serve(async (req) => {
       console.log(`Response status=${res.status} body=${responseText.substring(0, 200)}`);
       let data: any;
       try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
+      const evolutionError = getEvolutionErrorMessage(data);
 
       // Calculate actual delay for logging
       const totalDelayMs = typingDelayMs;
@@ -208,7 +223,7 @@ Deno.serve(async (req) => {
         phone,
         status: res.ok ? "success" : "failed",
         delay_ms: totalDelayMs,
-        error_message: res.ok ? null : (data.message || "API error"),
+        error_message: res.ok ? null : evolutionError,
         message_preview: msg.message.substring(0, 80),
       }).then(({ error: logErr }) => { if (logErr) console.error("Send log error:", logErr); });
 
@@ -300,7 +315,7 @@ Deno.serve(async (req) => {
       } else {
         await supabase.from("scheduled_messages").update({
           status: "failed",
-          error_message: data.message || "Failed",
+          error_message: evolutionError,
         }).eq("id", msg.id);
       }
 

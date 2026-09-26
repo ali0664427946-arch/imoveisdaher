@@ -58,50 +58,17 @@ async function sendWithRetry(
   apiUrl: string,
   evolutionKey: string,
   reqBody: Record<string, unknown>,
-  restartUrl: string,
-  connectUrl: string,
 ): Promise<{ response: Response; data: any; errorMessage: string; attempts: number }> {
-  const maxAttempts = 3;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: evolutionKey },
-      body: JSON.stringify(reqBody),
-    });
-    const responseText = await response.text();
-    let data: any;
-    try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
-    const errorMessage = getEvolutionErrorMessage(data);
-
-    console.log(`Send attempt=${attempt}/${maxAttempts} status=${response.status} body=${responseText.substring(0, 200)}`);
-    if (response.ok || !isTransientConnectionError(errorMessage, response.status) || attempt === maxAttempts) {
-      return { response, data, errorMessage, attempts: attempt };
-    }
-
-    if (attempt === 1 && errorMessage.toLowerCase().includes("connection closed")) {
-      console.warn("Evolution reports a stale connection. Restarting the configured instance before retrying.");
-      const restartResponse = await fetch(restartUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: evolutionKey },
-      });
-      const restartText = await restartResponse.text();
-      console.log(`Instance restart status=${restartResponse.status} body=${restartText.substring(0, 200)}`);
-
-      const connectResponse = await fetch(connectUrl, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", apikey: evolutionKey },
-      });
-      const connectText = await connectResponse.text();
-      console.log(`Instance reconnect status=${connectResponse.status} body=${connectText.substring(0, 200)}`);
-    }
-
-    const retryDelayMs = attempt === 1 ? 8_000 : attempt * 4_000;
-    console.warn(`Temporary Evolution connection failure. Retrying in ${retryDelayMs}ms: ${errorMessage}`);
-    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-  }
-
-  throw new Error("Evolution retry loop ended unexpectedly");
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: evolutionKey },
+    body: JSON.stringify(reqBody),
+  });
+  const responseText = await response.text();
+  let data: any;
+  try { data = JSON.parse(responseText); } catch { data = { message: responseText }; }
+  console.log(`Send status=${response.status} body=${responseText.substring(0, 200)}`);
+  return { response, data, errorMessage: getEvolutionErrorMessage(data), attempts: 1 };
 }
 
 function isSendWindowOpen(): boolean {
@@ -198,7 +165,7 @@ Deno.serve(async (req) => {
       .gte("scheduled_at", cutoffTime)
       .lte("scheduled_at", now.toISOString())
       .order("scheduled_at", { ascending: true })
-      .limit(ANTI_BAN.messagesBeforeRest); // Only fetch up to one burst batch
+      .limit(1000); // A paused older message must not hide newer scheduled messages.
 
     if (fetchError) {
       return new Response(
@@ -223,6 +190,23 @@ Deno.serve(async (req) => {
     }
 
     let sentCount = 0;
+
+    // Enforce spacing across separate cron invocations, not by sleeping inside a worker.
+    const { data: lastSend } = await supabase
+      .from("whatsapp_send_log")
+      .select("created_at")
+      .eq("function_name", "process-scheduled-messages")
+      .eq("status", "success")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextIsBroker = (eligibleMessages[0].metadata as Record<string, unknown> | null)?.source === "corretor";
+    const minSpacing = nextIsBroker ? ANTI_BAN.brokerMinIntervalMs : ANTI_BAN.minIntervalMs;
+    if (lastSend && Date.now() - Date.parse(lastSend.created_at) < minSpacing) {
+      return new Response(JSON.stringify({ success: true, sent: 0, reason: "anti_ban_spacing" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Process one message per cron execution. This prevents overlapping workers and
     // lets the one-minute scheduler provide the spacing between sends.
@@ -279,8 +263,6 @@ Deno.serve(async (req) => {
         apiUrl,
         evolutionKey,
         reqBody,
-        `${evolutionUrl}/instance/restart/${instanceName}`,
-        `${evolutionUrl}/instance/connect/${instanceName}`,
       );
       const transientFailure = !res.ok && isTransientConnectionError(evolutionError, res.status);
 
@@ -294,7 +276,7 @@ Deno.serve(async (req) => {
         status: res.ok ? "success" : "failed",
         delay_ms: totalDelayMs,
         error_message: res.ok ? null : transientFailure
-          ? `${evolutionError} (tentativa ${attempts}/3; mantida na fila)`
+          ? `${evolutionError} (tentativa agendada; mantida na fila)`
           : evolutionError,
         message_preview: msg.message.substring(0, 80),
         metadata: { attempts, transient: transientFailure },
@@ -388,7 +370,7 @@ Deno.serve(async (req) => {
 
         sentCount++;
       } else if (transientFailure) {
-        const retryAfter = new Date(Date.now() + 5 * 60_000).toISOString();
+        const retryAfter = new Date(Date.now() + 30 * 60_000).toISOString();
         await supabase.from("scheduled_messages").update({
           error_message: `${evolutionError} — falha temporária; nova tentativa automática pendente`,
           metadata: { ...meta, retry_after: retryAfter, last_attempt_at: new Date().toISOString() },

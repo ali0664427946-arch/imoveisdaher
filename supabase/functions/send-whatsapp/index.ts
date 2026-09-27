@@ -71,7 +71,10 @@ async function readEvolutionResponse(response: Response): Promise<ParsedEvolutio
 function getEvolutionErrorMessage(parsed: ParsedEvolutionResponse, fallbackMessage: string): string {
   if (parsed.data && typeof parsed.data === "object") {
     const record = parsed.data as Record<string, any>;
-    return record.message || record.error || record.response?.message || fallbackMessage;
+    const detail = record.response?.message ?? record.message ?? record.error;
+    if (Array.isArray(detail)) return detail.map(String).join("; ");
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    return fallbackMessage;
   }
 
   if (typeof parsed.data === "string" && parsed.data.trim()) {
@@ -532,9 +535,16 @@ Deno.serve(async (req) => {
         ? `${sendErrorMessage} Verifique a URL base publicada da Evolution GO e se o endpoint de envio está acessível.${usedFallbackEndpoint ? " O fallback com /message/sendText/{instanceName} também falhou." : ""}`
         : sendErrorMessage || "Failed to send message";
 
+      const sessionClosed = /connection closed|connection reset|socket hang up/i.test(detailedError);
       return new Response(
-        JSON.stringify({ success: false, error: detailedError, details: evolutionData }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          success: false,
+          error: sessionClosed
+            ? `A sessão WhatsApp da instância "${instanceName}" está fechada para envio. Reconecte essa instância na Evolution e tente novamente. (${detailedError})`
+            : detailedError,
+          details: { evolution_status: evolutionResponse.status, instance: instanceName, response: evolutionData },
+        }),
+        { status: sessionClosed ? 503 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

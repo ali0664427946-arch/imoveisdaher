@@ -92,6 +92,7 @@ async function findWorkingInstance(
   apiKey: string,
   configuredInstance: string,
   phone: string,
+  message: string,
 ): Promise<{ instanceName: string | null; checks: Array<Record<string, unknown>> }> {
   const listResponse = await fetch(`${baseUrl}/instance/fetchInstances`, {
     method: "GET",
@@ -112,21 +113,33 @@ async function findWorkingInstance(
   const checks: Array<Record<string, unknown>> = [];
   for (const candidate of candidates) {
     try {
-      const probeResponse = await fetch(`${baseUrl}/chat/whatsappNumbers/${candidate}`, {
+      const stateResponse = await fetch(`${baseUrl}/instance/connectionState/${candidate}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", apikey: apiKey },
+      });
+      const statePayload = await readJsonResponse(stateResponse);
+      const state = String(statePayload.data?.instance?.state || statePayload.data?.state || "unknown").toLowerCase();
+      console.log(`Instance state name=${candidate} status=${stateResponse.status} state=${state}`);
+      if (!stateResponse.ok || (state !== "open" && state !== "connected")) {
+        checks.push({ instance: candidate, status: stateResponse.status, state, response: statePayload.text.substring(0, 200) });
+        continue;
+      }
+
+      const sendResponse = await fetch(`${baseUrl}/message/sendText/${candidate}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: apiKey },
-        body: JSON.stringify({ numbers: [phone] }),
+        body: JSON.stringify({ number: phone, text: message }),
       });
-      const probePayload = await readJsonResponse(probeResponse);
-      const errorMessage = getEvolutionErrorMessage(probePayload.data);
-      checks.push({ instance: candidate, status: probeResponse.status, response: probePayload.text.substring(0, 200) });
-      console.log(`Instance probe name=${candidate} status=${probeResponse.status} body=${probePayload.text.substring(0, 300)}`);
+      const sendPayload = await readJsonResponse(sendResponse);
+      const errorMessage = getEvolutionErrorMessage(sendPayload.data);
+      checks.push({ instance: candidate, status: sendResponse.status, state, response: sendPayload.text.substring(0, 200) });
+      console.log(`Instance send test name=${candidate} status=${sendResponse.status} body=${sendPayload.text.substring(0, 300)}`);
 
-      if (probeResponse.ok) {
+      if (sendResponse.ok) {
         return { instanceName: candidate, checks };
       }
-      if (!isTransientConnectionError(errorMessage, probeResponse.status) && probeResponse.status !== 404) {
-        console.warn(`Instance ${candidate} answered but rejected the probe: ${errorMessage}`);
+      if (!isTransientConnectionError(errorMessage, sendResponse.status) && sendResponse.status !== 404) {
+        console.warn(`Instance ${candidate} answered but rejected the send test: ${errorMessage}`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -348,7 +361,7 @@ Deno.serve(async (req) => {
       let instanceChecks: Array<Record<string, unknown>> = [];
 
       if (!isEvogo) {
-        const resolution = await findWorkingInstance(evolutionUrl, evolutionKey, instanceName, phone);
+        const resolution = await findWorkingInstance(evolutionUrl, evolutionKey, instanceName, phone, msg.message);
         instanceChecks = resolution.checks;
         if (!resolution.instanceName) {
           const retryAfter = new Date(Date.now() + 30 * 60_000).toISOString();
@@ -366,12 +379,21 @@ Deno.serve(async (req) => {
       const selectedApiUrl = isEvogo
         ? apiUrl
         : `${evolutionUrl}/message/sendText/${selectedInstance}`;
-      console.log(`Sending to ${selectedApiUrl} phone=${phone} selectedInstance=${selectedInstance}`);
-      const { response: res, errorMessage: evolutionError, attempts } = await sendWithRetry(
-        selectedApiUrl,
-        evolutionKey,
-        reqBody,
-      );
+      console.log(`Selected working endpoint ${selectedApiUrl} phone=${phone} selectedInstance=${selectedInstance}`);
+      const sendResult = !isEvogo && instanceChecks.length > 0
+        ? {
+            response: new Response(instanceChecks[instanceChecks.length - 1].response as string, {
+              status: Number(instanceChecks[instanceChecks.length - 1].status),
+              headers: { "Content-Type": "application/json" },
+            }),
+            data: null,
+            errorMessage: "",
+            attempts: 1,
+          }
+        : await sendWithRetry(selectedApiUrl, evolutionKey, reqBody);
+      const res = sendResult.response;
+      const evolutionError = sendResult.errorMessage;
+      const attempts = sendResult.attempts;
       const transientFailure = !res.ok && isTransientConnectionError(evolutionError, res.status);
 
       // Calculate actual delay for logging

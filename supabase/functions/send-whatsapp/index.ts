@@ -312,6 +312,7 @@ Deno.serve(async (req) => {
           return { name, id, state };
         };
         const normalized = instances.map(normalize).filter((i) => i.name || i.id);
+        console.log(`Available Evolution instances: ${JSON.stringify(normalized)}`);
 
         if (normalized.length === 0) {
           console.warn("Nenhuma instância retornada pela credencial.");

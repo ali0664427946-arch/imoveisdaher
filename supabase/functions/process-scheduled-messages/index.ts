@@ -54,103 +54,6 @@ function isTransientConnectionError(message: string, status: number): boolean {
   ].some((fragment) => normalized.includes(fragment));
 }
 
-type EvolutionInstance = {
-  name: string;
-  state: string;
-};
-
-async function readJsonResponse(response: Response): Promise<{ data: any; text: string }> {
-  const text = await response.text();
-  try {
-    return { data: text ? JSON.parse(text) : null, text };
-  } catch {
-    return { data: { message: text }, text };
-  }
-}
-
-function extractEvolutionInstances(payload: unknown): EvolutionInstance[] {
-  const records = Array.isArray(payload)
-    ? payload
-    : payload && typeof payload === "object"
-      ? ((payload as Record<string, unknown>).instances || (payload as Record<string, unknown>).data || [])
-      : [];
-
-  if (!Array.isArray(records)) return [];
-
-  return records.flatMap((record) => {
-    if (!record || typeof record !== "object") return [];
-    const item = record as Record<string, any>;
-    const nested = item.instance && typeof item.instance === "object" ? item.instance : {};
-    const name = String(item.name || item.instanceName || nested.instanceName || nested.name || "").trim();
-    const state = String(item.connectionStatus || item.state || nested.state || "").toLowerCase();
-    return name ? [{ name, state }] : [];
-  });
-}
-
-async function findWorkingInstance(
-  baseUrl: string,
-  apiKey: string,
-  configuredInstance: string,
-  phone: string,
-  message: string,
-): Promise<{ instanceName: string | null; checks: Array<Record<string, unknown>> }> {
-  const listResponse = await fetch(`${baseUrl}/instance/fetchInstances`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json", apikey: apiKey },
-  });
-  const listPayload = await readJsonResponse(listResponse);
-  console.log(`Instance list status=${listResponse.status} body=${listPayload.text.substring(0, 300)}`);
-
-  const discovered = listResponse.ok ? extractEvolutionInstances(listPayload.data) : [];
-  const candidates = [
-    configuredInstance,
-    ...discovered
-      .filter((instance) => instance.state === "open" || instance.state === "connected")
-      .map((instance) => instance.name),
-    ...discovered.map((instance) => instance.name),
-  ].filter((name, index, names) => Boolean(name) && names.indexOf(name) === index);
-
-  const checks: Array<Record<string, unknown>> = [];
-  for (const candidate of candidates) {
-    try {
-      const stateResponse = await fetch(`${baseUrl}/instance/connectionState/${candidate}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", apikey: apiKey },
-      });
-      const statePayload = await readJsonResponse(stateResponse);
-      const state = String(statePayload.data?.instance?.state || statePayload.data?.state || "unknown").toLowerCase();
-      console.log(`Instance state name=${candidate} status=${stateResponse.status} state=${state}`);
-      if (!stateResponse.ok || (state !== "open" && state !== "connected")) {
-        checks.push({ instance: candidate, status: stateResponse.status, state, response: statePayload.text.substring(0, 200) });
-        continue;
-      }
-
-      const sendResponse = await fetch(`${baseUrl}/message/sendText/${candidate}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: apiKey },
-        body: JSON.stringify({ number: phone, text: message }),
-      });
-      const sendPayload = await readJsonResponse(sendResponse);
-      const errorMessage = getEvolutionErrorMessage(sendPayload.data);
-      checks.push({ instance: candidate, status: sendResponse.status, state, response: sendPayload.text.substring(0, 200) });
-      console.log(`Instance send test name=${candidate} status=${sendResponse.status} body=${sendPayload.text.substring(0, 300)}`);
-
-      if (sendResponse.ok) {
-        return { instanceName: candidate, checks };
-      }
-      if (!isTransientConnectionError(errorMessage, sendResponse.status) && sendResponse.status !== 404) {
-        console.warn(`Instance ${candidate} answered but rejected the send test: ${errorMessage}`);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      checks.push({ instance: candidate, status: 0, response: message });
-      console.warn(`Instance probe failed name=${candidate}: ${message}`);
-    }
-  }
-
-  return { instanceName: null, checks };
-}
-
 async function sendWithRetry(
   apiUrl: string,
   evolutionKey: string,
@@ -211,7 +114,6 @@ Deno.serve(async (req) => {
     let evolutionKey = (Deno.env.get("EVOLUTION_API_KEY") || "").trim();
     let instanceName = (Deno.env.get("EVOLUTION_INSTANCE_NAME") || "").trim();
     let integrationType = "qrcode";
-    let integrationConfig: Record<string, unknown> = {};
 
     try {
       const { data: dbConfig } = await supabase
@@ -221,7 +123,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (dbConfig?.value) {
         const cfg = dbConfig.value as { base_url: string; api_key: string; instance_name: string; integration_type?: string };
-        integrationConfig = cfg as unknown as Record<string, unknown>;
         if (cfg.base_url) evolutionUrl = cfg.base_url.replace(/\/+$/, "").trim();
         if (cfg.api_key) evolutionKey = cfg.api_key.trim();
         if (cfg.instance_name) instanceName = cfg.instance_name.trim();
@@ -353,44 +254,14 @@ Deno.serve(async (req) => {
 
       const apiUrl = isEvogo
         ? `${evolutionUrl}/send/text`
-        : "";
+        : `${evolutionUrl}/message/sendText/${instanceName}`;
       const reqBody = isEvogo
         ? { instance: instanceName, number: phone, text: msg.message }
         : { number: phone, text: msg.message };
-      let selectedInstance = instanceName;
-      let instanceChecks: Array<Record<string, unknown>> = [];
-
-      if (!isEvogo) {
-        const resolution = await findWorkingInstance(evolutionUrl, evolutionKey, instanceName, phone, msg.message);
-        instanceChecks = resolution.checks;
-        if (!resolution.instanceName) {
-          const retryAfter = new Date(Date.now() + 30 * 60_000).toISOString();
-          const diagnostic = instanceChecks.map((check) => `${check.instance}: HTTP ${check.status}`).join(", ");
-          await supabase.from("scheduled_messages").update({
-            error_message: `Nenhuma instância Evolution aceitou a sessão de envio (${diagnostic || "sem instâncias disponíveis"}) — nova tentativa automática pendente`,
-            metadata: { ...meta, retry_after: retryAfter, last_attempt_at: new Date().toISOString(), instance_checks: instanceChecks },
-          }).eq("id", msg.id);
-          console.warn(`No working Evolution instance for message ${msg.id}. Checks=${JSON.stringify(instanceChecks)}`);
-          continue;
-        }
-        selectedInstance = resolution.instanceName;
-      }
-
-      const selectedApiUrl = isEvogo
-        ? apiUrl
-        : `${evolutionUrl}/message/sendText/${selectedInstance}`;
-      console.log(`Selected working endpoint ${selectedApiUrl} phone=${phone} selectedInstance=${selectedInstance}`);
-      const sendResult = !isEvogo && instanceChecks.length > 0
-        ? {
-            response: new Response(instanceChecks[instanceChecks.length - 1].response as string, {
-              status: Number(instanceChecks[instanceChecks.length - 1].status),
-              headers: { "Content-Type": "application/json" },
-            }),
-            data: null,
-            errorMessage: "",
-            attempts: 1,
-          }
-        : await sendWithRetry(selectedApiUrl, evolutionKey, reqBody);
+      // The selected instance is owned by Settings. Never probe with a real message
+      // or fall back to another account: one scheduled item means one send attempt.
+      console.log(`Sending scheduled message via configured instance=${instanceName}`);
+      const sendResult = await sendWithRetry(apiUrl, evolutionKey, reqBody);
       const res = sendResult.response;
       const evolutionError = sendResult.errorMessage;
       const attempts = sendResult.attempts;
@@ -409,22 +280,15 @@ Deno.serve(async (req) => {
           ? `${evolutionError} (tentativa agendada; mantida na fila)`
           : evolutionError,
         message_preview: msg.message.substring(0, 80),
-        metadata: { attempts, transient: transientFailure, selected_instance: selectedInstance, instance_checks: instanceChecks },
+        metadata: { attempts, transient: transientFailure, selected_instance: instanceName, evolution_status: res.status },
       }).then(({ error: logErr }) => { if (logErr) console.error("Send log error:", logErr); });
 
       if (res.ok) {
-        if (!isEvogo && selectedInstance !== instanceName) {
-          const { error: switchError } = await supabase.from("integrations_settings").update({
-            value: { ...integrationConfig, instance_name: selectedInstance },
-          }).eq("key", "evolution_api");
-          if (switchError) console.error("Failed to persist working Evolution instance:", switchError);
-          else console.log(`Persisted working Evolution instance: ${selectedInstance}`);
-        }
         await supabase.from("scheduled_messages").update({
           status: "sent",
           sent_at: new Date().toISOString(),
           error_message: null,
-          metadata: { ...meta, retry_after: null, last_attempt_at: new Date().toISOString(), selected_instance: selectedInstance, instance_checks: instanceChecks },
+          metadata: { ...meta, retry_after: null, last_attempt_at: new Date().toISOString(), selected_instance: instanceName },
         }).eq("id", msg.id);
 
         // Find or create conversation for this message
@@ -510,7 +374,7 @@ Deno.serve(async (req) => {
         const retryAfter = new Date(Date.now() + 30 * 60_000).toISOString();
         await supabase.from("scheduled_messages").update({
           error_message: `${evolutionError} — falha temporária; nova tentativa automática pendente`,
-          metadata: { ...meta, retry_after: retryAfter, last_attempt_at: new Date().toISOString(), selected_instance: selectedInstance, instance_checks: instanceChecks },
+          metadata: { ...meta, retry_after: retryAfter, last_attempt_at: new Date().toISOString(), selected_instance: instanceName },
         }).eq("id", msg.id);
         console.warn(`Message ${msg.id} kept pending after ${attempts} temporary connection failures. Retry after ${retryAfter}.`);
       } else {

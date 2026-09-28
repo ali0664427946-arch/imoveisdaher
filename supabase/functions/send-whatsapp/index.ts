@@ -269,9 +269,7 @@ Deno.serve(async (req) => {
       .replace(/\/+$/, "")
       .replace(/\/manager\/?$/i, "");
 
-    // Pre-flight: validate API key AND auto-discover a working instance.
-    // Lists all instances available for this credential and picks the best match.
-    let instanceAutoSwitched = false;
+    // Validate the credential and selected instance, but never send from another account.
     try {
       const authCheckUrl = isEvogo
         ? `${baseUrl}/instance/all`
@@ -334,21 +332,19 @@ Deno.serve(async (req) => {
           (i) => i.name?.toLowerCase() === configuredLower || i.id?.toLowerCase() === configuredLower
         );
 
-        let chosen = exactMatch;
-        if (!chosen) {
-          // Configured instance does not exist — pick a connected one as fallback
-          chosen = normalized.find((i) => i.state === "open" || i.state === "connected") || normalized[0];
-          console.warn(
-            `Instância configurada "${instanceName}" não existe. Disponíveis: ${normalized.map((i) => `${i.name}(${i.state})`).join(", ")}. Usando: ${chosen.name}`
+        if (!exactMatch) {
+          console.warn(`Instância configurada "${instanceName}" não encontrada para esta credencial.`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Instância "${instanceName}" não encontrada. Confira a instância escolhida em Configurações; nenhuma outra será usada automaticamente.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
-          if (chosen.name && chosen.name !== instanceName) {
-            instanceName = chosen.name;
-            instanceAutoSwitched = true;
-          }
         }
 
         // Verify chosen instance is connected
-        if (chosen.state && chosen.state !== "open" && chosen.state !== "connected") {
+        if (exactMatch.state && exactMatch.state !== "open" && exactMatch.state !== "connected") {
           try {
             const stateRes = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {
               headers: { "Content-Type": "application/json", apikey: evolutionKey },
@@ -372,7 +368,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        console.log(`✓ Instância ativa: "${instanceName}" (auto-switched: ${instanceAutoSwitched})`);
+        console.log(`✓ Instância configurada: "${instanceName}"`);
       } else {
         const parsed = await readEvolutionResponse(authRes);
         console.warn(`API key check returned ${authRes.status} (non-auth error):`, parsed.preview);

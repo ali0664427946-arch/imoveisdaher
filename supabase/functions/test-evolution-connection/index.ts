@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
                       return identity.name || identity.id || "sem identificação";
                     }).join(", ")}`
                   : "A conexão com a Evolution GO funcionou, mas a lista de instâncias veio vazia.",
-              }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+              }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 
             const identity = getInstanceIdentity(matched);
@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
           details: `Instâncias disponíveis: ${instances.map((i: InstanceRecord) => i.instance?.instanceName || i.instanceName || i.name).join(", ") || "nenhuma"}`,
           instances: instances.map((i: InstanceRecord) => i.instance?.instanceName || i.instanceName || i.name)
         }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

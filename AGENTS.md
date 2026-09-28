@@ -1,3 +1,3 @@
 # Project Architecture Rules
 
-- Scheduled Evolution sends must probe available WhatsApp sessions and use only an instance whose messaging session responds successfully; this prevents a stale `open` status from blocking the queue.
+- Evolution sends must use only the instance explicitly selected in Settings and never switch or persist an alternate automatically; this respects the chosen WhatsApp account and prevents unintended sends.

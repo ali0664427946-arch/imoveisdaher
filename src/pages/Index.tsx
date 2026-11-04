@@ -7,6 +7,7 @@ import { Building2, Users, Award, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCoverPhotoUrl } from "@/lib/propertyPhotos";
 import heroBg from "@/assets/hero-bg.jpg";
 
 export default function Index() {
@@ -51,7 +52,7 @@ export default function Index() {
         bathrooms: p.bathrooms ?? 0,
         parking: p.parking ?? 0,
         area: p.area ? Number(p.area) : undefined,
-        imageUrl: p.property_photos?.[0]?.url,
+        imageUrl: getCoverPhotoUrl(p.property_photos),
         featured: p.featured ?? false,
         publicationType: p.publication_type,
         origin: p.origin,
@@ -87,7 +88,7 @@ export default function Index() {
         bathrooms: p.bathrooms ?? 0,
         parking: p.parking ?? 0,
         area: p.area ? Number(p.area) : undefined,
-        imageUrl: p.property_photos?.[0]?.url,
+        imageUrl: getCoverPhotoUrl(p.property_photos),
         isNew: true,
         origin: p.origin,
       }));

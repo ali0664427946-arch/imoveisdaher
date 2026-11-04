@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCoverPhotoUrl } from "@/lib/propertyPhotos";
 import { SearchFilters, type SearchFiltersState } from "@/components/properties/SearchFilters";
 import { PropertyGrid } from "@/components/properties/PropertyGrid";
 import { type Property } from "@/components/properties/PropertyCard";
@@ -65,7 +66,7 @@ export default function PropertiesList() {
         bathrooms: p.bathrooms ?? 0,
         parking: p.parking ?? 0,
         area: p.area ? Number(p.area) : undefined,
-        imageUrl: p.property_photos?.[0]?.url,
+        imageUrl: getCoverPhotoUrl(p.property_photos),
         featured: p.featured ?? false,
         origin: p.origin,
       }));

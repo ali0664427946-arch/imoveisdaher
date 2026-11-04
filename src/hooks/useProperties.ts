@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { sortPhotos } from "@/lib/propertyPhotos";
 import { useToast } from "@/hooks/use-toast";
 import { Enums } from "@/integrations/supabase/types";
 
@@ -100,6 +101,7 @@ export function useProperties() {
 
       const propertiesWithCounts = (data || []).map((p) => ({
         ...p,
+        photos: sortPhotos(p.photos),
         leads_count: countsMap[p.id] || 0,
       }));
 

@@ -65,6 +65,3 @@ verify_jwt = false
 
 [functions.add-ficha-tenant]
 verify_jwt = false
-
-[functions.tmp-export-signed]
-verify_jwt = false
